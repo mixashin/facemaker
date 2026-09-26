@@ -188,6 +188,19 @@ if (process.env.SMOKE_RECORD) {
   const playing = await page.evaluate(() => { const v = document.querySelector('video.full'); return v ? { w: v.videoWidth, h: v.videoHeight, err: v.error?.code ?? 0, edit: !!document.querySelector('[aria-label="Edit"]') } : null; });
   console.log('viewer video:', JSON.stringify(playing), playing && playing.w > 0 && playing.err === 0 && !playing.edit ? 'OK' : 'FAIL');
   if (out) writeFileSync(`${out}/page-video.png`, await page.screenshot());
+  // Another app in front: the video must stop, and stay stopped on return.
+  const bg = await page.evaluate(async () => {
+    const v = document.querySelector('video.full');
+    await v.play().catch(() => {});
+    const before = v.paused;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    const hidden = v.paused;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    document.dispatchEvent(new Event('visibilitychange'));
+    return { before, hidden, back: v.paused };
+  });
+  console.log('video in the background:', JSON.stringify(bg), !bg.before && bg.hidden && bg.back ? 'OK' : 'FAIL');
   const dl0 = downloads.length;
   await click('Save'); await page.waitForTimeout(1500);
   if (downloads.length === dl0 + 1) {

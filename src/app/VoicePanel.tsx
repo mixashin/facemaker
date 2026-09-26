@@ -7,6 +7,7 @@ import { acquireVoice, setVoicePreset, type Lease } from '../audio/session';
 import { micState, micNeedsPrompt } from '../audio/mic';
 import { Recorder, AUDIO_MIME_ORDER, type RecCtor } from '../capture/recorder';
 import { t } from '../i18n/i18n';
+import { pauseWhenHidden } from './background';
 
 type Mirror = 'idle' | 'rec' | 'play';
 
@@ -62,16 +63,18 @@ export function VoicePanel() {
       else { rec = null; free(); }
     }, 150);
     // The dock closes on a tap on the video, on a tab change and when a recording starts: end everything.
-    const cleanup = () => {
-      gone = true; held = false;
+    const stopAll = () => {
+      held = false;
       const r = rec; rec = null;
       r?.stop().catch(() => null);
       audio?.pause();
       done();
     };
-    return { hold, cleanup };
+    const cleanup = () => { gone = true; stopAll(); };
+    return { hold, stopAll, cleanup };
   }, []);
   useEffect(() => m.cleanup, []);
+  useEffect(() => pauseWhenHidden(() => ({ pause: m.stopAll })), []); // another app in front: stop the mirror
 
   const pick = (id: string) => { voice.value = id as VoiceId; setVoicePreset(voice.value); };
   const denied = micState.value === 'denied';

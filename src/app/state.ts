@@ -5,6 +5,7 @@ import type { ThemeId } from './themes';
 import type { TextState } from '../render/textLayer';
 import type { GalleryStore, GalleryItem } from '../storage/gallery';
 import { DEFAULT_SLIDERS, type SliderState } from '../filters/sliders';
+import type { VoiceId } from '../audio/voice';
 
 export type CamState = 'idle' | 'starting' | 'live' | 'denied' | 'nocam' | 'error';
 
@@ -26,7 +27,7 @@ export const tutorialSeen = signal(false);
 export const showSettings = signal(false);
 export const showAbout = signal(false);
 export const text = signal<TextState>({ text: '', color: '#ffffff', font: 'a', x: 0.5, y: 0.25, scale: 1 });
-export type DockTab = 'warp' | 'sticker' | 'text' | 'lab';
+export type DockTab = 'warp' | 'sticker' | 'text' | 'voice' | 'lab';
 export const dockOpen = signal(false); // effects dock on the left, closed by default
 export const dockTab = signal<DockTab>('warp');
 export const sticker = signal<string>('none');
@@ -41,3 +42,5 @@ export async function refreshGallery(): Promise<void> {
 export const sliders = signal<SliderState>(DEFAULT_SLIDERS);
 export const galleryThumb = signal<string | null>(null); // object URL of the newest photo, shown on the gallery button
 export const flyShot = signal<string | null>(null);      // object URL of the photo animating into the gallery button
+export const recording = signal(false); // a video is being recorded
+export const voice = signal<VoiceId>('none');

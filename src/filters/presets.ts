@@ -4,7 +4,7 @@ export type HandleType = 0 | 1 | 2; // 0 scale, 1 swirl, 2 flip (constant rotati
 export type Handle = { cx: number; cy: number; r: number; strength: number; type: HandleType };
 export type PresetId =
   | 'none' | 'bigEyes' | 'bigMouth' | 'bigHead' | 'smallFace' | 'bulge' | 'swirl'
-  | 'noNose' | 'bigEars' | 'doubleChin' | 'fatFace' | 'upsideDown';
+  | 'noNose' | 'bigEars' | 'doubleChin' | 'fatFace' | 'upsideDown' | 'shout';
 
 export const PRESETS: { id: PresetId; icon: string }[] = [
   { id: 'none', icon: '🙂' },
@@ -19,6 +19,7 @@ export const PRESETS: { id: PresetId; icon: string }[] = [
   { id: 'doubleChin', icon: '🍩' },
   { id: 'fatFace', icon: '🎃' },
   { id: 'upsideDown', icon: '🙃' },
+  { id: 'shout', icon: '📣' },
 ];
 
 // Landmark indices (MediaPipe canonical face mesh)
@@ -32,7 +33,7 @@ function mean(lm: Float32Array, idx: number[]): [number, number] {
   return [x / idx.length, y / idx.length];
 }
 
-function faceHandles(preset: PresetId, lm: Float32Array, aspect: number): Handle[] {
+function faceHandles(preset: PresetId, lm: Float32Array, aspect: number, level: number): Handle[] {
   const [lx] = pt(lm, L_CHEEK), [rx] = pt(lm, R_CHEEK);
   const width = Math.abs(rx - lx);
   const [cx, cy] = pt(lm, NOSE);
@@ -82,12 +83,21 @@ function faceHandles(preset: PresetId, lm: Float32Array, aspect: number): Handle
     }
     case 'upsideDown':
       return [{ cx, cy: (ty + by) / 2, r: Math.max(width, heightX) * 0.62, strength: Math.PI, type: 2 }];
+    case 'shout': { // mic volume drives it: see App.tsx
+      const l = Math.min(1, Math.max(0, level));
+      if (l === 0) return [];
+      return [
+        { cx: mouth[0], cy: mouth[1], r: width * 0.4, strength: 0.9 * l, type: 0 },
+        { cx, cy: (ty + by) / 2, r: Math.max(width, heightX) * 0.95, strength: 0.45 * l, type: 0 },
+      ];
+    }
     default:
       return [];
   }
 }
 
-export function handlesFor(preset: PresetId, faces: Face[], aspect: number): Handle[] {
+// level: mic volume 0..1, used by the shout preset only.
+export function handlesFor(preset: PresetId, faces: Face[], aspect: number, level = 0): Handle[] {
   if (preset === 'none' || faces.length === 0) return [];
-  return faces.flatMap((f) => faceHandles(preset, f.landmarks, aspect));
+  return faces.flatMap((f) => faceHandles(preset, f.landmarks, aspect, level));
 }

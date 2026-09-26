@@ -86,3 +86,33 @@ describe('handlesFor', () => {
     expect(new Set(PRESETS.map((p) => p.icon)).size).toBe(12);
   });
 });
+
+describe('shout', () => {
+  it('is in the strip', () => {
+    expect(PRESETS.map((p) => p.id)).toContain('shout');
+  });
+
+  it('does nothing in silence', () => {
+    expect(handlesFor('shout', [face()], 16 / 9, 0)).toEqual([]);
+    expect(handlesFor('shout', [face()], 16 / 9)).toEqual([]);
+  });
+
+  it('grows the mouth and the head with the voice level', () => {
+    const loud = handlesFor('shout', [face()], 16 / 9, 1);
+    expect(loud).toHaveLength(2);
+    expect(loud[0].cx).toBeCloseTo(0.5, 4); expect(loud[0].cy).toBeCloseTo(0.63, 4); // mouth
+    expect(loud[0].strength).toBeCloseTo(0.9, 6);
+    expect(loud[1].strength).toBeCloseTo(0.45, 6);
+    const half = handlesFor('shout', [face()], 16 / 9, 0.5);
+    expect(half[0].strength).toBeCloseTo(0.45, 6);
+    expect(half[1].strength).toBeCloseTo(0.225, 6);
+  });
+
+  it('clamps a level above one', () => {
+    expect(handlesFor('shout', [face()], 16 / 9, 7)[0].strength).toBeCloseTo(0.9, 6);
+  });
+
+  it('the level does not change other presets', () => {
+    expect(handlesFor('bigEyes', [face()], 16 / 9, 0)).toEqual(handlesFor('bigEyes', [face()], 16 / 9, 1));
+  });
+});

@@ -34,7 +34,7 @@ Next, in order (details in TODO.md "Handoff 2026-09-26 late"): 1) plan and build
 ## Conventions
 
 - Commit messages: plain conventional commits. No `Co-Authored-By` trailer, no "Generated with" line. Operator instruction.
-- Subagents: pass `model: "fable"` on every `Agent` call. Operator instruction.
+- Subagents: pass `model: "fable"` on dev, review, explore and plan `Agent` calls. Research agents (`deep-researcher`, `claim-verifier`) keep their own definition (Opus 5.5 high): never pass a model to them. Operator instruction.
 - Phone dev loop: `adb reverse tcp:5173 tcp:5173`, then `http://localhost:5173` in Chrome on the phone. `localhost` is a secure context, no HTTPS needed.
 - Windows 11 host, Git Bash for scripts. Node 24, npm 11, gh logged in as mixashin, adb and ffmpeg on PATH.
 - Kid UI: icons, 64 px tap targets, no reading required. Advanced panel behind a gear.

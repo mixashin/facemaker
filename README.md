@@ -24,3 +24,5 @@ Spec: docs/SPEC.md. Backlog: TODO.md. Research: research/.
 Headless version of steps 1 to 3: `SMOKE_WAIT_MS=70000 node scripts/smoke.mjs http://localhost:4173` prints `third-party requests: none` and the blocked line.
 
 Two fences, because GitHub Pages cannot set response headers: the production `index.html` carries a meta CSP with `connect-src 'self'` for the document, and `src/tracking/face.worker.ts` wraps `fetch` and `XMLHttpRequest` with a same-origin check for the worker (a meta CSP does not reach a same-origin worker script).
+
+After changing `dependencies`: `node scripts/attributions.mjs` (the About screen list; a test fails when stale).

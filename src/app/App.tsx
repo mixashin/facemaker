@@ -11,11 +11,12 @@ import { ModeTabs } from './ModeTabs';
 import { TextEditor } from './TextEditor';
 import { Tutorial } from './Tutorial';
 import { Settings } from './Settings';
+import { About } from './About';
 import { shouldShowTutorial } from './tutorialState';
 import { textVisible } from '../render/textLayer';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
-import { preset, facing, camState, flash, busy, mode, sticker, text, tutorialSeen, showSettings, camStateFromError } from './state';
+import { preset, facing, camState, flash, busy, mode, sticker, text, tutorialSeen, showSettings, showAbout, camStateFromError } from './state';
 import { t } from '../i18n/i18n';
 
 export function App() {
@@ -115,6 +116,7 @@ export function App() {
       )}
       {shouldShowTutorial(tutorialSeen.value, camState.value) && <Tutorial />}
       {showSettings.value && <Settings />}
+      {showAbout.value && <About />}
       {(camState.value === 'denied' || camState.value === 'nocam' || camState.value === 'error') && (
         <button class="blocker" onClick={retry} aria-label="retry camera">
           <span class="big">{camState.value === 'denied' ? '🔒📷' : camState.value === 'nocam' ? '🚫📷' : '⚠️📷'}</span>

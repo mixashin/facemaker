@@ -11,12 +11,12 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 
 ## State (2026-09-26)
 
-Planning done. No code yet. Project dir has only docs. Next action: M1 Task 1 (scaffold). Execution approach chosen: Native (main session implements, one fresh reviewer at the end). Subagents allowed for independent pieces.
+M1 implemented on branch `m1` (Tasks 1 to 11), headless-verified with `scripts/smoke.mjs`. Owed to the operator: phone acceptance (SPEC section 7) on https://face.mxa.sh. Next: M2 plan (stickers, text, gallery, themes, i18n).
 
 ## Decisions (do not re-ask)
 
 - Stack: Vite 8 + Preact + TypeScript, Three.js, `@mediapipe/tasks-vision` 1.0.1, vite-plugin-pwa, Vitest.
-- MediaPipe telemetry blocked by meta CSP `connect-src 'self'` (production build only). Verify in DevTools after every dependency change. See research/03.
+- MediaPipe telemetry: two fences. Meta CSP `connect-src 'self'` in the production index.html covers the document. The face worker wraps `fetch` and `XMLHttpRequest` with a same-origin check, because a meta CSP does not reach a same-origin worker script and Pages cannot set headers. Verified 2026-09-26 headless: the worker's POST to odml.pa.googleapis.com is rejected before any request. Re-run `scripts/smoke.mjs` (README recipe) after every dependency change. See research/03.
 - Hosting: public repo `github.com/mixashin/facemaker`, GitHub Pages, custom domain `face.mxa.sh`, base `/`. DNS via Njal.la API (see `~/.claude/context/domains.md`).
 - Branch flow: `main` is live. Feature branches, merge when it works on the phone.
 - Faces: up to 2, own One Euro smoothing.

@@ -11,9 +11,13 @@ const page = await browser.newPage({ viewport: { width: 800, height: 600 }, acce
 const logs = [];
 page.on('console', (m) => logs.push(`${m.type()}: ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`pageerror: ${e.message}`));
+const egress = [];
+const own = new URL(url).hostname;
+page.on('request', (r) => { if (new URL(r.url()).hostname !== own) egress.push(`request ${r.url()}`); });
+page.on('requestfailed', (r) => { if (new URL(r.url()).hostname !== own) egress.push(`failed ${r.url()} ${r.failure()?.errorText}`); });
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
-const state = await page.evaluate(() => {
+const state = await page.evaluate(async () => {
   const v = document.querySelector('video');
   const c = document.querySelector('canvas');
   return {
@@ -21,6 +25,8 @@ const state = await page.evaluate(() => {
     canvas: c ? { w: c.width, h: c.height } : null,
     buttons: [...document.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')),
     text: document.body.innerText.slice(0, 200),
+    manifest: document.querySelector('link[rel=manifest]')?.getAttribute('href') ?? null,
+    sw: await navigator.serviceWorker?.getRegistration().then((r) => r?.active?.state ?? 'none').catch(() => 'n/a'),
   };
 });
 console.log(JSON.stringify(state, null, 1));
@@ -29,6 +35,8 @@ if (await shutter.count()) {
   const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), shutter.click()]);
   console.log('download:', dl.suggestedFilename(), statSync(await dl.path()).size, 'bytes');
 }
+console.log('--- third-party requests:', egress.length ? '' : 'none');
+for (const e of egress) console.log(e);
 console.log('--- console:');
 for (const l of logs) console.log(l);
 await browser.close();

@@ -6,6 +6,25 @@ type WorkerIn = import('./types').WorkerIn;
 type WorkerOut = import('./types').WorkerOut;
 type FaceResult = import('./types').FaceResult;
 
+// Egress fence for this worker. The document's meta CSP does not apply to a same-origin worker script
+// (workers take CSP from their own response headers, which GitHub Pages cannot set). MediaPipe 1.0.x
+// posts usage telemetry to odml.pa.googleapis.com from this thread; it self-disables after the first failure.
+{
+  const origin = self.location.origin;
+  const nativeFetch = self.fetch.bind(self);
+  const blocked = (u: string) => { console.warn('blocked egress', u); return new TypeError('blocked egress ' + u); };
+  self.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const u = new URL(input instanceof Request ? input.url : String(input), self.location.href);
+    return u.origin === origin ? nativeFetch(input, init) : Promise.reject(blocked(u.href));
+  }) as typeof fetch;
+  const open = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (this: XMLHttpRequest, method: string, url: string | URL, ...rest: unknown[]) {
+    const u = new URL(String(url), self.location.href);
+    if (u.origin !== origin) throw blocked(u.href);
+    return (open as unknown as (...a: unknown[]) => void).call(this, method, url, ...rest);
+  } as typeof XMLHttpRequest.prototype.open;
+}
+
 declare const Vision: typeof import('@mediapipe/tasks-vision');
 importScripts('/mediapipe/vision_bundle.js');
 const { FilesetResolver, FaceLandmarker } = Vision;

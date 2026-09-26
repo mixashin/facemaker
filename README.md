@@ -27,6 +27,8 @@ Two fences, because GitHub Pages cannot set response headers: the production `in
 
 After changing `dependencies`: `node scripts/attributions.mjs` (the About screen list; a test fails when stale).
 
-Screenshots from the headless smoke (needs a face image, see `FACE`): `SMOKE_OUT=<dir> SMOKE_SHOTS="sticker,cat;warp,upsideDown" SMOKE_PAGE="settings,about" SMOKE_TEXT="Čćžšđ 🐱" SMOKE_GALLERY=1 FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs http://localhost:4173`
+Screenshots from the headless smoke (needs a face image, see `FACE`): `SMOKE_OUT=<dir> SMOKE_SHOTS="sticker,cat;warp,upsideDown" SMOKE_PAGE="settings,about" SMOKE_TEXT="Čćžšđ 🐱" SMOKE_GALLERY=1 SMOKE_RECORD=1 FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs http://localhost:4173`
 
 Art and model licenses: `LICENSE-ASSETS.md`. Sticker art: Twemoji (CC-BY 4.0) and Fluent Emoji (MIT), fetched by `scripts/copy-twemoji.mjs` (install time) and `scripts/fetch-fluent.mjs` (by hand, pinned commit).
+
+Video and voice: hold the big button to record a video of what the screen shows, with the voice changed by the effect picked in the 🎤 tab. Videos live in the gallery next to the photos. The microphone is asked for at first need and never plays through the speaker.

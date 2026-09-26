@@ -9,11 +9,11 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 3. `TODO.md`: backlog and every decision from grill-me. Add operator requests here as they arrive.
 4. `research/01-tech-stack-2026-09-26.md`, `02-filters-2026-09-26.md`, `03-mediapipe-telemetry-audit-2026-09-26.md`, `04-sticker-art-alternatives-2026-09-26.md`, `06-asset-sources-2026-09-27.md` (Etsy and paid packs fail: no free redistribution; use Kenney CC0, FreeSVG, Quaternius, Piranesi set in `docs/piranesi-props.json`): verified research with sources.
 
-## State (2026-09-26, late)
+## State (2026-09-27)
 
-Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b). Shipped: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations: effects dock, shutter saves to gallery, cropped photos, editor gestures (select glow, pinch anywhere, mirror), floating save button; Fluent Emoji Color packs (PR #11, 20 packs, 6 editor props, LICENSE-ASSETS.md). Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored). Operator phone checks passed for M1; M2a/M2b/UI checks partly done by the operator on a Fold cover screen.
+Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b). Shipped: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations: effects dock, shutter saves to gallery, cropped photos, editor gestures (select glow, pinch anywhere, mirror), floating save button; Fluent Emoji Color packs (PR #11, 20 packs, 6 editor props, LICENSE-ASSETS.md); M3 video + voice on branch `m3-video-voice` (hold the shutter to record, voice tab with 7 voices and a voice mirror, shout preset, videos in the gallery), merge after the operator phone check. Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored). Operator phone checks passed for M1; M2a/M2b/UI checks partly done by the operator on a Fold cover screen.
 
-Next, in order (details in TODO.md "Handoff 2026-09-26 late"): 1) plan and build M3 (video + voice), 2) prompt list for the Piranesi custom prop set when asked. Operator phone check pending for the Fluent packs (mask sizes on the Fold).
+Next: operator phone check of M3 (list in the M3 plan, "Execution notes"), then merge and tag m3, then M4 (makeup, face-onto-image, backgrounds). Open operator question: allow SIL OFL fonts (TODO.md). Operator phone check also pending for the Fluent packs (mask sizes on the Fold).
 
 ## Decisions (do not re-ask)
 
@@ -27,7 +27,7 @@ Next, in order (details in TODO.md "Handoff 2026-09-26 late"): 1) plan and build
 - Effects dock (2026-09-26 operator): all effects live in a left slide-in dock with a ✨ pull tab (rail: faces, stickers, text, face lab). No bottom tabs or strips. Tap on the video closes it. The photo editor uses the same dock for its sticker palette (open on entry, tap on the photo hides it). Editor gestures: tap a sticker to select (glow, display only), one finger drags it, two fingers anywhere scale and rotate it, two-finger double tap mirrors it, tap on empty space deselects. Floating button bottom-right: one tap turns it into 💾 with 🧹 (remove selected, or all). The photo fills the screen (object-fit contain). Preset warps and face-lab sliders are mutually exclusive. The app starts with no effect. Saved photos are cropped to the visible cover region of the stage (`coverCrop`), so they match the screen.
 - Capture flow (2026-09-26 operator): the shutter saves to the gallery with a fly-to-gallery animation, no share sheet; share and save live in the viewer; the share sheet is only the fallback when saving to the device fails. Camera screen holds only gear, tabs, strip, flip, shutter, gallery.
 - Gallery: OPFS only (`photos/`, `thumbs/`), metadata in file names, no IndexedDB. Destructive actions need two taps.
-- Recording (M3): mp4 first (`avc1.424028, mp4a.40.2`), webm fallback, no timeslice, explicit bitrate, cropped second canvas for `captureStream`, `start()` in try/catch. Hold the shutter to record.
+- Recording (M3): mp4 first (`avc1.424028, mp4a.40.2`), webm fallback, no timeslice, explicit bitrate, cropped second canvas for `captureStream`, `start()` in try/catch. Hold the shutter to record. `isTypeSupported` is not trusted: when the encoder fails after start (seen: mp4 with AAC in a Chromium without an AAC encoder), the recorder restarts with the next type and remembers the failed one for the session.
 - Sticker art: Twemoji (CC-BY 4.0) stays. Fluent Emoji Color (MIT) is added as a second source (research/04). OpenMoji (BY-SA) and JoyPixels excluded. Custom props come from the operator's Piranesi generator later, committed CC0.
 - Licenses allowed: MIT, Apache-2.0, BSD, MPL-2.0, Unlicense, CC0, CC-BY. No GPL.
 
@@ -46,6 +46,6 @@ Next, in order (details in TODO.md "Handoff 2026-09-26 late"): 1) plan and build
     npm run dev      # vite --host, http://localhost:5173
     npm test         # vitest
     npm run build && npm run preview   # http://localhost:4173, production CSP active
-    FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs [url]   # headless check, needs dev or preview server; SMOKE_OUT/SMOKE_SHOTS/SMOKE_PAGE/SMOKE_TEXT save screenshots
+    FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs [url]   # headless check, needs dev or preview server; SMOKE_OUT/SMOKE_SHOTS/SMOKE_PAGE/SMOKE_TEXT save screenshots; SMOKE_GALLERY=1 and SMOKE_RECORD=1 run the gallery and the hold-to-record checks
     node scripts/attributions.mjs   # after dependency changes (About screen list)
     node scripts/fetch-fluent.mjs   # only when the Fluent sticker list changes; files are committed under public/stickers/fluent

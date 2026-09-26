@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import vert from './quad.vert?raw';
 import frag from './warp.frag?raw';
 import type { Handle } from '../filters/presets';
+import { SpriteLayer } from './spriteLayer';
+import type { Sprite } from '../filters/stickers';
 
 const MAX_H = 16;
 
@@ -11,6 +13,9 @@ export class FaceRenderer {
   private camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private tex: THREE.VideoTexture;
   private mat: THREE.ShaderMaterial;
+  private sprites: SpriteLayer;
+  private spriteList: Sprite[] = [];
+  private mirror = true;
 
   constructor(private canvas: HTMLCanvasElement, private video: HTMLVideoElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
@@ -32,9 +37,12 @@ export class FaceRenderer {
     });
     this.scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mat));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.sprites = new SpriteLayer(this.scene);
   }
 
-  setMirror(on: boolean): void { this.mat.uniforms.uMirror.value = on; }
+  setMirror(on: boolean): void { this.mirror = on; this.mat.uniforms.uMirror.value = on; }
+
+  setSprites(s: Sprite[]): void { this.spriteList = s; }
 
   setHandles(h: Handle[]): void {
     const n = Math.min(h.length, MAX_H);
@@ -54,8 +62,9 @@ export class FaceRenderer {
 
   render(): void {
     this.resize();
+    this.sprites.update(this.spriteList, this.mirror, this.mat.uniforms.uAspect.value as number);
     this.renderer.render(this.scene, this.camera);
   }
 
-  dispose(): void { this.tex.dispose(); this.mat.dispose(); this.renderer.dispose(); }
+  dispose(): void { this.sprites.dispose(); this.tex.dispose(); this.mat.dispose(); this.renderer.dispose(); }
 }

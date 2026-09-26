@@ -4,7 +4,7 @@
   "tabs.text": "Text",
   "text.placeholder": "Type something",
   "text.font": "Font",
-  "tutorial.filters": "Tap a face to change yours",
+  "tutorial.filters": "Tap ✨ to pick a face",
   "tutorial.stickers": "Tap an animal to wear it",
   "tutorial.shutter": "Tap the big button to take a photo",
   "tutorial.share": "Send it to a friend",
@@ -47,7 +47,6 @@
   "editor.title": "Decorate",
   "editor.save": "Save as new photo",
   "editor.remove": "Remove sticker",
-  "settings.facelab": "Face lab",
   "facelab.title": "Face lab",
   "facelab.reset": "Reset all",
   "region.nose": "Nose",
@@ -60,5 +59,7 @@
   "mode.off": "Off",
   "mode.size": "Size",
   "mode.wobble": "Wobble",
-  "mode.swirl": "Swirl"
+  "mode.swirl": "Swirl",
+  "dock.title": "Effects",
+  "tabs.lab": "Face lab"
 }

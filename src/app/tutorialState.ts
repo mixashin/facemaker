@@ -1,7 +1,7 @@
 import { tutorialSeen, type CamState } from './state';
 
 export const STEPS = [
-  { icon: '🎭', key: 'tutorial.filters' },
+  { icon: '✨', key: 'tutorial.filters' },
   { icon: '🐱', key: 'tutorial.stickers' },
   { icon: '⚪', key: 'tutorial.shutter' },
   { icon: '📤', key: 'tutorial.share' },

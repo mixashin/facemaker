@@ -44,7 +44,10 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
+const RAIL = new Set(['warp', 'sticker', 'text', 'lab']);
+const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
 const click = async (label) => {
+  if (RAIL.has(label)) await openDock();
   const el = page.locator(`[aria-label="${label}"]`).first();
   if ((await el.getAttribute('aria-selected')) === 'true') return; // tabs toggle: an open tab stays open
   await el.click(); await page.waitForTimeout(400);
@@ -103,10 +106,10 @@ if (process.env.SMOKE_TEXT && out) {
   await page.waitForTimeout(500);
   writeFileSync(`${out}/text.png`, await page.locator('canvas').screenshot());
   console.log('shot: text');
-  await page.locator('canvas').click({ position: { x: 400, y: 120 } });
+  await page.locator('canvas').click({ position: { x: vw - 20, y: 120 } }); // right edge: outside the dock on every viewport
   await page.waitForTimeout(300);
-  const editorOpen = await page.locator('input.textin').count();
-  console.log('tap on the video closes the text box:', editorOpen === 0 ? 'OK' : 'FAIL');
+  const dockStillOpen = await page.locator('.dock.open').count();
+  console.log('tap on the video closes the dock:', dockStillOpen === 0 ? 'OK' : 'FAIL');
 }
 
 // SMOKE_GALLERY=1: take a photo, open the gallery, edit it with a sticker, save, expect two photos
@@ -120,6 +123,13 @@ if (process.env.SMOKE_GALLERY) {
   const dl0 = downloads.length;
   await click('Save'); await page.waitForTimeout(1500);
   console.log('viewer save downloads a file:', downloads.length === dl0 + 1 ? 'OK' : 'FAIL');
+  if (downloads.length === dl0 + 1) {
+    const { execFileSync } = await import('node:child_process');
+    const dims = execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', await downloads[dl0].path()]).toString().trim();
+    const [pw, ph] = dims.split(',').map(Number);
+    const stage = await page.evaluate(() => { const r = document.querySelector('canvas.stage').getBoundingClientRect(); return r.width / r.height; });
+    console.log('saved photo', dims, 'aspect', (pw / ph).toFixed(3), 'screen', stage.toFixed(3), Math.abs(pw / ph - stage) < 0.03 ? 'OK' : 'FAIL');
+  }
   await click('Edit');
   await page.waitForTimeout(800);
   await click('moustache'); await page.waitForTimeout(400);

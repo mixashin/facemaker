@@ -8,7 +8,7 @@ import { DEFAULT_SLIDERS, type SliderState } from '../filters/sliders';
 
 export type CamState = 'idle' | 'starting' | 'live' | 'denied' | 'nocam' | 'error';
 
-export const preset = signal<PresetId>('bigEyes');
+export const preset = signal<PresetId>('none'); // clean start, the kid picks
 export const facing = signal<Facing>('user');
 export const camState = signal<CamState>('idle');
 export const flash = signal(false);
@@ -26,8 +26,9 @@ export const tutorialSeen = signal(false);
 export const showSettings = signal(false);
 export const showAbout = signal(false);
 export const text = signal<TextState>({ text: '', color: '#ffffff', font: 'a', x: 0.5, y: 0.25, scale: 1 });
-export type Mode = 'none' | 'warp' | 'sticker' | 'text';
-export const mode = signal<Mode>('none'); // clean screen: no strip open until a tab is tapped
+export type DockTab = 'warp' | 'sticker' | 'text' | 'lab';
+export const dockOpen = signal(false); // effects dock on the left, closed by default
+export const dockTab = signal<DockTab>('warp');
 export const sticker = signal<string>('none');
 export type Screen = 'camera' | 'gallery' | 'viewer' | 'editor';
 export const screen = signal<Screen>('camera');
@@ -38,6 +39,5 @@ export async function refreshGallery(): Promise<void> {
   items.value = store.value ? await store.value.list() : [];
 }
 export const sliders = signal<SliderState>(DEFAULT_SLIDERS);
-export const showFaceLab = signal(false);
 export const galleryThumb = signal<string | null>(null); // object URL of the newest photo, shown on the gallery button
 export const flyShot = signal<string | null>(null);      // object URL of the photo animating into the gallery button

@@ -1,6 +1,6 @@
 export type P = { x: number; y: number };
 export type EditorSticker = { id: number; src: string; x: number; y: number; scale: number; rot: number };
-export type Ctx = Pick<CanvasRenderingContext2D, 'drawImage' | 'save' | 'restore' | 'translate' | 'rotate' | 'clearRect'> & { canvas: { width: number; height: number } };
+export type Ctx = Pick<CanvasRenderingContext2D, 'drawImage' | 'save' | 'restore' | 'translate' | 'rotate' | 'clearRect' | 'strokeRect' | 'shadowBlur' | 'shadowColor' | 'strokeStyle' | 'lineWidth'> & { canvas: { width: number; height: number } };
 
 export const EDITOR_STICKERS: { id: string; src: string }[] = [
   { id: 'moustache', src: '/editor/moustache.svg' },
@@ -52,7 +52,8 @@ function sizeOf(img: CanvasImageSource): { w: number; h: number } {
 
 // Draws at the image's own resolution. `images` holds a decoded image per sticker src. Missing ones are skipped.
 // Setting the canvas size resets the bitmap and the full-size photo draw covers every pixel, so no clearRect is needed.
-export function renderEditor(ctx: Ctx, image: { width: number; height: number }, stickers: EditorSticker[], images: Map<string, CanvasImageSource>): void {
+// selectedId draws a soft glow box around that sticker. Pass null when rendering for the saved file.
+export function renderEditor(ctx: Ctx, image: { width: number; height: number }, stickers: EditorSticker[], images: Map<string, CanvasImageSource>, selectedId: number | null = null): void {
   ctx.canvas.width = image.width; ctx.canvas.height = image.height;
   ctx.drawImage(image as unknown as CanvasImageSource, 0, 0, image.width, image.height);
   for (const s of stickers) {
@@ -64,6 +65,14 @@ export function renderEditor(ctx: Ctx, image: { width: number; height: number },
     ctx.translate(s.x, s.y);
     ctx.rotate(s.rot);
     ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
+    if (s.id === selectedId) {
+      const pad = Math.max(6, s.scale * 0.06);
+      ctx.shadowColor = '#ff4fa3';
+      ctx.shadowBlur = Math.max(12, s.scale * 0.2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, .9)';
+      ctx.lineWidth = Math.max(3, s.scale / 40);
+      ctx.strokeRect(-sw / 2 - pad, -sh / 2 - pad, sw + 2 * pad, sh + 2 * pad);
+    }
     ctx.restore();
   }
 }

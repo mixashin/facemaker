@@ -65,3 +65,29 @@ describe('renderEditor', () => {
     expect(calls).toContain('draw:-100,-50,200,100'); // width 200 keeps the 2:1 asset ratio
   });
 });
+
+describe('renderEditor selection glow', () => {
+  const mk = () => {
+    const calls: string[] = [];
+    const ctx = {
+      canvas: { width: 0, height: 0 }, clearRect() {}, drawImage() { calls.push('draw'); }, save() {}, restore() {},
+      translate() {}, rotate() {}, strokeRect() { calls.push('glow'); }, shadowBlur: 0, shadowColor: '', strokeStyle: '', lineWidth: 0,
+    };
+    return { ctx, calls };
+  };
+  const images = new Map<string, CanvasImageSource>([['/editor/pimple.svg', { width: 100, height: 100 } as unknown as CanvasImageSource]]);
+
+  it('strokes one glow box around the selected sticker only', () => {
+    const a = mk();
+    renderEditor(a.ctx as never, { width: 500, height: 500 }, [st(1, 100, 100), st(2, 200, 200)], images, 2);
+    expect(a.calls.filter((c) => c === 'glow')).toHaveLength(1);
+  });
+
+  it('draws no glow without a selection, so the saved photo stays clean', () => {
+    const b = mk();
+    renderEditor(b.ctx as never, { width: 500, height: 500 }, [st(1, 100, 100)], images, null);
+    expect(b.calls).not.toContain('glow');
+    renderEditor(b.ctx as never, { width: 500, height: 500 }, [st(1, 100, 100)], images);
+    expect(b.calls).not.toContain('glow');
+  });
+});

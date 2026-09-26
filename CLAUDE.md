@@ -22,6 +22,7 @@ M2b (gallery, photo editor, face lab) merged, tag `m2b`, live. Next: M3 plan (vi
 - Faces: up to 2, own One Euro smoothing.
 - Language: Serbian + English, icon-first, JSON string tables. Serbian Latin script assumed, confirm with operator.
 - Voice (M3): `@soundtouchjs/*` scoped packages (MPL-2.0), audit before install. Unscoped `soundtouchjs` is LGPL, never use it.
+- Capture flow (2026-09-26 operator): the shutter saves to the gallery with a fly-to-gallery animation, no share sheet; share and save live in the viewer; the share sheet is only the fallback when saving to the device fails. Camera screen holds only gear, tabs, strip, flip, shutter, gallery.
 - Gallery: OPFS only (`photos/`, `thumbs/`), metadata in file names, no IndexedDB. Destructive actions need two taps.
 - Recording (M3): mp4 first, webm fallback, `start()` in try/catch.
 - Licenses allowed: MIT, Apache-2.0, BSD, MPL-2.0, Unlicense, CC0, CC-BY. No GPL.

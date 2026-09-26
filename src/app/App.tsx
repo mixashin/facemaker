@@ -22,7 +22,7 @@ import { openStore, safePut } from '../storage/gallery';
 import { sliderHandles } from '../filters/sliders';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
-import { preset, facing, camState, flash, busy, mode, sticker, text, tutorialSeen, showSettings, showAbout, screen, store, refreshGallery, sliders, showFaceLab, camStateFromError } from './state';
+import { preset, facing, camState, flash, busy, mode, sticker, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, showFaceLab, galleryThumb, flyShot, camStateFromError } from './state';
 import { t } from '../i18n/i18n';
 
 export function App() {
@@ -30,13 +30,16 @@ export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    openStore().then((s) => { store.value = s; return refreshGallery(); }).catch(() => {});
+    openStore().then((s) => { store.value = s; return refreshGallery(); }).then(() => {
+      const newest = items.value[0];
+      if (newest && !galleryThumb.value) store.value?.thumb(newest.name).then((b) => { if (b) galleryThumb.value = URL.createObjectURL(b); }).catch(() => {});
+    }).catch(() => {});
     const video = videoRef.current!, canvas = canvasRef.current!;
     let faces: Face[] = [];
     let raf = 0;
     const r = new FaceRenderer(canvas, video);
     // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
-    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '' });
+    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0 });
     const t = new FaceTracker({
       numFaces: 2,
       onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
@@ -77,8 +80,17 @@ export function App() {
     setTimeout(() => (flash.value = false), 120);
     try {
       const file = await snapshot(canvasRef.current!);
-      if (store.value && (await safePut(store.value, file.name, file))) { store.value.thumb(file.name).catch(() => {}); refreshGallery().catch(() => {}); }
-      await shareOrDownload(file);
+      const saved = !!store.value && (await safePut(store.value, file.name, file));
+      if (saved) {
+        (globalThis as any).__fm.shots++;
+        const url = URL.createObjectURL(file);
+        flyShot.value = url; // the photo flies into the gallery button
+        setTimeout(() => { flyShot.value = null; if (galleryThumb.value) URL.revokeObjectURL(galleryThumb.value); galleryThumb.value = url; }, 700);
+        store.value!.thumb(file.name).catch(() => {});
+        refreshGallery().catch(() => {});
+      } else {
+        await shareOrDownload(file); // no device storage: hand the photo over directly
+      }
     } catch (e) {
       console.error('capture', e);
     } finally {
@@ -125,6 +137,7 @@ export function App() {
       <video ref={videoRef} class="hidden-video" />
       <canvas ref={canvasRef} class="stage" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
       {flash.value && <div class="flash" />}
+      {flyShot.value && <img class="fly" src={flyShot.value} alt="" />}
       {camState.value === 'live' && (
         <>
           <TopBar />

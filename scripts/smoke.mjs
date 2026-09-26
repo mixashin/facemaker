@@ -9,6 +9,7 @@
 //   SMOKE_PAGE      "theme,Blossom": click labels, save page-<last label>.png of the whole page, then close any open sheet
 //   SMOKE_TEXT      "Čćžšđ 🐱": type it in text mode, save text.png of the canvas
 //   SMOKE_GALLERY   1: take a photo, open the gallery, edit it with a sticker, save, expect one more photo
+//   SMOKE_VIEWPORT  "412x915": browser viewport (default 800x600)
 import { existsSync, statSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -28,7 +29,8 @@ if (face) {
   console.log('face feed:', face);
 }
 const browser = await chromium.launch({ args });
-const page = await browser.newPage({ viewport: { width: 800, height: 600 }, acceptDownloads: true });
+const [vw, vh] = (process.env.SMOKE_VIEWPORT ?? '800x600').split('x').map(Number);
+const page = await browser.newPage({ viewport: { width: vw, height: vh }, acceptDownloads: true });
 const logs = [];
 page.on('console', (m) => logs.push(`${m.type()}: ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`pageerror: ${e.message}`));
@@ -115,6 +117,9 @@ if (process.env.SMOKE_GALLERY) {
   const before = await page.locator('.thumb').count();
   if (out) writeFileSync(`${out}/page-gallery.png`, await page.screenshot());
   await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
+  const dl0 = downloads.length;
+  await click('Save'); await page.waitForTimeout(1500);
+  console.log('viewer save downloads a file:', downloads.length === dl0 + 1 ? 'OK' : 'FAIL');
   await click('Edit');
   await page.waitForTimeout(800);
   await click('moustache'); await page.waitForTimeout(400);
@@ -134,13 +139,15 @@ if (process.env.SMOKE_GALLERY) {
 // Shutter: a double tap must produce exactly one file.
 const shutter = page.getByRole('button', { name: 'take photo' });
 if (await shutter.count()) {
-  const before = downloads.length;
+  const before = downloads.length, shots0 = await page.evaluate(() => globalThis.__fm?.shots ?? 0);
   await shutter.dblclick({ delay: 30 });
   await page.waitForTimeout(3000);
   for (const d of downloads.slice(before)) console.log('download:', d.suggestedFilename(), statSync(await d.path()).size, 'bytes');
+  const shots = (await page.evaluate(() => globalThis.__fm?.shots ?? 0)) - shots0;
   const made = downloads.length - before;
-  console.log('downloads after double tap:', made, made === 1 ? 'OK' : 'FAIL');
+  console.log('double tap: saved shots', shots, 'downloads', made, shots + made === 1 ? 'OK' : 'FAIL');
 }
+if (out) writeFileSync(`${out}/page-end.png`, await page.screenshot()); // final state: gallery button shows the newest photo
 console.log('--- third-party requests:', egress.length ? '' : 'none');
 for (const e of egress) console.log(e);
 console.log('--- console:');

@@ -40,7 +40,11 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
-const click = async (label) => { await page.locator(`[aria-label="${label}"]`).first().click(); await page.waitForTimeout(400); };
+const click = async (label) => {
+  const el = page.locator(`[aria-label="${label}"]`).first();
+  if ((await el.getAttribute('aria-selected')) === 'true') return; // tabs toggle: an open tab stays open
+  await el.click(); await page.waitForTimeout(400);
+};
 const closeSheet = async () => { const c = page.locator('.close'); if (await c.count()) { await c.first().click(); await page.waitForTimeout(300); } };
 
 // First launch: the tutorial covers the screen. Record it, then dismiss it.
@@ -49,6 +53,7 @@ const tutorialShown = (await tutorial.count()) > 0;
 if (tutorialShown && out) writeFileSync(`${out}/page-tutorial.png`, await page.screenshot());
 if (tutorialShown) await closeSheet();
 console.log('tutorial on first launch:', tutorialShown ? 'shown' : 'not shown');
+if (out) writeFileSync(`${out}/page-start.png`, await page.screenshot()); // the clean start screen
 
 const state = await page.evaluate(async () => {
   const v = document.querySelector('video');
@@ -68,6 +73,7 @@ const shot = async (labels) => { for (const l of labels) await click(l); return 
 
 // Preset switch: the warped frame must differ from the plain one when a face is tracked.
 if (state.fm?.faces > 0) {
+  await click('warp'); // strips are closed by default
   const plain = await shot(['none']), eyes = await shot(['bigEyes']);
   let diff = 0; for (let i = 0; i < plain.length; i++) if (plain[i] !== eyes[i]) diff++;
   console.log('preset pixel diff (png bytes):', diff, diff > 0 ? 'OK' : 'FAIL');
@@ -93,6 +99,10 @@ if (process.env.SMOKE_TEXT && out) {
   await page.waitForTimeout(500);
   writeFileSync(`${out}/text.png`, await page.locator('canvas').screenshot());
   console.log('shot: text');
+  await page.locator('canvas').click({ position: { x: 400, y: 120 } });
+  await page.waitForTimeout(300);
+  const editorOpen = await page.locator('input.textin').count();
+  console.log('tap on the video closes the text box:', editorOpen === 0 ? 'OK' : 'FAIL');
 }
 
 // Shutter: a double tap must produce exactly one file.

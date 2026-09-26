@@ -81,23 +81,34 @@ export function App() {
   // Text drag (one pointer) and pinch scale (two pointers) on the stage.
   const pointers = new Map<number, { x: number; y: number }>();
   let pinch0 = 0, scale0 = 1;
+  let down = { x: 0, y: 0, moved: false }; // tap (no move) closes the open strip, drag moves the text
   const norm = (e: PointerEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
   };
   const onDown = (e: PointerEvent) => {
-    if (!textVisible(text.value)) return;
+    if (!textVisible(text.value)) { mode.value = 'none'; return; } // nothing to drag: a tap closes any open strip
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, norm(e));
+    const p = norm(e);
+    pointers.set(e.pointerId, p);
+    if (pointers.size === 1) down = { x: p.x, y: p.y, moved: false };
     if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); scale0 = text.value.scale; }
   };
   const onMove = (e: PointerEvent) => {
     if (!pointers.has(e.pointerId)) return;
     pointers.set(e.pointerId, norm(e));
-    if (pointers.size === 1) { const p = norm(e); text.value = { ...text.value, x: p.x, y: p.y }; }
+    if (pointers.size === 1) {
+      const p = norm(e);
+      if (!down.moved && Math.hypot(p.x - down.x, p.y - down.y) > 0.01) down.moved = true;
+      if (down.moved) text.value = { ...text.value, x: p.x, y: p.y };
+    }
     else if (pointers.size === 2 && pinch0 > 0) { const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); text.value = { ...text.value, scale: Math.min(3, Math.max(0.3, scale0 * d / pinch0)) }; }
   };
-  const onUp = (e: PointerEvent) => { pointers.delete(e.pointerId); if (pointers.size < 2) pinch0 = 0; };
+  const onUp = (e: PointerEvent) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size === 0 && !down.moved && pinch0 === 0) mode.value = 'none'; // a plain tap closes the text box or strip
+    if (pointers.size < 2) pinch0 = 0;
+  };
 
   return (
     <main class="app">

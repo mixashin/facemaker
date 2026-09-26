@@ -1,7 +1,8 @@
 import { mode, type Mode } from './state';
+import { toggleMode } from './modes';
 import { t } from '../i18n/i18n';
 
-const TABS: { id: Mode; icon: string }[] = [
+const TABS: { id: Exclude<Mode, 'none'>; icon: string }[] = [
   { id: 'warp', icon: '🎭' },
   { id: 'sticker', icon: '🐱' },
   { id: 'text', icon: '✏️' },
@@ -18,7 +19,7 @@ export function ModeTabs() {
           aria-label={tab.id}
           aria-selected={mode.value === tab.id}
           title={t('tabs.' + tab.id)}
-          onClick={() => (mode.value = tab.id)}
+          onClick={() => (mode.value = toggleMode(mode.value, tab.id))}
         >
           {tab.icon}
         </button>

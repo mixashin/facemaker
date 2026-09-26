@@ -22,7 +22,8 @@ export function Editor() {
   const [dock, setDock] = useState(true); // stickers in view on entry, a tap on the photo hides them
   const nextId = useRef(1);
   const pointers = useRef(new Map<number, P>());
-  const grabbed = useRef<number | null>(null);
+  const grabbed = useRef<number | null>(null); // sticker under the first finger
+  const gesture = useRef({ moved: false, pinched: false, x: 0, y: 0 });
 
   useEffect(() => {
     let bmp: ImageBitmap | null = null, gone = false;
@@ -33,8 +34,8 @@ export function Editor() {
   useEffect(() => {
     const c = canvasRef.current;
     if (!c || !photo) return;
-    renderEditor(c.getContext('2d')!, photo, stickers, images);
-  }, [photo, stickers, images]);
+    renderEditor(c.getContext('2d')!, photo, stickers, images, selected);
+  }, [photo, stickers, images, selected]);
 
   const add = async (src: string) => {
     if (!photo) return;
@@ -50,32 +51,49 @@ export function Editor() {
     const c = canvasRef.current!, r = c.getBoundingClientRect();
     return elementToImage(e.clientX - r.left, e.clientY - r.top, c.width, c.height, r.width, r.height);
   };
+  // Tap a sticker: selected (glow). One finger on it drags. Two fingers anywhere scale and rotate the selected one.
+  // A tap on empty space deselects. Nothing moves without a selection.
   const onDown = (e: PointerEvent) => {
     setDock(false);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const p = toImage(e);
     pointers.current.set(e.pointerId, p);
-    if (pointers.current.size === 1) { const hit = hitTest(stickers, p); grabbed.current = hit?.id ?? null; setSelected(hit?.id ?? null); }
+    if (pointers.current.size === 1) {
+      const hit = hitTest(stickers, p);
+      grabbed.current = hit?.id ?? null;
+      if (hit) setSelected(hit.id);
+      gesture.current = { moved: false, pinched: false, x: p.x, y: p.y };
+    }
   };
   const onMove = (e: PointerEvent) => {
     if (!pointers.current.has(e.pointerId)) return;
     const prev = new Map(pointers.current);
-    pointers.current.set(e.pointerId, toImage(e));
-    const id = grabbed.current;
-    if (id === null) return;
+    const p = toImage(e);
+    pointers.current.set(e.pointerId, p);
     const ps = [...pointers.current.entries()];
-    if (ps.length === 1) setStickers((list) => list.map((s) => (s.id === id ? moveTo(s, ps[0][1]) : s)));
-    else if (ps.length >= 2) {
+    if (ps.length === 1) {
+      if (Math.hypot(p.x - gesture.current.x, p.y - gesture.current.y) > 6) gesture.current.moved = true;
+      const id = grabbed.current;
+      if (id !== null && gesture.current.moved) setStickers((list) => list.map((s) => (s.id === id ? moveTo(s, p) : s)));
+    } else if (ps.length >= 2 && selected !== null) {
+      gesture.current.pinched = true;
       const [[ia, a1], [ib, b1]] = ps;
       const a0 = prev.get(ia) ?? a1, b0 = prev.get(ib) ?? b1;
-      setStickers((list) => list.map((s) => (s.id === id ? pinch(s, a0, b0, a1, b1) : s)));
+      setStickers((list) => list.map((s) => (s.id === selected ? pinch(s, a0, b0, a1, b1) : s)));
     }
   };
-  const onUp = (e: PointerEvent) => { pointers.current.delete(e.pointerId); if (pointers.current.size === 0) grabbed.current = null; };
+  const onUp = (e: PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size === 0) {
+      if (grabbed.current === null && !gesture.current.moved && !gesture.current.pinched) setSelected(null); // tap off: end the edit
+      grabbed.current = null;
+    }
+  };
 
   const save = async () => {
     const c = canvasRef.current;
-    if (!c || !store.value) return;
+    if (!c || !store.value || !photo) return;
+    renderEditor(c.getContext('2d')!, photo, stickers, images, null); // the file never carries the glow
     const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.92));
     if (!blob) return;
     const file = new File([blob], `facemaker-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`, { type: 'image/jpeg' });

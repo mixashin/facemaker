@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { screen, store, current, refreshGallery } from './state';
 import { safePut } from '../storage/gallery';
 import { shareOrDownload } from '../capture/share';
-import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, renderEditor, type EditorSticker, type P } from '../editor/editor';
+import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker, type P } from '../editor/editor';
 import { t } from '../i18n/i18n';
 
 const cache = new Map<string, HTMLImageElement>();
@@ -20,6 +20,8 @@ export function Editor() {
   const [selected, setSelected] = useState<number | null>(null);
   const [images, setImages] = useState(new Map<string, CanvasImageSource>());
   const [dock, setDock] = useState(true); // stickers in view on entry, a tap on the photo hides them
+  const [fab, setFab] = useState<'idle' | 'open'>('idle'); // floating button: one tap opens save and clear
+  const twoTap = useRef({ downAt: 0, lastAt: 0, fingers: 1, move: 0 });
   const nextId = useRef(1);
   const pointers = useRef(new Map<number, P>());
   const grabbed = useRef<number | null>(null); // sticker under the first finger
@@ -46,6 +48,7 @@ export function Editor() {
     setSelected(s.id);
   };
   const remove = () => { setStickers((list) => list.filter((s) => s.id !== selected)); setSelected(null); };
+  const clearOrRemove = () => { if (selected !== null) remove(); else setStickers([]); };
 
   const toImage = (e: PointerEvent): P => {
     const c = canvasRef.current!, r = c.getBoundingClientRect();
@@ -55,10 +58,13 @@ export function Editor() {
   // A tap on empty space deselects. Nothing moves without a selection.
   const onDown = (e: PointerEvent) => {
     setDock(false);
+    setFab('idle');
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const p = toImage(e);
     pointers.current.set(e.pointerId, p);
+    if (pointers.current.size === 2) { twoTap.current.downAt = performance.now(); twoTap.current.fingers = 2; twoTap.current.move = 0; }
     if (pointers.current.size === 1) {
+      twoTap.current.fingers = 1;
       const hit = hitTest(stickers, p);
       grabbed.current = hit?.id ?? null;
       if (hit) setSelected(hit.id);
@@ -76,17 +82,25 @@ export function Editor() {
       const id = grabbed.current;
       if (id !== null && gesture.current.moved) setStickers((list) => list.map((s) => (s.id === id ? moveTo(s, p) : s)));
     } else if (ps.length >= 2 && selected !== null) {
-      gesture.current.pinched = true;
       const [[ia, a1], [ib, b1]] = ps;
       const a0 = prev.get(ia) ?? a1, b0 = prev.get(ib) ?? b1;
+      twoTap.current.move += Math.hypot(a1.x - a0.x, a1.y - a0.y) + Math.hypot(b1.x - b0.x, b1.y - b0.y);
+      if (twoTap.current.move < 8) return; // a two-finger tap jitters; only a real move pinches
+      gesture.current.pinched = true;
       setStickers((list) => list.map((s) => (s.id === selected ? pinch(s, a0, b0, a1, b1) : s)));
     }
   };
   const onUp = (e: PointerEvent) => {
     pointers.current.delete(e.pointerId);
     if (pointers.current.size === 0) {
-      if (grabbed.current === null && !gesture.current.moved && !gesture.current.pinched) setSelected(null); // tap off: end the edit
+      const t = twoTap.current, now = performance.now();
+      if (t.fingers === 2 && !gesture.current.pinched && now - t.downAt < 300) {
+        // two-finger tap; a second one within 450 ms mirrors the selected sticker
+        if (now - t.lastAt < 450 && selected !== null) { setStickers((list) => list.map((s) => (s.id === selected ? flipSticker(s) : s))); t.lastAt = 0; }
+        else t.lastAt = now;
+      } else if (grabbed.current === null && !gesture.current.moved && !gesture.current.pinched) setSelected(null); // tap off: end the edit
       grabbed.current = null;
+      t.fingers = 1;
     }
   };
 
@@ -116,10 +130,9 @@ export function Editor() {
           </div>
         </div>
       </aside>
-      <div class="bar editbar">
-        <button class="round" aria-label={t('editor.remove')} disabled={selected === null} onClick={remove}>🧹</button>
-        <button class="round shutter save" aria-label={t('editor.save')} onClick={save}>💾</button>
-        <span class="round spacer" />
+      <div class={'fab' + (fab === 'open' ? ' open' : '')}>
+        {fab === 'open' && <button class="round" aria-label={selected !== null ? t('editor.remove') : t('editor.clear')} onClick={clearOrRemove}>🧹</button>}
+        <button class="round shutter save" aria-label={fab === 'open' ? t('editor.save') : t('editor.done')} onClick={() => (fab === 'open' ? save() : setFab('open'))}>{fab === 'open' ? '💾' : ''}</button>
       </div>
     </div>
   );

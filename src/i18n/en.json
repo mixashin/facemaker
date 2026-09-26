@@ -61,5 +61,7 @@
   "mode.wobble": "Wobble",
   "mode.swirl": "Swirl",
   "dock.title": "Effects",
-  "tabs.lab": "Face lab"
+  "tabs.lab": "Face lab",
+  "editor.done": "Done",
+  "editor.clear": "Remove all stickers"
 }

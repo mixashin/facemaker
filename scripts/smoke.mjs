@@ -142,7 +142,7 @@ if (process.env.SMOKE_GALLERY) {
   await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
   await click('Edit'); await page.waitForTimeout(800);
   await click('moustache'); await page.waitForTimeout(400);
-  await click('Save as new photo'); await page.waitForTimeout(1200);
+  await click('Done'); await click('Save as new photo'); await page.waitForTimeout(1200);
   const after = await page.locator('.thumb').count();
   console.log('gallery photos before/after edit:', before, after, before >= 1 && after === before + 1 ? 'OK' : 'FAIL');
   await closeSheet();

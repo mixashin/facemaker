@@ -2,13 +2,11 @@ import { useEffect, useRef } from 'preact/hooks';
 import { startCamera, stopCamera } from '../camera/camera';
 import { FaceTracker, type Face } from '../tracking/faceTracker';
 import { FaceRenderer } from '../render/renderer';
-import { PRESETS, handlesFor } from '../filters/presets';
-import { STICKER_PACKS, spritesFor } from '../filters/stickers';
+import { handlesFor } from '../filters/presets';
+import { spritesFor } from '../filters/stickers';
 import { snapshot } from '../capture/snapshot';
 import { shareOrDownload } from '../capture/share';
-import { Strip } from './Strip';
-import { ModeTabs } from './ModeTabs';
-import { TextEditor } from './TextEditor';
+import { Dock } from './Dock';
 import { Tutorial } from './Tutorial';
 import { Settings } from './Settings';
 import { About } from './About';
@@ -17,13 +15,11 @@ import { textVisible } from '../render/textLayer';
 import { Gallery } from './Gallery';
 import { Viewer } from './Viewer';
 import { Editor } from './Editor';
-import { FaceLab } from './FaceLab';
 import { openStore, safePut } from '../storage/gallery';
 import { sliderHandles } from '../filters/sliders';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
-import { preset, facing, camState, flash, busy, mode, sticker, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, showFaceLab, galleryThumb, flyShot, camStateFromError } from './state';
-import { t } from '../i18n/i18n';
+import { preset, facing, camState, flash, busy, dockOpen, sticker, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -79,7 +75,8 @@ export function App() {
     flash.value = true;
     setTimeout(() => (flash.value = false), 120);
     try {
-      const file = await snapshot(canvasRef.current!);
+      const rect = canvasRef.current!.getBoundingClientRect();
+      const file = await snapshot(canvasRef.current!, 0.92, { width: rect.width, height: rect.height }); // what the screen shows
       const saved = !!store.value && (await safePut(store.value, file.name, file));
       if (saved) {
         (globalThis as any).__fm.shots++;
@@ -109,7 +106,7 @@ export function App() {
     return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
   };
   const onDown = (e: PointerEvent) => {
-    if (!textVisible(text.value)) { mode.value = 'none'; return; } // nothing to drag: a tap closes any open strip
+    if (!textVisible(text.value)) { dockOpen.value = false; return; } // nothing to drag: a tap on the video closes the dock
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const p = norm(e);
     pointers.set(e.pointerId, p);
@@ -128,7 +125,7 @@ export function App() {
   };
   const onUp = (e: PointerEvent) => {
     pointers.delete(e.pointerId);
-    if (pointers.size === 0 && !down.moved && pinch0 === 0) mode.value = 'none'; // a plain tap closes the text box or strip
+    if (pointers.size === 0 && !down.moved && pinch0 === 0) dockOpen.value = false; // a plain tap closes the dock
     if (pointers.size < 2) pinch0 = 0;
   };
 
@@ -141,17 +138,13 @@ export function App() {
       {camState.value === 'live' && (
         <>
           <TopBar />
-          <ModeTabs />
-          {mode.value === 'warp' && <Strip items={PRESETS} value={preset.value} onPick={(id) => (preset.value = id as typeof preset.value)} label={t('tabs.warp')} />}
-          {mode.value === 'sticker' && <Strip items={STICKER_PACKS} value={sticker.value} onPick={(id) => (sticker.value = id)} label={t('tabs.sticker')} />}
-          {mode.value === 'text' && <TextEditor />}
+          <Dock />
           <CaptureButton onCapture={capture} onFlip={() => (facing.value = facing.value === 'user' ? 'environment' : 'user')} onGallery={() => { refreshGallery().catch(() => {}); screen.value = 'gallery'; }} />
         </>
       )}
       {shouldShowTutorial(tutorialSeen.value, camState.value) && <Tutorial />}
       {showSettings.value && <Settings />}
       {showAbout.value && <About />}
-      {showFaceLab.value && <FaceLab />}
       {screen.value === 'gallery' && <Gallery />}
       {screen.value === 'viewer' && <Viewer />}
       {screen.value === 'editor' && <Editor />}

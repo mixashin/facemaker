@@ -4,7 +4,7 @@
   "tabs.text": "Tekst",
   "text.placeholder": "Napiši nešto",
   "text.font": "Font",
-  "tutorial.filters": "Dodirni lice da promeniš svoje",
+  "tutorial.filters": "Dodirni ✨ da izabereš lice",
   "tutorial.stickers": "Dodirni životinju da je obučeš",
   "tutorial.shutter": "Dodirni veliko dugme za sliku",
   "tutorial.share": "Pošalji drugu ili drugarici",
@@ -47,7 +47,6 @@
   "editor.title": "Ukrasi",
   "editor.save": "Sačuvaj kao novu sliku",
   "editor.remove": "Ukloni nalepnicu",
-  "settings.facelab": "Laboratorija lica",
   "facelab.title": "Laboratorija lica",
   "facelab.reset": "Vrati sve",
   "region.nose": "Nos",
@@ -60,5 +59,7 @@
   "mode.off": "Isključeno",
   "mode.size": "Veličina",
   "mode.wobble": "Njihanje",
-  "mode.swirl": "Vrtlog"
+  "mode.swirl": "Vrtlog",
+  "dock.title": "Efekti",
+  "tabs.lab": "Laboratorija lica"
 }

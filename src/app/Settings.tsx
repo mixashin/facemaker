@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'preact/hooks';
-import { showSettings, showAbout, showFaceLab, store, items, refreshGallery } from './state';
+import { showSettings, showAbout, store, items, refreshGallery } from './state';
 import { createConfirm } from './confirm';
 import { ThemePicker } from './ThemePicker';
 import { markTutorialSeen } from './tutorialState';
@@ -27,7 +27,6 @@ export function Settings() {
       <button class={'rowbtn' + (confirm.armed.value ? ' danger' : '')} aria-label="clear all" onClick={clearAll}>
         {confirm.armed.value ? '❓ ' + t('settings.clearConfirm') : '🗑️ ' + t('settings.clear')}
       </button>
-      <button class="rowbtn" aria-label="facelab" onClick={() => { showFaceLab.value = true; showSettings.value = false; }}>🧪 {t('settings.facelab')}</button>
       <button class="rowbtn" onClick={() => { markTutorialSeen(false); showSettings.value = false; }}>❓ {t('settings.tutorial')}</button>
       <button class="rowbtn" aria-label="about" onClick={() => { showAbout.value = true; showSettings.value = false; }}>ℹ️ {t('settings.about')}</button>
     </div>

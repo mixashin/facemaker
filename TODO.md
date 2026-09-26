@@ -86,6 +86,6 @@ Decisions from the sticker research (research/04-sticker-art-alternatives-2026-0
 - Custom props with no emoji (eyepatch, pirate hat, moustache, googly eyes, pimples, braces, freckles, clown nose, bow tie, halo, horns): the operator generates a consistent set on Piranesi (FLUX schnell, FLUX.2 Klein or SD; transparent PNG), committed CC0 under public/editor/. Not now; Claude writes the prompt list and file spec when asked. Hand-drawn SVGs stay.
 
 Order for the next session:
-- [ ] Fluent Emoji Color packs (small task, one branch, smoke with SMOKE_SHOTS).
+- [x] Fluent Emoji Color packs (branch fluent-emoji, 2026-09-26): 14 masks + 6 props, 6 editor props, LICENSE-ASSETS.md, chips show real art.
 - [ ] M3 plan (video + voice): docs/SPEC.md M3, grill only new questions, then execute Native + Fable subagents like M2a/M2b.
 - [ ] Prompt list + spec for the Piranesi prop set (when the operator asks).

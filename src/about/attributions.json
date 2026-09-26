@@ -30,6 +30,12 @@
     "url": "https://github.com/jdecked/twemoji"
   },
   {
+    "name": "Fluent Emoji graphics",
+    "version": "1ffb34c",
+    "license": "MIT",
+    "url": "https://github.com/microsoft/fluentui-emoji"
+  },
+  {
     "name": "MediaPipe Face Landmarker model",
     "version": "float16/1",
     "license": "Apache-2.0",

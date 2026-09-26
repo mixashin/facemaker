@@ -16,6 +16,13 @@ export const EDITOR_STICKERS: { id: string; src: string }[] = [
   { id: 'eyes', src: '/stickers/1f440.svg' },
   { id: 'clownnose', src: '/stickers/1f534.svg' },
   { id: 'clown', src: '/stickers/1f921.svg' },
+  // Fluent Emoji (MIT)
+  { id: 'gradcap', src: '/stickers/fluent/1f393.svg' },
+  { id: 'sunhat', src: '/stickers/fluent/1f452.svg' },
+  { id: 'ribbon', src: '/stickers/fluent/1f380.svg' },
+  { id: 'star', src: '/stickers/fluent/1f31f.svg' },
+  { id: 'rainbow', src: '/stickers/fluent/1f308.svg' },
+  { id: 'butterfly', src: '/stickers/fluent/1f98b.svg' },
 ];
 
 const MIN_SCALE = 16;

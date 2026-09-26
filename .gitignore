@@ -25,7 +25,7 @@ dist-ssr
 
 # facemaker
 public/mediapipe
-public/stickers
+public/stickers/*.svg
 .scrapling_cache
 *.stackdump
 

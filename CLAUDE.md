@@ -48,3 +48,4 @@ Next session, in order (details in TODO.md "Handoff 2026-09-26 late"): 1) add Fl
     npm run build && npm run preview   # http://localhost:4173, production CSP active
     FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs [url]   # headless check, needs dev or preview server; SMOKE_OUT/SMOKE_SHOTS/SMOKE_PAGE/SMOKE_TEXT save screenshots
     node scripts/attributions.mjs   # after dependency changes (About screen list)
+    node scripts/fetch-fluent.mjs   # only when the Fluent sticker list changes; files are committed under public/stickers/fluent

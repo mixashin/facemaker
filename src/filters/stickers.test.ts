@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { STICKER_PACKS, emojiFile, spritesFor } from './stickers';
 import type { Face } from '../tracking/faceTracker';
 
@@ -23,6 +23,12 @@ describe('emojiFile', () => {
     expect(emojiFile('❤️')).toBe('/stickers/2764.svg');
     expect(emojiFile('🕶️')).toBe('/stickers/1f576.svg');
   });
+
+  it('maps an emoji to its Fluent file when the pack art is fluent', () => {
+    expect(emojiFile('🐯', 'fluent')).toBe('/stickers/fluent/1f42f.svg');
+    expect(emojiFile('🎀', 'fluent')).toBe('/stickers/fluent/1f380.svg');
+    expect(emojiFile('🎀', 'twemoji')).toBe('/stickers/1f380.svg');
+  });
 });
 
 describe('STICKER_PACKS', () => {
@@ -32,14 +38,47 @@ describe('STICKER_PACKS', () => {
     for (const p of STICKER_PACKS) expect(p.icon.length).toBeGreaterThan(0);
   });
 
-  it('every emoji used has a copied svg (run scripts/copy-twemoji.mjs)', () => {
+  it('every emoji used has its svg on disk (scripts/copy-twemoji.mjs, scripts/fetch-fluent.mjs)', () => {
     for (const p of STICKER_PACKS) for (const it of p.items) {
-      expect(existsSync('public' + emojiFile(it.emoji)), `${p.id}: ${it.emoji}`).toBe(true);
+      expect(existsSync('public' + emojiFile(it.emoji, p.art)), `${p.id}: ${it.emoji}`).toBe(true);
+    }
+  });
+
+  it('has the Fluent packs next to the Twemoji ones, nothing removed', () => {
+    const ids = STICKER_PACKS.map((p) => p.id);
+    for (const id of ['cat', 'dog', 'lion', 'ghost', 'disguise', 'sunglasses', 'crown', 'bow', 'stars', 'hearts', 'tongue']) expect(ids).toContain(id);
+    const fluent = STICKER_PACKS.filter((p) => p.art === 'fluent');
+    expect(fluent.length).toBeGreaterThanOrEqual(20);
+    for (const id of ['fluent-tiger', 'fluent-unicorn', 'fluent-nerd', 'fluent-rainbow', 'fluent-gradcap']) expect(ids).toContain(id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('shows the real art on every sticker chip (img), the none chip stays a glyph', () => {
+    expect(STICKER_PACKS[0].img).toBeUndefined();
+    for (const p of STICKER_PACKS.slice(1)) expect(p.img, p.id).toBe(emojiFile(p.icon, p.art));
+  });
+});
+
+describe('sticker svgs are art, not code', () => {
+  const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith('.svg') ? [`${dir}/${e.name}`] : []));
+  it('no script, no event handler, no external reference in any shipped sticker', () => {
+    const files = walk('public/stickers');
+    expect(files.length).toBeGreaterThan(40);
+    for (const f of files) {
+      const t = readFileSync(f, 'utf8').replace(/xmlns(:\w+)?="[^"]*"/g, '');
+      expect(t, f).not.toMatch(/<script|javascript:|on[a-z]+\s*=/i);
+      expect(t, f).not.toMatch(/(href|src)\s*=\s*"(?!#)|url\(\s*["']?(?!#)/i);
     }
   });
 });
 
 describe('spritesFor', () => {
+  it('fluent packs resolve their sprites to the fluent files', () => {
+    const s = spritesFor('fluent-tiger', [face()], ASPECT);
+    expect(s).toHaveLength(1);
+    expect(s[0].src).toBe('/stickers/fluent/1f42f.svg');
+  });
+
   it('returns nothing for none or for no faces', () => {
     expect(spritesFor('none', [face()], ASPECT)).toEqual([]);
     expect(spritesFor('cat', [], ASPECT)).toEqual([]);
@@ -49,7 +88,7 @@ describe('spritesFor', () => {
   it('cat mask sits on the face centre, sized 1.25 of the larger face dimension in x units', () => {
     const s = spritesFor('cat', [face()], ASPECT);
     expect(s).toHaveLength(1);
-    expect(s[0].emoji).toBe('🐱');
+    expect(s[0].src).toBe('/stickers/1f431.svg');
     expect(s[0].cx).toBeCloseTo(0.5, 4); expect(s[0].cy).toBeCloseTo(0.5, 4);
     const heightX = 0.6 / ASPECT; // 0.3375
     expect(s[0].size).toBeCloseTo(1.25 * Math.max(0.4, heightX), 4);

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { spriteTransform, SpriteLayer } from './spriteLayer';
 
-const s = (cx: number, cy: number, size = 0.1, angle = 0) => ({ emoji: '🐱', cx, cy, size, angle });
+const s = (cx: number, cy: number, size = 0.1, angle = 0) => ({ src: '/stickers/1f431.svg', cx, cy, size, angle });
 
 describe('spriteTransform', () => {
   it('maps the image centre to the origin', () => {

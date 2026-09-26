@@ -36,7 +36,7 @@ Items added during planning. Not yet triaged into spec. Triage happens in grill-
 - Language: Serbian + English, icon-first UI. i18n as JSON string tables so others can add languages. Assumption: Serbian Latin script, confirm.
 - Deploy: main = live at face.mxa.sh. Feature branches, PR build check, merge when it works on phone.
 - Pace: sprint. M1 as soon as possible.
-- Voice: @soundtouchjs/audio-worklet + formant-correction-worklet (MPL-2.0), audit before install. Robot, echo, telephone from native Web Audio nodes.
+- Voice: native-node delay-line pitch shifter (Tone.js method), no worklet (decided 2026-09-27, research/05; SoundTouchJS stays the upgrade path, MPL-2.0, audit first). Robot, echo, telephone, monster from native Web Audio nodes.
 - Gallery: in-app. OPFS files only, metadata in file names (IndexedDB dropped 2026-09-26). Save to device and share buttons. persist() once.
 - Defaults set without asking: recording mp4 first then webm fallback, snapshot JPEG 0.92, front and back camera switch, live voice monitoring off by default on phone, sticker assets from a permissive emoji set (Noto or Twemoji, attribution in About).
 
@@ -87,5 +87,5 @@ Decisions from the sticker research (research/04-sticker-art-alternatives-2026-0
 
 Order for the next session:
 - [x] Fluent Emoji Color packs (branch fluent-emoji, 2026-09-26): 14 masks + 6 props, 6 editor props, LICENSE-ASSETS.md, chips show real art.
-- [ ] M3 plan (video + voice): docs/SPEC.md M3, grill only new questions, then execute Native + Fable subagents like M2a/M2b. Grilled 2026-09-27: mic at first need, voice mirror, one shout preset; pitch engine pending research/05 (/deepresearch on voice-effect engines, operator doubted SoundTouchJS maintenance).
-- [ ] Prompt list + spec for the Piranesi prop set (when the operator asks).
+- [ ] M3 plan (video + voice): docs/SPEC.md M3, grill only new questions, then execute Native + Fable subagents like M2a/M2b. Grilled 2026-09-27: mic at first need, voice mirror, one shout preset; pitch engine: native-node Jungle graph (research/05, 2026-09-27).
+- [x] Prompt list + spec for the Piranesi prop set: docs/piranesi-props.json (2026-09-27). Asset sources: research/05-asset-sources-2026-09-27.md.

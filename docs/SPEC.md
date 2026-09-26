@@ -61,13 +61,13 @@ A camera toy for children aged 6 to 12. It warps faces, adds masks and stickers,
 
 ### M3: Video + voice
 
-- Record: `canvas.captureStream(30)` + Web Audio `MediaStreamDestination` into `MediaRecorder`. mimeType order: `video/mp4;codecs=avc1,mp4a.40.2`, `video/mp4`, `video/webm;codecs=vp9,opus`, `video/webm`. `start()` in try/catch. Timeslice 1000 ms. Max 60 s per clip (advanced: configurable).
-- Voice effects: SoundTouchJS worklets for pitch (chipmunk, deep, with formant correction), native nodes for robot (ring modulator), echo (delay + feedback), telephone (band-pass + bitcrush), monster (pitch down + distortion). Mic constraints: `echoCancellation`, `noiseSuppression`, `autoGainControl` all on by default (kids, speakers), off in advanced. Live monitoring off by default on phones.
+- Record (revised 2026-09-27, research/05): a second canvas at the cover-crop size is drawn from the stage each render frame and feeds `captureStream(30)`; Web Audio `MediaStreamDestination` supplies the processed mic track; `MediaRecorder` with mimeType order `video/mp4;codecs="avc1.424028,mp4a.40.2"`, `video/mp4`, `video/webm;codecs=vp9,opus`, `video/webm`, `videoBitsPerSecond` 4e6, no timeslice (one blob at stop; WebM then carries Duration on Chrome 140+), `start()` in try/catch. Max 60 s per clip. Hold the shutter to record, release to stop, progress ring on the shutter.
+- Voice effects (revised 2026-09-27, research/05): pitch shift by the native-node delay-line method (Tone.js PitchShift graph: two DelayNodes, sawtooth LFOs, crossfade LFOs, window 0.05 to 0.1 s), no AudioWorklet, no dependency. Presets: chipmunk (+8 st), deep (-6 st), monster (-8 st + WaveShaper + reverb), robot (ring modulator 30 Hz + bitcrush-free WaveShaper), echo (DelayNode feedback), telephone (2x lowpass 2 kHz + 2x highpass 500 Hz). Mic constraints: `echoCancellation`, `noiseSuppression`, `autoGainControl` on. No live monitoring. Upgrade path if quality disappoints on the phone: `@soundtouchjs/*` worklets (MPL-2.0, maintained, audit first) or Signalsmith Stretch (MIT WASM).
 - Audio-reactive scale: one `shout` warp preset in the faces strip; AnalyserNode volume scales its mouth and head handles (decided 2026-09-27).
 - Mic permission at first need (2026-09-27): the first hold on the shutter or the first open of the voice tab requests the mic; a kid who only takes photos never sees the prompt. The first hold shows the prompt and records once granted. Video records without audio when the mic is denied.
 - Voice mirror (2026-09-27): in the voice tab, hold 🎤, talk, release: the clip plays back through the chosen effect on the speaker (mic off during playback, so no feedback). No live monitoring on phones.
-- Pitch engine: chosen from research/05 (SoundTouchJS scoped worklets vs in-house worklet vs other permissive libraries).
-- Gallery plays videos. WebM duration fix if webm was used.
+- Pitch engine decided 2026-09-27: native-node delay-line (see Voice effects above).
+- Gallery plays videos (`<video controls playsinline>` in the viewer, first-frame thumbnail with a ▶ badge). No WebM duration fix: recordings have no timeslice, so Chrome 140+ writes Duration.
 
 ### M4: Makeup, face-onto-image, backgrounds
 

@@ -30,4 +30,4 @@ public/stickers
 *.stackdump
 
 # local test assets (operator selfie for scripts/smoke.mjs)
-test/face.*
+test/

@@ -30,7 +30,7 @@ export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    openStore().then((s) => { store.value = s; return refreshGallery(); });
+    openStore().then((s) => { store.value = s; return refreshGallery(); }).catch(() => {});
     const video = videoRef.current!, canvas = canvasRef.current!;
     let faces: Face[] = [];
     let raf = 0;
@@ -44,7 +44,7 @@ export function App() {
       onError: (m) => console.error('tracker', m),
     });
     const loop = (now: number) => {
-      t.push(video, now);
+      if (screen.value === 'camera') t.push(video, now);
       const aspect = video.videoWidth / video.videoHeight;
       r.setHandles([...handlesFor(preset.value, faces, aspect), ...sliderHandles(sliders.value, faces, aspect, now)]);
       r.setSprites(spritesFor(sticker.value, faces, aspect));
@@ -77,7 +77,7 @@ export function App() {
     setTimeout(() => (flash.value = false), 120);
     try {
       const file = await snapshot(canvasRef.current!);
-      if (store.value && (await safePut(store.value, file.name, file))) refreshGallery();
+      if (store.value && (await safePut(store.value, file.name, file))) { store.value.thumb(file.name).catch(() => {}); refreshGallery().catch(() => {}); }
       await shareOrDownload(file);
     } catch (e) {
       console.error('capture', e);
@@ -132,7 +132,7 @@ export function App() {
           {mode.value === 'warp' && <Strip items={PRESETS} value={preset.value} onPick={(id) => (preset.value = id as typeof preset.value)} label={t('tabs.warp')} />}
           {mode.value === 'sticker' && <Strip items={STICKER_PACKS} value={sticker.value} onPick={(id) => (sticker.value = id)} label={t('tabs.sticker')} />}
           {mode.value === 'text' && <TextEditor />}
-          <CaptureButton onCapture={capture} onFlip={() => (facing.value = facing.value === 'user' ? 'environment' : 'user')} onGallery={() => { refreshGallery(); screen.value = 'gallery'; }} />
+          <CaptureButton onCapture={capture} onFlip={() => (facing.value = facing.value === 'user' ? 'environment' : 'user')} onGallery={() => { refreshGallery().catch(() => {}); screen.value = 'gallery'; }} />
         </>
       )}
       {shouldShowTutorial(tutorialSeen.value, camState.value) && <Tutorial />}

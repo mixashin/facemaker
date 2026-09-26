@@ -102,7 +102,7 @@ src/
   filters/        presets: warp handle sets, sticker packs, makeup, backgrounds
   capture/        snapshot, MediaRecorder, mimeType detect, share, download
   audio/          mic graph, worklets, effect presets, analyser
-  storage/        OPFS files, IndexedDB metadata, quota, persist
+  storage/        OPFS files (photos/, thumbs/), names carry metadata, quota, persist
   i18n/           sr.json, en.json, t()
 public/
   mediapipe/wasm/ copied from node_modules at build

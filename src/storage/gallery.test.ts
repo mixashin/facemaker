@@ -55,7 +55,23 @@ describe('MemoryStore', () => {
   });
 });
 
+describe('MemoryStore zero-byte files', () => {
+  it('skips zero-byte files left by a failed write', async () => {
+    const s = new MemoryStore();
+    await s.put('facemaker-2026-09-26T10-00-00-000Z.jpg', blob(0));
+    await s.put('facemaker-2026-09-26T11-00-00-000Z.jpg', blob(5));
+    expect((await s.list()).map((i) => i.name)).toEqual(['facemaker-2026-09-26T11-00-00-000Z.jpg']);
+  });
+});
+
 describe('safePut', () => {
+  it('removes the ghost file when the write fails', async () => {
+    const deleted: string[] = [];
+    const bad = { put: async () => { throw new Error('full'); }, delete: async (n: string) => { deleted.push(n); } } as unknown as MemoryStore;
+    expect(await safePut(bad, 'facemaker-2026-09-26T10-00-00-000Z.jpg', blob(1))).toBe(false);
+    expect(deleted).toEqual(['facemaker-2026-09-26T10-00-00-000Z.jpg']);
+  });
+
   it('returns true on success and false when the store throws', async () => {
     const ok = new MemoryStore();
     expect(await safePut(ok, 'facemaker-2026-09-26T10-00-00-000Z.jpg', blob(1))).toBe(true);

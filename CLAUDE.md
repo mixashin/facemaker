@@ -11,7 +11,7 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 
 ## State (2026-09-26)
 
-M2b (gallery, photo editor, face lab) merged, tag `m2b`, live. M2a merged, tag `m2a`. M1 merged to main, tag `m1`, live at https://face.mxa.sh (HTTPS enforced). Verified headless with `scripts/smoke.mjs`; with `FACE=test/face.jpg` (operator selfie, gitignored) it tracks a real face and checks warp placement. Phone acceptance passed 2026-09-26 (operator: every filter and share work). M2 split: M2a look (stickers, text, themes, i18n, About + privacy, tutorial, new warp presets), then M2b tools (gallery, parametric sliders, post-capture sticker editor).
+M2b (gallery, photo editor, face lab) merged, tag `m2b`, live. Next: M3 plan (video + voice), see docs/SPEC.md M3 and TODO.md. M2a merged, tag `m2a`. M1 merged to main, tag `m1`, live at https://face.mxa.sh (HTTPS enforced). Verified headless with `scripts/smoke.mjs`; with `FACE=test/face.jpg` (operator selfie, gitignored) it tracks a real face and checks warp placement. Phone acceptance passed 2026-09-26 (operator: every filter and share work). M2 split: M2a look (stickers, text, themes, i18n, About + privacy, tutorial, new warp presets), then M2b tools (gallery, parametric sliders, post-capture sticker editor).
 
 ## Decisions (do not re-ask)
 

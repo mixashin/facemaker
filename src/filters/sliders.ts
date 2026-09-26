@@ -53,7 +53,7 @@ export function sliderHandles(state: SliderState, faces: Face[], _aspect: number
     for (const region of REGIONS) {
       const s = state[region.id];
       const st = strengthFor(s.mode, s.amount, tMs);
-      if (!st) continue;
+      if (!st || st.strength === 0) continue;
       for (const { c, r } of spots(region.id, f.landmarks)) out.push({ cx: c[0], cy: c[1], r, strength: st.strength, type: st.type });
     }
   }

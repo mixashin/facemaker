@@ -119,6 +119,13 @@ if (process.env.SMOKE_GALLERY) {
   await page.waitForTimeout(800);
   await click('moustache'); await page.waitForTimeout(400);
   if (out) writeFileSync(`${out}/page-editor.png`, await page.screenshot());
+  await closeSheet(); // editor -> viewer (Playwright fails here if the button is covered)
+  await closeSheet(); // viewer -> gallery
+  const backInGallery = (await page.locator('.viewer, .editor').count()) === 0 && (await page.locator('.gallery').count()) === 1;
+  console.log('close buttons in viewer and editor:', backInGallery ? 'OK' : 'FAIL');
+  await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
+  await click('Edit'); await page.waitForTimeout(800);
+  await click('moustache'); await page.waitForTimeout(400);
   await click('Save as new photo'); await page.waitForTimeout(1200);
   const after = await page.locator('.thumb').count();
   console.log('gallery photos before/after edit:', before, after, before >= 1 && after === before + 1 ? 'OK' : 'FAIL');

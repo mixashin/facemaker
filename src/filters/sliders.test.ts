@@ -37,6 +37,11 @@ describe('sliderHandles', () => {
     expect(Math.abs(a)).toBeGreaterThan(0);
   });
 
+  it('emits no handle when the strength is zero', () => {
+    expect(sliderHandles(withRegion('nose', 'size', 0), [face()], 16 / 9, 0)).toEqual([]);
+    expect(sliderHandles(withRegion('mouth', 'wobble', 1), [face()], 16 / 9, 0)).toEqual([]); // sin(0)
+  });
+
   it('swirl gives a type 1 handle, ears give two handles, two faces double everything', () => {
     expect(sliderHandles(withRegion('forehead', 'swirl', 0.5), [face()], 16 / 9, 0)[0].type).toBe(1);
     expect(sliderHandles(withRegion('ears', 'size', 0.5), [face()], 16 / 9, 0)).toHaveLength(2);

@@ -36,7 +36,7 @@ export class MemoryStore implements GalleryStore {
   constructor(private makeThumb: (b: Blob) => Promise<Blob> = async (b) => b) {}
   async list() {
     const out: GalleryItem[] = [];
-    for (const [name, b] of this.files) { const it = parseName(name); if (it) out.push({ ...it, size: b.size }); }
+    for (const [name, b] of this.files) { const it = parseName(name); if (it && b.size > 0) out.push({ ...it, size: b.size }); }
     return out.sort(newestFirst);
   }
   async put(name: string, blob: Blob) { this.files.set(name, blob); this.thumbs.delete(name); }
@@ -77,7 +77,9 @@ export class OpfsStore implements GalleryStore {
     const out: GalleryItem[] = [];
     for await (const [name, h] of this.photos.entries()) {
       const it = parseName(name);
-      if (it && h.kind === 'file') out.push({ ...it, size: (await (h as FileSystemFileHandle).getFile()).size });
+      if (!it || h.kind !== 'file') continue;
+      const size = (await (h as FileSystemFileHandle).getFile()).size;
+      if (size > 0) out.push({ ...it, size }); // a failed write leaves an empty file: never show it
     }
     return out.sort(newestFirst);
   }
@@ -88,8 +90,11 @@ export class OpfsStore implements GalleryStore {
     await this.thumbs.removeEntry(name).catch(() => {});
   }
   async clear() {
-    for await (const name of this.photos.keys()) await this.photos.removeEntry(name).catch(() => {});
-    for await (const name of this.thumbs.keys()) await this.thumbs.removeEntry(name).catch(() => {});
+    // collect first: removing while iterating is implementation-defined
+    const photos: string[] = []; for await (const n of this.photos.keys()) photos.push(n);
+    const thumbs: string[] = []; for await (const n of this.thumbs.keys()) thumbs.push(n);
+    for (const n of photos) await this.photos.removeEntry(n).catch(() => {});
+    for (const n of thumbs) await this.thumbs.removeEntry(n).catch(() => {});
   }
   async thumb(name: string) {
     const cached = await readFile(this.thumbs, name);
@@ -123,6 +128,7 @@ export async function safePut(store: GalleryStore, name: string, blob: Blob): Pr
     return true;
   } catch (e) {
     console.warn('gallery save failed', e);
+    try { await store.delete(name); } catch { /* nothing to remove */ } // no zero-byte ghost in the grid
     return false;
   }
 }

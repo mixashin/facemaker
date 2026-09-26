@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo } from 'preact/hooks';
 import { showSettings, showAbout, showFaceLab, store, items, refreshGallery } from './state';
 import { createConfirm } from './confirm';
 import { ThemePicker } from './ThemePicker';
@@ -6,11 +6,10 @@ import { markTutorialSeen } from './tutorialState';
 import { LANGS, lang, setLang, t } from '../i18n/i18n';
 
 export function Settings() {
-  const [usage, setUsage] = useState<{ used: number; quota: number } | null>(null);
-  useEffect(() => { refreshGallery(); store.value?.usage().then(setUsage); }, []);
+  useEffect(() => { refreshGallery().catch(() => {}); }, []);
   const confirm = useMemo(() => createConfirm(3000), []);
   const mb = (n: number) => (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + ' MB';
-  const clearAll = () => confirm.tap(async () => { await store.value?.clear(); await refreshGallery(); store.value?.usage().then(setUsage); });
+  const clearAll = () => confirm.tap(async () => { await store.value?.clear(); await refreshGallery(); });
   return (
     <div class="sheet" role="dialog" aria-label={t('settings.title')}>
       <button class="close" aria-label={t('settings.close')} onClick={() => (showSettings.value = false)}>✖</button>
@@ -24,7 +23,7 @@ export function Settings() {
       <h3>{t('settings.theme')}</h3>
       <ThemePicker />
       <h3>{t('settings.storage')}</h3>
-      <p class="line small">🖼️ {items.value.length} · {mb(items.value.reduce((a, i) => a + i.size, 0))}{usage && usage.quota > 0 ? ` / ${mb(usage.quota)}` : ''}</p>
+      <p class="line small">🖼️ {items.value.length} · {mb(items.value.reduce((a, i) => a + i.size, 0))}</p>
       <button class={'rowbtn' + (confirm.armed.value ? ' danger' : '')} aria-label="clear all" onClick={clearAll}>
         {confirm.armed.value ? '❓ ' + t('settings.clearConfirm') : '🗑️ ' + t('settings.clear')}
       </button>

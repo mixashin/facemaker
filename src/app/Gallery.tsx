@@ -6,9 +6,9 @@ import type { GalleryItem } from '../storage/gallery';
 function Thumb({ item }: { item: GalleryItem }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
-    let u: string | null = null;
-    store.value?.thumb(item.name).then((b) => { if (b) { u = URL.createObjectURL(b); setUrl(u); } });
-    return () => { if (u) URL.revokeObjectURL(u); };
+    let u: string | null = null, gone = false;
+    store.value?.thumb(item.name).then((b) => { if (!b) return; if (gone) return; u = URL.createObjectURL(b); setUrl(u); }).catch(() => {});
+    return () => { gone = true; if (u) URL.revokeObjectURL(u); };
   }, [item.name]);
   return (
     <button class="thumb" aria-label={item.name} onClick={() => { current.value = item.name; screen.value = 'viewer'; }}>

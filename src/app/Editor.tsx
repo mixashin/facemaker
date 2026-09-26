@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { screen, store, current, refreshGallery } from './state';
 import { safePut } from '../storage/gallery';
+import { shareOrDownload } from '../capture/share';
 import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, renderEditor, type EditorSticker, type P } from '../editor/editor';
 import { t } from '../i18n/i18n';
 
@@ -23,9 +24,9 @@ export function Editor() {
   const grabbed = useRef<number | null>(null);
 
   useEffect(() => {
-    let bmp: ImageBitmap | null = null;
-    store.value?.get(name).then((b) => b && createImageBitmap(b)).then((b) => { if (b) { bmp = b; setPhoto(b); } });
-    return () => bmp?.close();
+    let bmp: ImageBitmap | null = null, gone = false;
+    store.value?.get(name).then((b) => b && createImageBitmap(b)).then((b) => { if (!b) return; if (gone) { b.close(); return; } bmp = b; setPhoto(b); }).catch(() => {});
+    return () => { gone = true; bmp?.close(); };
   }, [name]);
 
   useEffect(() => {
@@ -76,7 +77,7 @@ export function Editor() {
     const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.92));
     if (!blob) return;
     const file = new File([blob], `facemaker-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`, { type: 'image/jpeg' });
-    await safePut(store.value, file.name, file);
+    if (!(await safePut(store.value, file.name, file))) await shareOrDownload(file); // full device: still hand it over
     await refreshGallery();
     screen.value = 'gallery';
   };

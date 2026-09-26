@@ -1,13 +1,20 @@
 // Headless smoke check with Chrome's fake camera. Not part of `npm test`.
 // Usage: node scripts/smoke.mjs [url]   (default http://localhost:5173)
-// Env: SMOKE_WAIT_MS (default 4000), FACE=path/to/face.png (default test/face.png if present; converted to y4m with ffmpeg)
-import { existsSync, statSync, mkdtempSync } from 'node:fs';
+// Env:
+//   SMOKE_WAIT_MS   wait after load before reading state (default 4000)
+//   FACE            image used as the camera feed (default test/face.png if present; converted to y4m with ffmpeg)
+//   SMOKE_OUT       directory for screenshots; enables the shot options below
+//   SMOKE_SHOTS     "sticker,cat;warp,upsideDown": click each group's aria-labels in order, save <last label>.png of the canvas
+//   SMOKE_PAGE      "theme,Blossom": click labels, save page-<last label>.png of the whole page, then close any open sheet
+//   SMOKE_TEXT      "Čćžšđ 🐱": type it in text mode, save text.png of the canvas
+import { existsSync, statSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { chromium } from 'playwright';
 
 const url = process.argv[2] ?? 'http://localhost:5173';
+const out = process.env.SMOKE_OUT;
 const face = process.env.FACE ?? (existsSync('test/face.png') ? 'test/face.png' : null);
 const args = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--enable-unsafe-swiftshader'];
 if (face) {
@@ -29,6 +36,17 @@ const downloads = [];
 page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+
+const click = async (label) => { await page.locator(`[aria-label="${label}"]`).first().click(); await page.waitForTimeout(400); };
+const closeSheet = async () => { const c = page.locator('.close'); if (await c.count()) { await c.first().click(); await page.waitForTimeout(300); } };
+
+// First launch: the tutorial covers the screen. Record it, then dismiss it.
+const tutorial = page.locator('[role="dialog"][aria-label="tutorial"]');
+const tutorialShown = (await tutorial.count()) > 0;
+if (tutorialShown && out) writeFileSync(`${out}/page-tutorial.png`, await page.screenshot());
+if (tutorialShown) await closeSheet();
+console.log('tutorial on first launch:', tutorialShown ? 'shown' : 'not shown');
+
 const state = await page.evaluate(async () => {
   const v = document.querySelector('video');
   const c = document.querySelector('canvas');
@@ -42,34 +60,38 @@ const state = await page.evaluate(async () => {
   };
 });
 console.log(JSON.stringify(state));
+
+const shot = async (labels) => { for (const l of labels) await click(l); return page.locator('canvas').screenshot(); };
+
 // Preset switch: the warped frame must differ from the plain one when a face is tracked.
-const shot = async (labels) => {
-  for (const l of labels) { await page.locator(`[aria-label="${l}"]`).first().click(); await page.waitForTimeout(400); } // chips, tabs and picker buttons all carry aria-label
-  return page.locator('canvas').screenshot();
-};
 if (state.fm?.faces > 0) {
   const plain = await shot(['none']), eyes = await shot(['bigEyes']);
   let diff = 0; for (let i = 0; i < plain.length; i++) if (plain[i] !== eyes[i]) diff++;
   console.log('preset pixel diff (png bytes):', diff, diff > 0 ? 'OK' : 'FAIL');
-  if (process.env.SMOKE_OUT) { const { writeFileSync } = await import('node:fs'); writeFileSync(`${process.env.SMOKE_OUT}/none.png`, plain); writeFileSync(`${process.env.SMOKE_OUT}/bigEyes.png`, eyes); }
+  if (out) { writeFileSync(`${out}/none.png`, plain); writeFileSync(`${out}/bigEyes.png`, eyes); }
 }
-// SMOKE_SHOTS="sticker,cat;warp,upsideDown": click each group's labels in order, save <last label>.png
-if (process.env.SMOKE_SHOTS && process.env.SMOKE_OUT) {
-  const { writeFileSync } = await import('node:fs');
+if (process.env.SMOKE_SHOTS && out) {
   for (const group of process.env.SMOKE_SHOTS.split(';')) {
     const labels = group.split(',').map((s) => s.trim()).filter(Boolean);
-    writeFileSync(`${process.env.SMOKE_OUT}/${labels.at(-1)}.png`, await shot(labels));
+    writeFileSync(`${out}/${labels.at(-1)}.png`, await shot(labels));
     console.log('shot:', labels.join(' > '));
   }
 }
-// SMOKE_PAGE="theme,Blossom": click labels, then save a full page screenshot as page-<last label>.png
-if (process.env.SMOKE_PAGE && process.env.SMOKE_OUT) {
-  const { writeFileSync } = await import('node:fs');
+if (process.env.SMOKE_PAGE && out) {
   const labels = process.env.SMOKE_PAGE.split(',').map((s) => s.trim()).filter(Boolean);
-  for (const l of labels) { await page.locator(`[aria-label="${l}"]`).first().click(); await page.waitForTimeout(400); }
-  writeFileSync(`${process.env.SMOKE_OUT}/page-${labels.at(-1)}.png`, await page.screenshot());
+  for (const l of labels) await click(l);
+  writeFileSync(`${out}/page-${labels.at(-1)}.png`, await page.screenshot());
   console.log('page shot:', labels.join(' > '));
+  await closeSheet();
 }
+if (process.env.SMOKE_TEXT && out) {
+  await click('text');
+  await page.locator('input.textin').fill(process.env.SMOKE_TEXT);
+  await page.waitForTimeout(500);
+  writeFileSync(`${out}/text.png`, await page.locator('canvas').screenshot());
+  console.log('shot: text');
+}
+
 // Shutter: a double tap must produce exactly one file.
 const shutter = page.getByRole('button', { name: 'take photo' });
 if (await shutter.count()) {

@@ -23,8 +23,8 @@
   "privacy.title": "Tvoje slike ostaju kod tebe",
   "privacy.p1": "Slika sa kamere ide samo na ovaj telefon ili računar. Facemaker crta smešno lice baš ovde.",
   "privacy.p2": "Ništa se ne šalje na internet. Nema naloga i nema praćenja.",
-  "privacy.p3": "Slika napušta uređaj samo kada dodirneš deli i izabereš druga ili aplikaciju.",
-  "privacy.p4": "Facemaker ne čuva tvoje slike. Sačuvana slika ide tamo gde je pošalješ: u preuzimanja ili u aplikaciju koju izabereš.",
+  "privacy.p3": "Slika ili snimak napušta uređaj samo kada dodirneš deli i izabereš druga ili aplikaciju.",
+  "privacy.p4": "Slike i snimci koje napraviš čuvaju se na ovom uređaju, u skladištu aplikacije. Obriši ih u galeriji ili u podešavanjima.",
   "privacy.flow.camera": "Kamera",
   "privacy.flow.device": "Ovaj uređaj",
   "privacy.flow.share": "Tvoje dugme deli",
@@ -41,8 +41,8 @@
   "viewer.edit": "Izmeni",
   "viewer.delete": "Obriši",
   "viewer.deleteConfirm": "Dodirni ponovo da obrišeš",
-  "settings.storage": "Slike na ovom uređaju",
-  "settings.clear": "Obriši sve slike",
+  "settings.storage": "Slike i snimci na ovom uređaju",
+  "settings.clear": "Obriši sve slike i snimke",
   "settings.clearConfirm": "Dodirni ponovo da obrišeš sve",
   "editor.title": "Ukrasi",
   "editor.save": "Sačuvaj kao novu sliku",
@@ -63,5 +63,10 @@
   "dock.title": "Efekti",
   "tabs.lab": "Laboratorija lica",
   "editor.done": "Gotovo",
-  "editor.clear": "Ukloni sve nalepnice"
+  "editor.clear": "Ukloni sve nalepnice",
+  "tutorial.record": "Drži veliko dugme da snimiš video",
+  "privacy.p5": "Mikrofon radi samo dok snimaš video, isprobavaš glas ili koristiš lice koje raste od vike. Isključuje se nekoliko sekundi kasnije. Zvuk ostaje na ovom uređaju.",
+  "tabs.voice": "Glas",
+  "voice.try": "Drži i pričaj",
+  "voice.denied": "Mikrofon je isključen. Dozvoli ga u podešavanjima pregledača."
 }

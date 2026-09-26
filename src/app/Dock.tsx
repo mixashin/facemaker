@@ -5,12 +5,14 @@ import { STICKER_PACKS } from '../filters/stickers';
 import { Strip } from './Strip';
 import { TextEditor } from './TextEditor';
 import { LabRows } from './FaceLab';
+import { VoicePanel } from './VoicePanel';
 import { t } from '../i18n/i18n';
 
 const TABS: { id: DockTab; icon: string }[] = [
   { id: 'warp', icon: '🎭' },
   { id: 'sticker', icon: '🐱' },
   { id: 'text', icon: '✏️' },
+  { id: 'voice', icon: '🎤' },
   { id: 'lab', icon: '🧪' },
 ];
 
@@ -36,6 +38,7 @@ export function Dock() {
         {tab === 'warp' && <Strip items={PRESETS} value={preset.value} onPick={(id) => { preset.value = id as typeof preset.value; if (id !== 'none') sliders.value = DEFAULT_SLIDERS; }} label={t('tabs.warp')} />}
         {tab === 'sticker' && <Strip items={STICKER_PACKS} value={sticker.value} onPick={(id) => (sticker.value = id)} label={t('tabs.sticker')} />}
         {tab === 'text' && <TextEditor />}
+        {tab === 'voice' && <VoicePanel />}
         {tab === 'lab' && <LabRows />}
       </div>
     </aside>

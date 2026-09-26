@@ -10,6 +10,7 @@
 //   SMOKE_TEXT      "Čćžšđ 🐱": type it in text mode, save text.png of the canvas
 //   SMOKE_GALLERY   1: take a photo, open the gallery, edit it with a sticker, save, expect one more photo
 //   SMOKE_VIEWPORT  "412x915": browser viewport (default 800x600)
+//   SMOKE_RECORD    1: pick the robot voice, hold the shutter 2.5 s, expect one video in the gallery with a video and an audio stream
 import { existsSync, statSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -44,7 +45,7 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
-const RAIL = new Set(['warp', 'sticker', 'text', 'lab']);
+const RAIL = new Set(['warp', 'sticker', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
 const click = async (label) => {
   if (RAIL.has(label)) await openDock();
@@ -146,6 +147,76 @@ if (process.env.SMOKE_GALLERY) {
   const after = await page.locator('.thumb').count();
   console.log('gallery photos before/after edit:', before, after, before >= 1 && after === before + 1 ? 'OK' : 'FAIL');
   await closeSheet();
+}
+// SMOKE_RECORD=1: hold the shutter, expect a playable clip with sound (the fake device has a microphone)
+if (process.env.SMOKE_RECORD) {
+  const support = await page.evaluate(() => ['video/mp4;codecs="avc1.424028,mp4a.40.2"', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].map((t) => `${t}=${MediaRecorder.isTypeSupported(t)}`));
+  console.log('recorder types:', support.join(' | '));
+  const micNow = () => page.evaluate(() => globalThis.__fm?.mic?.() ?? 'n/a');
+  const closeDock = async () => { await page.locator('canvas.stage').click({ position: { x: vw - 20, y: 120 } }); await page.waitForTimeout(300); };
+  // The shout preset listens to the mic: on while it is picked, off a few seconds after.
+  await click('warp'); await click('shout'); await page.waitForTimeout(1500);
+  const micShout = await micNow();
+  await click('none'); await closeDock(); await page.waitForTimeout(4000);
+  const micNone = await micNow();
+  console.log('mic with the shout preset:', micShout, '| a few seconds after it is off:', micNone, micShout === 'live' && micNone === 'idle' ? 'OK' : 'FAIL');
+  await click('voice'); await click('robot');
+  await page.waitForTimeout(800); // mic prompt (auto-accepted) and the audio graph
+  const mic = await page.evaluate(() => document.querySelector('[aria-label="voice mirror"]') ? 'mirror button' : document.querySelector('.voice [role=status]') ? 'denied hint' : 'nothing');
+  console.log('voice tab shows:', mic, mic === 'mirror button' ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/page-voice.png`, await page.screenshot());
+  await closeDock();
+  const clips0 = await page.evaluate(() => globalThis.__fm?.clips ?? 0);
+  const box = await page.getByRole('button', { name: 'take photo' }).boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(1200);
+  const recUi = await page.evaluate(() => ({ rec: !!document.querySelector('.shutter.rec'), dock: !!document.querySelector('.dock'), gear: !!document.querySelector('[aria-label="settings"]'), mic: globalThis.__fm?.mic?.() }));
+  console.log('while recording:', JSON.stringify(recUi), recUi.rec && !recUi.dock && !recUi.gear && recUi.mic === 'live' ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/page-recording.png`, await page.screenshot());
+  await page.waitForTimeout(1300);
+  await page.mouse.up();
+  await page.waitForTimeout(3000);
+  const clips = (await page.evaluate(() => globalThis.__fm?.clips ?? 0)) - clips0;
+  console.log('hold to record: saved clips', clips, clips === 1 ? 'OK' : 'FAIL');
+  await click('gallery');
+  const badge = await page.locator('.thumb .badge').count();
+  const thumbImg = await page.locator('.thumb').first().locator('img').count();
+  console.log('gallery shows a video badge:', badge >= 1 ? 'OK' : 'FAIL', '| video thumbnail image:', thumbImg === 1 ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/page-gallery-video.png`, await page.screenshot());
+  await page.locator('.thumb').first().click(); await page.waitForTimeout(1200);
+  const playing = await page.evaluate(() => { const v = document.querySelector('video.full'); return v ? { w: v.videoWidth, h: v.videoHeight, err: v.error?.code ?? 0, edit: !!document.querySelector('[aria-label="Edit"]') } : null; });
+  console.log('viewer video:', JSON.stringify(playing), playing && playing.w > 0 && playing.err === 0 && !playing.edit ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/page-video.png`, await page.screenshot());
+  const dl0 = downloads.length;
+  await click('Save'); await page.waitForTimeout(1500);
+  if (downloads.length === dl0 + 1) {
+    const path = await downloads[dl0].path();
+    const info = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name,width,height:format=duration', '-of', 'json', path]).toString());
+    const kinds = info.streams.map((st) => `${st.codec_type}:${st.codec_name}`).join(' ');
+    const v = info.streams.find((st) => st.codec_type === 'video');
+    const stage = await page.evaluate(() => { const r = document.querySelector('canvas.stage').getBoundingClientRect(); return r.width / r.height; });
+    console.log('clip file:', downloads[dl0].suggestedFilename(), statSync(path).size, 'bytes,', kinds, 'duration', info.format?.duration ?? 'n/a');
+    console.log('clip has video and audio:', /video:/.test(kinds) && /audio:/.test(kinds) ? 'OK' : 'FAIL');
+    console.log('clip aspect', (v.width / v.height).toFixed(3), 'screen', stage.toFixed(3), Math.abs(v.width / v.height - stage) < 0.03 ? 'OK' : 'FAIL');
+  } else console.log('viewer save downloads the clip: FAIL');
+  await closeSheet(); await closeSheet();
+  // Privacy page: the mic turns off a few seconds after the last use.
+  await page.waitForTimeout(1000);
+  const micIdle = await micNow();
+  console.log('mic a few seconds after the recording:', micIdle, micIdle === 'idle' ? 'OK' : 'FAIL');
+  // A slow tap is a photo, not a clip of a few frames.
+  const n0 = await page.evaluate(() => ({ shots: globalThis.__fm.shots, clips: globalThis.__fm.clips }));
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(450);
+  await page.mouse.up();
+  await page.waitForTimeout(2500);
+  const n1 = await page.evaluate(() => ({ shots: globalThis.__fm.shots, clips: globalThis.__fm.clips, rec: !!document.querySelector('.shutter.rec') }));
+  console.log('slow tap (450 ms): photos', n1.shots - n0.shots, 'clips', n1.clips - n0.clips, n1.shots - n0.shots === 1 && n1.clips === n0.clips && !n1.rec ? 'OK' : 'FAIL');
+  await page.waitForTimeout(3500);
+  const micIdle2 = await micNow();
+  console.log('mic a few seconds after the slow tap:', micIdle2, micIdle2 === 'idle' ? 'OK' : 'FAIL');
 }
 // Shutter: a double tap must produce exactly one file.
 const shutter = page.getByRole('button', { name: 'take photo' });

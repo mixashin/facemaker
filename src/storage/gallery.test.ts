@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseName, MemoryStore, safePut } from './gallery';
+import { parseName, mimeForName, MemoryStore, safePut } from './gallery';
 
 const blob = (n: number) => new Blob([new Uint8Array(n)], { type: 'image/jpeg' });
 
@@ -77,5 +77,29 @@ describe('safePut', () => {
     expect(await safePut(ok, 'facemaker-2026-09-26T10-00-00-000Z.jpg', blob(1))).toBe(true);
     const bad = { put: async () => { throw new DOMException('full', 'QuotaExceededError'); } } as unknown as MemoryStore;
     expect(await safePut(bad, 'facemaker-2026-09-26T10-00-00-000Z.jpg', blob(1))).toBe(false);
+  });
+});
+
+describe('video support', () => {
+  it('knows the mime type from the file name, because OPFS files carry none', () => {
+    expect(mimeForName('facemaker-2026-09-27T10-20-30-456Z.jpg')).toBe('image/jpeg');
+    expect(mimeForName('facemaker-2026-09-27T10-20-30-456Z.mp4')).toBe('video/mp4');
+    expect(mimeForName('facemaker-2026-09-27T10-20-30-456Z.webm')).toBe('video/webm');
+    expect(mimeForName('notes.txt')).toBe('application/octet-stream');
+  });
+
+  it('hands the file name to the thumbnail maker, so a video gets a frame grab', async () => {
+    const seen: string[] = [];
+    const s = new MemoryStore(async (b, name) => { seen.push(name); return b; });
+    await s.put('facemaker-2026-09-27T10-20-30-456Z.mp4', blob(30));
+    await s.thumb('facemaker-2026-09-27T10-20-30-456Z.mp4');
+    await s.thumb('facemaker-2026-09-27T10-20-30-456Z.mp4'); // cached
+    expect(seen).toEqual(['facemaker-2026-09-27T10-20-30-456Z.mp4']);
+  });
+
+  it('lists a saved video as a video', async () => {
+    const s = new MemoryStore();
+    await s.put('facemaker-2026-09-27T10-20-30-456Z.webm', blob(30));
+    expect((await s.list())[0].type).toBe('video');
   });
 });

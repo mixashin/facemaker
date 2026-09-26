@@ -57,7 +57,7 @@ Items added during planning. Not yet triaged into spec. Triage happens in grill-
 - [ ] About screen (M2): attribution for every dependency and asset (Preact, Three.js, MediaPipe tasks-vision + models, vite-plugin-pwa/Workbox, Twemoji, fonts, SoundTouchJS later, avatars later) with license names and links. Generate the list from package.json at build time where possible.
 - [ ] About screen (M2): plain-language privacy page for parents and kids. What the camera and mic feed does (stays in the browser), what is stored (gallery in the browser's own storage on the device), what leaves the device (nothing, except photos and videos the user shares on purpose), no accounts, no analytics, how to delete everything (clear all button). One simple data-flow diagram: camera → this device → your share button. Serbian and English.
 - [ ] First-launch tutorial (M2): kid-friendly, icon and animation driven, 3 to 5 steps (pick a filter, tap the shutter, hold for video later, share, gallery). Skippable. Seen flag in localStorage. Button in the settings panel to restart the tutorial.
-- [ ] Tutorial step for M3: hold the shutter to record video, release to stop. Added to the tutorial when video ships.
+- [x] Tutorial step for M3: hold the shutter to record video, release to stop. Added to the tutorial when video ships. (2026-09-27)
 - M1 phone acceptance 2026-09-26: operator tested every filter and share on the phone, all good.
 
 ## Deferred from the M2a review (2026-09-26)
@@ -87,7 +87,7 @@ Decisions from the sticker research (research/04-sticker-art-alternatives-2026-0
 
 Order for the next session:
 - [x] Fluent Emoji Color packs (branch fluent-emoji, 2026-09-26): 14 masks + 6 props, 6 editor props, LICENSE-ASSETS.md, chips show real art.
-- [ ] M3 plan (video + voice): docs/SPEC.md M3, grill only new questions, then execute Native + Fable subagents like M2a/M2b. Grilled 2026-09-27: mic at first need, voice mirror, one shout preset; pitch engine: native-node Jungle graph (research/05, 2026-09-27).
+- [x] M3 plan (video + voice), built 2026-09-27 on branch m3-video-voice, plan docs/superpowers/plans/2026-09-27-m3-video-voice.md: docs/SPEC.md M3, grill only new questions, then execute Native + Fable subagents like M2a/M2b. Grilled 2026-09-27: mic at first need, voice mirror, one shout preset; pitch engine: native-node Jungle graph (research/05, 2026-09-27).
 - [x] Prompt list + spec for the Piranesi prop set: docs/piranesi-props.json (2026-09-27). Asset sources: research/06-asset-sources-2026-09-27.md.
 
 ## Handoff 2026-09-27 (M3 plan next)
@@ -96,7 +96,7 @@ State: Fluent packs live (PR #11). research/05 done. All M3 questions answered (
 
 Next: write `docs/superpowers/plans/2026-09-27-m3-video-voice.md` (superpowers:writing-plans, TDD tasks), then execute Native + Fable worktree subagents, one fresh Fable reviewer, PR, merge, tag m3. Design worked out on 2026-09-27 (code already read: App.tsx capture flow, CaptureButton, state.ts, Dock rail, gallery.ts stores, Viewer, tutorialState STEPS, presets.ts handlesFor, renderer, csp.ts media-src blob:, smoke.mjs fake camera args, i18n parity test, tutorialState test expects 4 steps):
 
-- `src/audio/voice.ts` (pure, tested): `VOICE_PRESETS` none/chipmunk(+8 st)/deep(-6)/monster(-8 + distortion + reverb)/robot(ring mod 30 Hz)/echo(delay 0.25 s, feedback 0.4)/telephone(2x LP 2 kHz + 2x HP 500 Hz); `voiceParams(id)`; delay-line shifter math `shiftParams(semitones, window=0.08)` -> `{ rate: |r-1|/window, amp: -window*sign(r-1), base: r>1 ? window : 0 }` with r = 2^(st/12); `rampTable(n)` 0..1 linear, `fadeTable(n)` = sin^2(pi t) (fade(t)^2 + fade(t+0.5)^2 = 1); `distortionCurve(k)`; `impulse(sampleRate, seconds, decay)`; `rmsToLevel(rms)` 0..1 smoothed.
+- `src/audio/voice.ts` (pure, tested): `VOICE_PRESETS` none/chipmunk(+8 st)/deep(-6)/monster(-8 + distortion + reverb)/robot(ring mod 30 Hz)/echo(delay 0.25 s, feedback 0.4)/telephone(2x LP 2 kHz + 2x HP 500 Hz); `voiceParams(id)`; delay-line shifter math `shiftParams(semitones, window=0.08)` -> `{ rate: |r-1|/window, amp: -window*sign(r-1), base: r>1 ? window : 0 }` with r = 2^(st/12); `rampTable(n)` 0..1 linear, `fadeTable(n)` = sin^2(pi t) (fade(t) + fade(t+0.5) = 1); `distortionCurve(k)`; `impulse(sampleRate, seconds, decay)`; `rmsToLevel(rms)` 0..1 smoothed.
 - `src/audio/engine.ts` (browser): `PitchShifter` = two DelayNodes, delayTime = base + amp * looping ramp AudioBufferSource (1 s buffer, playbackRate = rate, second source offset 0.5 s), crossfade gains from looping fade buffers (same playbackRate, offsets 0 and 0.5); `buildChain(ctx, source, params)` native nodes only; `VoiceEngine` lazy AudioContext on first need, `MediaStreamAudioSourceNode` -> chain -> `MediaStreamDestination` (recording) + `AnalyserNode` (shout level); `setPreset(id)` rebuilds; never connects to `ctx.destination`. Test the wiring with a small fake AudioContext (node kinds and params per preset).
 - `src/audio/mic.ts`: `getMic()` at first need (first hold or first voice preset / shout), constraints echoCancellation, noiseSuppression, autoGainControl on; `micState` signal idle/asking/live/denied; denied -> video without audio, 🔒🎤 hint.
 - `src/capture/recorder.ts` (tested with an injected fake MediaRecorder): `pickMimeType(isSupported)` order `video/mp4;codecs="avc1.424028,mp4a.40.2"`, `video/mp4`, `video/webm;codecs=vp9,opus`, `video/webm`; `extFor(mime)`; `recordName(ext)` matches gallery `parseName`; `evenSize(w,h)`; `Recorder.start(stream, mime)` no timeslice, `videoBitsPerSecond: 4e6`, `start()` in try/catch, `MAX_MS` 60000 auto stop, `stop(): Promise<File>`.
@@ -121,3 +121,35 @@ Findings to keep in mind:
 
 Open question for the operator:
 - [ ] Allow SIL OFL fonts? No Apache-2.0 playful display font covers the Serbian letter đ (Chewy, Luckiest Guy and Fontdiner Swanky are latin only). OFL fonts with latin-ext: Fredoka, Baloo 2 (both confirmed), Lilita One, Titan One, Bangers, Bubblegum Sans, Sniglet, Chango. If yes: bundle Fredoka or Baloo 2 with its OFL.txt as text font B, add OFL-1.1 to the allowed list (CLAUDE.md, attributions test regex, LICENSE-ASSETS.md). If no: keep the system fallback font. Relates to the deferred M2a minor "bundled font B".
+
+## M3 phone checks owed by the operator (2026-09-27)
+
+Headless Chromium cannot answer these. Check on the Fold before the merge:
+- [ ] Hold the big button: red button with ring, dock and gear hidden, release saves, the clip flies to the gallery.
+- [ ] First hold asks for the microphone. After the grant, the next hold records with sound.
+- [ ] Which file type the phone makes (gallery, save, look at the extension): mp4 expected. Headless Chromium fell back to vp9 + opus inside mp4, because it has no AAC encoder.
+- [ ] Voice quality of chipmunk, deep, monster, robot, echo, telephone in a saved clip. Flutter on long vowels is the known limit of the delay-line method.
+- [ ] Voice mirror in the 🎤 tab: hold, talk, release, hear it back.
+- [ ] Shout preset (📣 in the faces strip): mouth and head grow when the kid shouts.
+- [ ] Share a clip to Viber or WhatsApp and play it there.
+- [ ] Recording at the real camera resolution runs to the end (a 2018 Android bug stopped 1280x720 canvas recording silently).
+- [ ] Denied microphone: the hold still records a silent video, the voice tab shows the lock hint.
+
+## Deferred from the M3 review (2026-09-27)
+
+Fixed in the review pass: microphone released 3 s after the last use (leases), dead mic stream detected, slow tap gives a photo, voice panel cleans up on close, engine start errors no longer reject, privacy and delete texts cover videos.
+
+Minor, not done:
+- [ ] Shutter and mirror use `disabled` while pressed: a cap that fires with the finger down can swallow the next press once (use `aria-disabled` or cancel the hold).
+- [ ] Recorder treats every error as a type failure: an error late in a clip discards the clip and blacklists the type. Restart only within about 1 s of the start.
+- [ ] Video thumbnail load has no timeout (the seek has one); a load that never answers would keep the shutter busy.
+- [ ] Rotation or Fold open during a recording: the crop is fixed at the start. End the clip when the stage size changes.
+- [ ] Shout preset with a denied mic shows no hint in the faces strip.
+- [ ] All mic failures show the "allow it in settings" hint, also a computer with no microphone.
+- [ ] Shutter aria-label says "take photo" while recording; keyboard cannot record; the mirror button has no keyboard activation.
+- [ ] Gallery title and empty text still say photos only.
+- [ ] Capture stream video track is not stopped after a clip.
+- [ ] No unit test for the App record flow (startRec, stopRec, endHold); covered by the smoke only.
+- [ ] Smoke checks the video thumbnail by element count, not by `naturalWidth`.
+- [ ] The bare `video/mp4` fallback gave vp9 + opus inside mp4 in headless Chromium: decide after the phone check whether to skip it and go to webm.
+- [ ] Commit 6f3149d is red in history (one count test), fixed by the next commit.

@@ -35,4 +35,33 @@ describe('i18n', () => {
       expect((sr as Record<string, string>)[k].length, `empty sr ${k}`).toBeGreaterThan(0);
     }
   });
+
+  it('every tutorial step and the privacy lines have text in both languages', () => {
+    for (const k of ['tutorial.record', 'privacy.p4', 'privacy.p5', 'tabs.voice', 'voice.try', 'voice.denied']) {
+      expect((en as Record<string, string>)[k], `en ${k}`).toBeTruthy();
+      expect((sr as Record<string, string>)[k], `sr ${k}`).toBeTruthy();
+    }
+  });
+
+  it('the privacy page tells the truth about storage: photos and videos stay on the device', () => {
+    expect((en as Record<string, string>)['privacy.p4']).not.toMatch(/does not keep/i);
+    expect((en as Record<string, string>)['privacy.p4']).toMatch(/on this device/i);
+    expect((en as Record<string, string>)['privacy.p5']).toMatch(/microphone/i);
+  });
+
+  it('the privacy page names every use of the microphone and says when it turns off', () => {
+    const p5 = (en as Record<string, string>)['privacy.p5'];
+    expect(p5).toMatch(/record a video/i);
+    expect(p5).toMatch(/try a voice/i);
+    expect(p5).toMatch(/shout/i);
+    expect(p5).toMatch(/turns off/i);
+    expect((sr as Record<string, string>)['privacy.p5']).toMatch(/isključuje/i);
+  });
+
+  it('share and delete texts cover videos, not only photos', () => {
+    for (const k of ['privacy.p3', 'settings.clear', 'settings.storage']) {
+      expect((en as Record<string, string>)[k], `en ${k}`).toMatch(/video/i);
+      expect((sr as Record<string, string>)[k], `sr ${k}`).toMatch(/snim/i);
+    }
+  });
 });

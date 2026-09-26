@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { STEPS, loadTutorialSeen, shouldShowTutorial } from './tutorialState';
 
 describe('tutorial', () => {
-  it('has four steps with icons and i18n keys', () => {
-    expect(STEPS).toHaveLength(4);
+  it('has five steps with icons and i18n keys, the video step right after the photo step', () => {
+    expect(STEPS).toHaveLength(5);
     for (const s of STEPS) { expect(s.icon.length).toBeGreaterThan(0); expect(s.key.startsWith('tutorial.')).toBe(true); }
+    expect(STEPS.map((s) => s.key)).toEqual(['tutorial.filters', 'tutorial.stickers', 'tutorial.shutter', 'tutorial.record', 'tutorial.share']);
   });
 
   it('reads the seen flag from storage', () => {

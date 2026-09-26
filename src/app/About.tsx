@@ -18,6 +18,7 @@ export function About() {
       <p class="line">{t('privacy.p2')}</p>
       <p class="line">{t('privacy.p3')}</p>
       <p class="line">{t('privacy.p4')}</p>
+      <p class="line">{t('privacy.p5')}</p>
       <h2>{t('about.title')}</h2>
       <p class="line">{t('about.made')}</p>
       <ul class="credits">

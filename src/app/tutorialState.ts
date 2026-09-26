@@ -4,6 +4,7 @@ export const STEPS = [
   { icon: '✨', key: 'tutorial.filters' },
   { icon: '🐱', key: 'tutorial.stickers' },
   { icon: '⚪', key: 'tutorial.shutter' },
+  { icon: '🎥', key: 'tutorial.record' },
   { icon: '📤', key: 'tutorial.share' },
 ];
 const KEY = 'fm.tutorialSeen';

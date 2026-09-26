@@ -1,6 +1,6 @@
 export type P = { x: number; y: number };
-export type EditorSticker = { id: number; src: string; x: number; y: number; scale: number; rot: number };
-export type Ctx = Pick<CanvasRenderingContext2D, 'drawImage' | 'save' | 'restore' | 'translate' | 'rotate' | 'clearRect' | 'strokeRect' | 'shadowBlur' | 'shadowColor' | 'strokeStyle' | 'lineWidth'> & { canvas: { width: number; height: number } };
+export type EditorSticker = { id: number; src: string; x: number; y: number; scale: number; rot: number; flip?: boolean };
+export type Ctx = Pick<CanvasRenderingContext2D, 'drawImage' | 'save' | 'restore' | 'translate' | 'rotate' | 'clearRect' | 'strokeRect' | 'scale' | 'shadowBlur' | 'shadowColor' | 'strokeStyle' | 'lineWidth'> & { canvas: { width: number; height: number } };
 
 export const EDITOR_STICKERS: { id: string; src: string }[] = [
   { id: 'moustache', src: '/editor/moustache.svg' },
@@ -37,6 +37,8 @@ export function hitTest(stickers: EditorSticker[], p: P): EditorSticker | null {
 
 export function moveTo(s: EditorSticker, p: P): EditorSticker { return { ...s, x: p.x, y: p.y }; }
 
+export function flipSticker(s: EditorSticker): EditorSticker { return { ...s, flip: !s.flip }; }
+
 export function pinch(s: EditorSticker, a0: P, b0: P, a1: P, b1: P): EditorSticker {
   const d0 = Math.hypot(b0.x - a0.x, b0.y - a0.y) || 1, d1 = Math.hypot(b1.x - a1.x, b1.y - a1.y);
   const ang0 = Math.atan2(b0.y - a0.y, b0.x - a0.x), ang1 = Math.atan2(b1.y - a1.y, b1.x - a1.x);
@@ -64,6 +66,7 @@ export function renderEditor(ctx: Ctx, image: { width: number; height: number },
     ctx.save();
     ctx.translate(s.x, s.y);
     ctx.rotate(s.rot);
+    if (s.flip) ctx.scale(-1, 1);
     ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
     if (s.id === selectedId) {
       const pad = Math.max(6, s.scale * 0.06);

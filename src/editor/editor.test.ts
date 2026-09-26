@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, renderEditor, type EditorSticker } from './editor';
+import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker } from './editor';
 import { existsSync } from 'node:fs';
 
 const st = (id: number, x: number, y: number, scale = 100, rot = 0): EditorSticker => ({ id, src: '/editor/pimple.svg', x, y, scale, rot });
@@ -89,5 +89,24 @@ describe('renderEditor selection glow', () => {
     expect(b.calls).not.toContain('glow');
     renderEditor(b.ctx as never, { width: 500, height: 500 }, [st(1, 100, 100)], images);
     expect(b.calls).not.toContain('glow');
+  });
+});
+
+describe('mirror', () => {
+  it('flipSticker toggles the flip flag', () => {
+    const s = st(1, 10, 10);
+    expect(flipSticker(s).flip).toBe(true);
+    expect(flipSticker(flipSticker(s)).flip).toBe(false);
+  });
+
+  it('renderEditor mirrors a flipped sticker with a negative x scale', () => {
+    const calls: string[] = [];
+    const ctx = {
+      canvas: { width: 0, height: 0 }, clearRect() {}, drawImage() { calls.push('draw'); }, save() {}, restore() {},
+      translate() {}, rotate() {}, scale(x: number, y: number) { calls.push(`scale:${x},${y}`); }, strokeRect() {}, shadowBlur: 0, shadowColor: '', strokeStyle: '', lineWidth: 0,
+    };
+    const images = new Map<string, CanvasImageSource>([['/editor/pimple.svg', { width: 100, height: 100 } as unknown as CanvasImageSource]]);
+    renderEditor(ctx as never, { width: 500, height: 500 }, [{ ...st(1, 100, 100), flip: true }, st(2, 200, 200)], images);
+    expect(calls.filter((c) => c === 'scale:-1,1')).toHaveLength(1);
   });
 });

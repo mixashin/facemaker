@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { STICKER_PACKS, emojiFile, spritesFor } from './stickers';
 import type { Face } from '../tracking/faceTracker';
+// @ts-expect-error plain node script, no types; one copy of the scan for the fetch script and this test
+import { unsafeSvg } from '../../scripts/fetch-fluent.mjs';
 
 const ASPECT = 16 / 9;
 
@@ -55,7 +57,7 @@ describe('STICKER_PACKS', () => {
 
   it('shows the real art on every sticker chip (img), the none chip stays a glyph', () => {
     expect(STICKER_PACKS[0].img).toBeUndefined();
-    for (const p of STICKER_PACKS.slice(1)) expect(p.img, p.id).toBe(emojiFile(p.icon, p.art));
+    for (const p of STICKER_PACKS.slice(1)) expect(existsSync('public' + p.img!), p.id).toBe(true);
   });
 });
 
@@ -64,11 +66,24 @@ describe('sticker svgs are art, not code', () => {
   it('no script, no event handler, no external reference in any shipped sticker', () => {
     const files = walk('public/stickers');
     expect(files.length).toBeGreaterThan(40);
-    for (const f of files) {
-      const t = readFileSync(f, 'utf8').replace(/xmlns(:\w+)?="[^"]*"/g, '');
-      expect(t, f).not.toMatch(/<script|javascript:|on[a-z]+\s*=/i);
-      expect(t, f).not.toMatch(/(href|src)\s*=\s*"(?!#)|url\(\s*["']?(?!#)/i);
-    }
+    for (const f of files) expect(unsafeSvg(readFileSync(f, 'utf8')), f).toBeNull();
+  });
+
+  it('the scan refuses every construct that can run or fetch, in any quoting', () => {
+    const bad = [
+      '<svg><script>1</script></svg>', '<svg><svg:script>1</svg:script></svg>', "<svg><image href='https://x/a.png'/></svg>",
+      "<svg><use xlink:href='https://x/a.svg#i'/></svg>", '<svg><foreignObject><iframe src="https://x"/></foreignObject></svg>',
+      "<?xml-stylesheet href='https://x/a.css'?><svg/>", '<svg><style>@import "https://x/a.css";</style></svg>',
+      '<!DOCTYPE svg [<!ENTITY e "x">]><svg/>', '<svg onload="1"/>', "<svg><a href='javascript:1'/></svg>",
+      '<svg><rect fill="url(https://x/a.svg#g)"/></svg>', '<svg><set attributeName="onload" to="1"/></svg>',
+    ];
+    for (const b of bad) expect(unsafeSvg(b), b).not.toBeNull();
+    const ok = [
+      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><rect fill="url(#g)"/></svg>',
+      '<svg contentScriptType="text/ecmascript"><path d="M0 0"/></svg>',
+      '<svg><g style="mix-blend-mode:multiply"><circle r="1" fill="#f00"/></g></svg>',
+    ];
+    for (const o of ok) expect(unsafeSvg(o), o).toBeNull();
   });
 });
 

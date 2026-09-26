@@ -9,6 +9,6 @@ The app code is MIT (see LICENSE). The art and models it ships come from these s
 | MediaPipe Face Landmarker model | `public/models/face_landmarker-f16-v1.task` | Apache-2.0 | https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker |
 | Hand-drawn props (moustache, eyepatch, pirate hat, googly eyes, pimple) | `public/editor/*.svg` | MIT (this repo) | https://github.com/mixashin/facemaker |
 
-Files are served unchanged from the app origin. SVG files are checked to contain no script, no event handler and no external reference (test `sticker svgs are art, not code` in src/filters/stickers.test.ts; the fetch script refuses such files).
+Files are served unchanged from the app origin and are loaded only through `<img>` and canvas `drawImage` (image mode: no script runs, no subresource loads). As a supply-chain guard, `unsafeSvg` in `scripts/fetch-fluent.mjs` refuses SVG text with script, event handlers, style, entities, processing instructions, `use`, `image`, `foreignObject`, links, animation or any non-fragment `href`, `src` or `url()`; the test `sticker svgs are art, not code` runs the same check over every shipped file.
 
 Excluded on purpose: OpenMoji (CC BY-SA), JoyPixels (personal use), unscoped `soundtouchjs` (LGPL). Allowed licenses for this project: MIT, Apache-2.0, BSD, MPL-2.0, Unlicense, CC0, CC-BY.

@@ -2,8 +2,6 @@
 // Source: github.com/microsoft/fluentui-emoji at a pinned commit. No npm package exists, so this runs by hand
 // when the list changes, never at install time: node scripts/fetch-fluent.mjs
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
 
 export const COMMIT = '1ffb34c752ecf5d402f04cfb4b392c77f57c54bc'; // main, 2026-09-26
 export const REPO = 'https://github.com/microsoft/fluentui-emoji';
@@ -22,9 +20,11 @@ const slug = (name) => name.toLowerCase().replace(/ /g, '_');
 const raw = (path) => `https://raw.githubusercontent.com/microsoft/fluentui-emoji/${COMMIT}/${path.split('/').map(encodeURIComponent).join('/')}`;
 
 // The files are art, not code. Refuse anything that could run or fetch: the app makes zero third-party requests.
+// The app loads these only through <img> and canvas drawImage (image mode: no script, no subresources), so this is
+// a supply-chain guard on the fetch, not a runtime control. Quote-agnostic on purpose.
 export function unsafeSvg(text) {
-  if (/<script|javascript:|on[a-z]+\s*=/i.test(text)) return 'script';
-  if (/(href|src)\s*=\s*"(?!#)|url\(\s*["']?(?!#)/i.test(text.replace(/xmlns(:\w+)?="[^"]*"/g, ''))) return 'external reference';
+  if (/<!|<\?|<style|@import|[<:]script|<use|<image|<foreignObject|<a[\s>]|<set|<animate|javascript:|[\s"']on[a-z]+\s*=/i.test(text)) return 'script';
+  if (/(href|src)\s*=\s*["']?(?!#)|url\(\s*["']?(?!#)/i.test(text.replace(/xmlns(:\w+)?="[^"]*"/g, ''))) return 'external reference';
   return null;
 }
 
@@ -46,5 +46,4 @@ async function main() {
   console.log('fetched', Object.keys(FILES).length, 'fluent svgs + LICENSE into', dst, 'at', COMMIT.slice(0, 7));
 }
 
-const self = fileURLToPath(import.meta.url).toLowerCase(), invoked = resolve(process.argv[1] ?? '').toLowerCase();
-if (self === invoked) await main();
+if (import.meta.main) await main(); // Node 24; false under import (scripts/attributions.mjs, vitest)

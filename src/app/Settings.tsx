@@ -17,7 +17,7 @@ export function Settings() {
       <h3>{t('settings.theme')}</h3>
       <ThemePicker />
       <button class="rowbtn" onClick={() => { markTutorialSeen(false); showSettings.value = false; }}>❓ {t('settings.tutorial')}</button>
-      <button class="rowbtn" onClick={() => { showAbout.value = true; showSettings.value = false; }}>ℹ️ {t('settings.about')}</button>
+      <button class="rowbtn" aria-label="about" onClick={() => { showAbout.value = true; showSettings.value = false; }}>ℹ️ {t('settings.about')}</button>
     </div>
   );
 }

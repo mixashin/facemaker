@@ -81,9 +81,9 @@ describe('handlesFor', () => {
     expect(h[0].r).toBeCloseTo(0.62 * Math.max(0.4, 0.6 / (16 / 9)), 4); // face height converted to x units
   });
 
-  it('has twelve presets, each with an icon', () => {
-    expect(PRESETS).toHaveLength(12);
-    expect(new Set(PRESETS.map((p) => p.icon)).size).toBe(12);
+  it('has thirteen presets, each with an icon', () => {
+    expect(PRESETS).toHaveLength(13);
+    expect(new Set(PRESETS.map((p) => p.icon)).size).toBe(13);
   });
 });
 

@@ -1,9 +1,10 @@
-import { showThemes } from './state';
+import { showThemes, showSettings } from './state';
 import { ThemePicker } from './ThemePicker';
 
 export function TopBar() {
   return (
     <div class="top">
+      <button class="round" aria-label="settings" onClick={() => (showSettings.value = true)}>⚙️</button>
       <button class="round" aria-label="theme" aria-expanded={showThemes.value} onClick={() => (showThemes.value = !showThemes.value)}>🎨</button>
       {showThemes.value && <ThemePicker />}
     </div>

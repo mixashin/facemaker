@@ -134,3 +134,22 @@ Headless Chromium cannot answer these. Check on the Fold before the merge:
 - [ ] Share a clip to Viber or WhatsApp and play it there.
 - [ ] Recording at the real camera resolution runs to the end (a 2018 Android bug stopped 1280x720 canvas recording silently).
 - [ ] Denied microphone: the hold still records a silent video, the voice tab shows the lock hint.
+
+## Deferred from the M3 review (2026-09-27)
+
+Fixed in the review pass: microphone released 3 s after the last use (leases), dead mic stream detected, slow tap gives a photo, voice panel cleans up on close, engine start errors no longer reject, privacy and delete texts cover videos.
+
+Minor, not done:
+- [ ] Shutter and mirror use `disabled` while pressed: a cap that fires with the finger down can swallow the next press once (use `aria-disabled` or cancel the hold).
+- [ ] Recorder treats every error as a type failure: an error late in a clip discards the clip and blacklists the type. Restart only within about 1 s of the start.
+- [ ] Video thumbnail load has no timeout (the seek has one); a load that never answers would keep the shutter busy.
+- [ ] Rotation or Fold open during a recording: the crop is fixed at the start. End the clip when the stage size changes.
+- [ ] Shout preset with a denied mic shows no hint in the faces strip.
+- [ ] All mic failures show the "allow it in settings" hint, also a computer with no microphone.
+- [ ] Shutter aria-label says "take photo" while recording; keyboard cannot record; the mirror button has no keyboard activation.
+- [ ] Gallery title and empty text still say photos only.
+- [ ] Capture stream video track is not stopped after a clip.
+- [ ] No unit test for the App record flow (startRec, stopRec, endHold); covered by the smoke only.
+- [ ] Smoke checks the video thumbnail by element count, not by `naturalWidth`.
+- [ ] The bare `video/mp4` fallback gave vp9 + opus inside mp4 in headless Chromium: decide after the phone check whether to skip it and go to webm.
+- [ ] Commit 6f3149d is red in history (one count test), fixed by the next commit.

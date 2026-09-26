@@ -152,19 +152,27 @@ if (process.env.SMOKE_GALLERY) {
 if (process.env.SMOKE_RECORD) {
   const support = await page.evaluate(() => ['video/mp4;codecs="avc1.424028,mp4a.40.2"', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].map((t) => `${t}=${MediaRecorder.isTypeSupported(t)}`));
   console.log('recorder types:', support.join(' | '));
+  const micNow = () => page.evaluate(() => globalThis.__fm?.mic?.() ?? 'n/a');
+  const closeDock = async () => { await page.locator('canvas.stage').click({ position: { x: vw - 20, y: 120 } }); await page.waitForTimeout(300); };
+  // The shout preset listens to the mic: on while it is picked, off a few seconds after.
+  await click('warp'); await click('shout'); await page.waitForTimeout(1500);
+  const micShout = await micNow();
+  await click('none'); await closeDock(); await page.waitForTimeout(4000);
+  const micNone = await micNow();
+  console.log('mic with the shout preset:', micShout, '| a few seconds after it is off:', micNone, micShout === 'live' && micNone === 'idle' ? 'OK' : 'FAIL');
   await click('voice'); await click('robot');
   await page.waitForTimeout(800); // mic prompt (auto-accepted) and the audio graph
   const mic = await page.evaluate(() => document.querySelector('[aria-label="voice mirror"]') ? 'mirror button' : document.querySelector('.voice [role=status]') ? 'denied hint' : 'nothing');
   console.log('voice tab shows:', mic, mic === 'mirror button' ? 'OK' : 'FAIL');
   if (out) writeFileSync(`${out}/page-voice.png`, await page.screenshot());
-  await page.locator('canvas.stage').click({ position: { x: vw - 20, y: 120 } }); await page.waitForTimeout(300); // close the dock
+  await closeDock();
   const clips0 = await page.evaluate(() => globalThis.__fm?.clips ?? 0);
   const box = await page.getByRole('button', { name: 'take photo' }).boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.waitForTimeout(1200);
-  const recUi = await page.evaluate(() => ({ rec: !!document.querySelector('.shutter.rec'), dock: !!document.querySelector('.dock'), gear: !!document.querySelector('[aria-label="settings"]') }));
-  console.log('while recording:', JSON.stringify(recUi), recUi.rec && !recUi.dock && !recUi.gear ? 'OK' : 'FAIL');
+  const recUi = await page.evaluate(() => ({ rec: !!document.querySelector('.shutter.rec'), dock: !!document.querySelector('.dock'), gear: !!document.querySelector('[aria-label="settings"]'), mic: globalThis.__fm?.mic?.() }));
+  console.log('while recording:', JSON.stringify(recUi), recUi.rec && !recUi.dock && !recUi.gear && recUi.mic === 'live' ? 'OK' : 'FAIL');
   if (out) writeFileSync(`${out}/page-recording.png`, await page.screenshot());
   await page.waitForTimeout(1300);
   await page.mouse.up();
@@ -193,6 +201,22 @@ if (process.env.SMOKE_RECORD) {
     console.log('clip aspect', (v.width / v.height).toFixed(3), 'screen', stage.toFixed(3), Math.abs(v.width / v.height - stage) < 0.03 ? 'OK' : 'FAIL');
   } else console.log('viewer save downloads the clip: FAIL');
   await closeSheet(); await closeSheet();
+  // Privacy page: the mic turns off a few seconds after the last use.
+  await page.waitForTimeout(1000);
+  const micIdle = await micNow();
+  console.log('mic a few seconds after the recording:', micIdle, micIdle === 'idle' ? 'OK' : 'FAIL');
+  // A slow tap is a photo, not a clip of a few frames.
+  const n0 = await page.evaluate(() => ({ shots: globalThis.__fm.shots, clips: globalThis.__fm.clips }));
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(450);
+  await page.mouse.up();
+  await page.waitForTimeout(2500);
+  const n1 = await page.evaluate(() => ({ shots: globalThis.__fm.shots, clips: globalThis.__fm.clips, rec: !!document.querySelector('.shutter.rec') }));
+  console.log('slow tap (450 ms): photos', n1.shots - n0.shots, 'clips', n1.clips - n0.clips, n1.shots - n0.shots === 1 && n1.clips === n0.clips && !n1.rec ? 'OK' : 'FAIL');
+  await page.waitForTimeout(3500);
+  const micIdle2 = await micNow();
+  console.log('mic a few seconds after the slow tap:', micIdle2, micIdle2 === 'idle' ? 'OK' : 'FAIL');
 }
 // Shutter: a double tap must produce exactly one file.
 const shutter = page.getByRole('button', { name: 'take photo' });

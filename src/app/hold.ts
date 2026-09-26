@@ -21,3 +21,7 @@ export function createHold(onEvent: (e: HoldEvent) => void, thresholdMs = 350): 
     cancel() { end(false); },
   };
 }
+
+// A hold that ends this soon after it started is a slow tap. The kid wanted a photo.
+export const MIN_CLIP_MS = 700;
+export function isRealClip(heldMs: number, minMs = MIN_CLIP_MS): boolean { return heldMs >= minMs; }

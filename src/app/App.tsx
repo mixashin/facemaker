@@ -21,8 +21,9 @@ import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
 import { Recorder, type RecCtor } from '../capture/recorder';
 import { RecordCanvas } from '../capture/recordCanvas';
-import { ensureVoice, currentEngine } from '../audio/session';
-import type { HoldEvent } from './hold';
+import { acquireVoice, currentEngine, type Lease } from '../audio/session';
+import { micState } from '../audio/mic';
+import { isRealClip, type HoldEvent } from './hold';
 import { preset, facing, camState, flash, busy, dockOpen, sticker, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice } from './state';
 
 export function App() {
@@ -31,6 +32,8 @@ export function App() {
   const recCanvas = useRef<RecordCanvas | null>(null);
   const recorder = useRef<Recorder | null>(null);
   const holding = useRef(false);
+  const holdT0 = useRef(0);
+  const recLease = useRef<Lease | null>(null);
 
   useEffect(() => {
     openStore().then((s) => { store.value = s; return refreshGallery(); }).then(() => {
@@ -42,7 +45,7 @@ export function App() {
     let raf = 0;
     const r = new FaceRenderer(canvas, video);
     // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
-    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0 });
+    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value });
     const t = new FaceTracker({
       numFaces: 2,
       onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
@@ -76,9 +79,24 @@ export function App() {
     let first = true;
     const unsub = facing.subscribe(() => { if (first) { first = false; return; } start(); });
     // A hidden tab stops the render loop: end the clip and save it.
-    const onHide = () => { if (document.hidden) { holding.current = false; shutter.current('holdEnd'); } };
+    const onHide = () => { if (document.hidden && recording.value) stopRec(); };
     document.addEventListener('visibilitychange', onHide);
-    return () => { document.removeEventListener('visibilitychange', onHide); unsub(); cancelAnimationFrame(raf); t.stop(); r.dispose(); stopCamera(video); };
+    // The shout preset listens to the mic. It holds the mic only while it is on the visible camera screen.
+    let shout: Promise<Lease> | null = null;
+    const syncShout = () => {
+      const want = preset.value === 'shout' && screen.value === 'camera' && !document.hidden;
+      if (want && !shout) shout = acquireVoice(voice.value);
+      else if (!want && shout) { shout.then((l) => l.release()); shout = null; }
+    };
+    const unsubShout = [preset.subscribe(syncShout), screen.subscribe(syncShout)];
+    document.addEventListener('visibilitychange', syncShout);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      document.removeEventListener('visibilitychange', syncShout);
+      unsubShout.forEach((u) => u());
+      shout?.then((l) => l.release());
+      unsub(); cancelAnimationFrame(raf); t.stop(); r.dispose(); stopCamera(video);
+    };
   }, []);
 
   // Saved: the picture flies into the gallery button. Not saved (no device storage): hand the file over.
@@ -117,12 +135,13 @@ export function App() {
     if (busy.value || recording.value || camState.value !== 'live' || typeof MediaRecorder === 'undefined') return;
     const stage = canvasRef.current!;
     const rect = stage.getBoundingClientRect();
-    const engine = await ensureVoice(voice.value); // mic at first need. null when refused: a silent video
-    if (!holding.current || recording.value) return; // released while the permission prompt was open
+    const lease = await acquireVoice(voice.value); // mic at first need. no engine when refused: a silent video
+    if (!holding.current || recording.value) { lease.release(); return; } // released while the permission prompt was open
     const rc = new RecordCanvas(stage, { width: rect.width, height: rect.height });
     rc.draw(stage);
     recorder.current ??= new Recorder(MediaRecorder as unknown as RecCtor, (t) => MediaRecorder.isTypeSupported(t));
-    if (!recorder.current.start(rc.stream(30, engine?.stream ?? null), () => shutter.current('holdEnd'))) return;
+    if (!recorder.current.start(rc.stream(30, lease.engine?.stream ?? null), () => stopRec())) { lease.release(); return; }
+    recLease.current = lease;
     recCanvas.current = rc;
     recording.value = true;
     dockOpen.value = false;
@@ -139,16 +158,32 @@ export function App() {
     } catch (e) {
       console.error('record', e);
     } finally {
+      recLease.current?.release(); // the mic turns off a few seconds later (session.ts)
+      recLease.current = null;
       setTimeout(() => (busy.value = false), 500);
     }
+  };
+
+  // The finger came up. A long hold is a video. A hold that ended at once was a slow tap: drop what
+  // was recorded and take the photo the kid wanted.
+  const endHold = async () => {
+    if (isRealClip(performance.now() - holdT0.current)) return stopRec();
+    if (recording.value) {
+      recording.value = false;
+      recCanvas.current = null;
+      await recorder.current?.stop().catch(() => null);
+      recLease.current?.release();
+      recLease.current = null;
+    }
+    capture();
   };
 
   // The shutter handler must be stable (CaptureButton reads it once) and must see fresh closures.
   const shutter = useRef((_e: HoldEvent) => {});
   shutter.current = (e) => {
     if (e === 'tap') capture();
-    else if (e === 'holdStart') { holding.current = true; startRec(); }
-    else { holding.current = false; stopRec(); }
+    else if (e === 'holdStart') { holding.current = true; holdT0.current = performance.now(); startRec(); }
+    else { holding.current = false; endHold(); }
   };
   const onShutter = useRef((e: HoldEvent) => shutter.current(e)).current;
 

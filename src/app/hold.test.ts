@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createHold, type HoldEvent } from './hold';
+import { createHold, isRealClip, MIN_CLIP_MS, type HoldEvent } from './hold';
 
 let events: HoldEvent[];
 const mk = () => createHold((e) => events.push(e), 350);
@@ -52,5 +52,16 @@ describe('createHold', () => {
     h.down(); vi.advanceTimersByTime(400); h.up();
     h.down(); h.up();
     expect(events).toEqual(['tap', 'holdStart', 'holdEnd', 'tap']);
+  });
+});
+
+describe('isRealClip', () => {
+  it('a hold shorter than 700 ms is a slow tap: the kid gets a photo, not a clip of a few frames', () => {
+    expect(MIN_CLIP_MS).toBe(700);
+    expect(isRealClip(0)).toBe(false);
+    expect(isRealClip(100)).toBe(false);
+    expect(isRealClip(699)).toBe(false);
+    expect(isRealClip(700)).toBe(true);
+    expect(isRealClip(60_000)).toBe(true);
   });
 });

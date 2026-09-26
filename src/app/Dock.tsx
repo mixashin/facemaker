@@ -1,4 +1,4 @@
-import { dockOpen, dockTab, preset, sticker, sliders, voice, type DockTab } from './state';
+import { dockOpen, dockTab, preset, sticker, sliders, type DockTab } from './state';
 import { DEFAULT_SLIDERS } from '../filters/sliders';
 import { PRESETS } from '../filters/presets';
 import { STICKER_PACKS } from '../filters/stickers';
@@ -6,7 +6,6 @@ import { Strip } from './Strip';
 import { TextEditor } from './TextEditor';
 import { LabRows } from './FaceLab';
 import { VoicePanel } from './VoicePanel';
-import { ensureVoice } from '../audio/session';
 import { t } from '../i18n/i18n';
 
 const TABS: { id: DockTab; icon: string }[] = [
@@ -36,7 +35,7 @@ export function Dock() {
         ))}
       </div>
       <div class="dock-body">
-        {tab === 'warp' && <Strip items={PRESETS} value={preset.value} onPick={(id) => { preset.value = id as typeof preset.value; if (id !== 'none') sliders.value = DEFAULT_SLIDERS; if (id === 'shout') ensureVoice(voice.value).catch(() => {}); }} label={t('tabs.warp')} />}
+        {tab === 'warp' && <Strip items={PRESETS} value={preset.value} onPick={(id) => { preset.value = id as typeof preset.value; if (id !== 'none') sliders.value = DEFAULT_SLIDERS; }} label={t('tabs.warp')} />}
         {tab === 'sticker' && <Strip items={STICKER_PACKS} value={sticker.value} onPick={(id) => (sticker.value = id)} label={t('tabs.sticker')} />}
         {tab === 'text' && <TextEditor />}
         {tab === 'voice' && <VoicePanel />}

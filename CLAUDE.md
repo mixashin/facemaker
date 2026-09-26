@@ -11,7 +11,7 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 
 ## State (2026-09-26)
 
-M2a in progress on branch `m2a` (Tasks 1 to 9 done, Task 10 ship pending). M1 merged to main, tag `m1`, live at https://face.mxa.sh (HTTPS enforced). Verified headless with `scripts/smoke.mjs`; with `FACE=test/face.jpg` (operator selfie, gitignored) it tracks a real face and checks warp placement. Phone acceptance passed 2026-09-26 (operator: every filter and share work). M2 split: M2a look (stickers, text, themes, i18n, About + privacy, tutorial, new warp presets), then M2b tools (gallery, parametric sliders, post-capture sticker editor).
+M2b (gallery, photo editor, face lab) merged, tag `m2b`, live. M2a merged, tag `m2a`. M1 merged to main, tag `m1`, live at https://face.mxa.sh (HTTPS enforced). Verified headless with `scripts/smoke.mjs`; with `FACE=test/face.jpg` (operator selfie, gitignored) it tracks a real face and checks warp placement. Phone acceptance passed 2026-09-26 (operator: every filter and share work). M2 split: M2a look (stickers, text, themes, i18n, About + privacy, tutorial, new warp presets), then M2b tools (gallery, parametric sliders, post-capture sticker editor).
 
 ## Decisions (do not re-ask)
 
@@ -22,7 +22,7 @@ M2a in progress on branch `m2a` (Tasks 1 to 9 done, Task 10 ship pending). M1 me
 - Faces: up to 2, own One Euro smoothing.
 - Language: Serbian + English, icon-first, JSON string tables. Serbian Latin script assumed, confirm with operator.
 - Voice (M3): `@soundtouchjs/*` scoped packages (MPL-2.0), audit before install. Unscoped `soundtouchjs` is LGPL, never use it.
-- Gallery (M2): OPFS files + IndexedDB metadata.
+- Gallery: OPFS only (`photos/`, `thumbs/`), metadata in file names, no IndexedDB. Destructive actions need two taps.
 - Recording (M3): mp4 first, webm fallback, `start()` in try/catch.
 - Licenses allowed: MIT, Apache-2.0, BSD, MPL-2.0, Unlicense, CC0, CC-BY. No GPL.
 

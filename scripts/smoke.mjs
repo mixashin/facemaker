@@ -8,6 +8,7 @@
 //   SMOKE_SHOTS     "sticker,cat;warp,upsideDown": click each group's aria-labels in order, save <last label>.png of the canvas
 //   SMOKE_PAGE      "theme,Blossom": click labels, save page-<last label>.png of the whole page, then close any open sheet
 //   SMOKE_TEXT      "Čćžšđ 🐱": type it in text mode, save text.png of the canvas
+//   SMOKE_GALLERY   1: take a photo, open the gallery, edit it with a sticker, save, expect one more photo
 import { existsSync, statSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -33,8 +34,9 @@ page.on('console', (m) => logs.push(`${m.type()}: ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`pageerror: ${e.message}`));
 const egress = [];
 const own = new URL(url).hostname;
-page.on('request', (r) => { if (new URL(r.url()).hostname !== own) egress.push(`request ${r.url()}`); });
-page.on('requestfailed', (r) => { if (new URL(r.url()).hostname !== own) egress.push(`failed ${r.url()} ${r.failure()?.errorText}`); });
+const offOrigin = (u) => { const p = new URL(u); return p.protocol !== 'blob:' && p.protocol !== 'data:' && p.hostname !== own; };
+page.on('request', (r) => { if (offOrigin(r.url())) egress.push(`request ${r.url()}`); });
+page.on('requestfailed', (r) => { if (offOrigin(r.url())) egress.push(`failed ${r.url()} ${r.failure()?.errorText}`); });
 const downloads = [];
 page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
@@ -105,13 +107,32 @@ if (process.env.SMOKE_TEXT && out) {
   console.log('tap on the video closes the text box:', editorOpen === 0 ? 'OK' : 'FAIL');
 }
 
+// SMOKE_GALLERY=1: take a photo, open the gallery, edit it with a sticker, save, expect two photos
+if (process.env.SMOKE_GALLERY) {
+  await page.getByRole('button', { name: 'take photo' }).click();
+  await page.waitForTimeout(1500);
+  await click('gallery');
+  const before = await page.locator('.thumb').count();
+  if (out) writeFileSync(`${out}/page-gallery.png`, await page.screenshot());
+  await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
+  await click('Edit');
+  await page.waitForTimeout(800);
+  await click('moustache'); await page.waitForTimeout(400);
+  if (out) writeFileSync(`${out}/page-editor.png`, await page.screenshot());
+  await click('Save as new photo'); await page.waitForTimeout(1200);
+  const after = await page.locator('.thumb').count();
+  console.log('gallery photos before/after edit:', before, after, before >= 1 && after === before + 1 ? 'OK' : 'FAIL');
+  await closeSheet();
+}
 // Shutter: a double tap must produce exactly one file.
 const shutter = page.getByRole('button', { name: 'take photo' });
 if (await shutter.count()) {
+  const before = downloads.length;
   await shutter.dblclick({ delay: 30 });
   await page.waitForTimeout(3000);
-  for (const d of downloads) console.log('download:', d.suggestedFilename(), statSync(await d.path()).size, 'bytes');
-  console.log('downloads after double tap:', downloads.length, downloads.length === 1 ? 'OK' : 'FAIL');
+  for (const d of downloads.slice(before)) console.log('download:', d.suggestedFilename(), statSync(await d.path()).size, 'bytes');
+  const made = downloads.length - before;
+  console.log('downloads after double tap:', made, made === 1 ? 'OK' : 'FAIL');
 }
 console.log('--- third-party requests:', egress.length ? '' : 'none');
 for (const e of egress) console.log(e);

@@ -27,4 +27,4 @@ Two fences, because GitHub Pages cannot set response headers: the production `in
 
 After changing `dependencies`: `node scripts/attributions.mjs` (the About screen list; a test fails when stale).
 
-Screenshots from the headless smoke (needs a face image, see `FACE`): `SMOKE_OUT=<dir> SMOKE_SHOTS="sticker,cat;warp,upsideDown" SMOKE_PAGE="settings,about" SMOKE_TEXT="Čćžšđ 🐱" FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs http://localhost:4173`
+Screenshots from the headless smoke (needs a face image, see `FACE`): `SMOKE_OUT=<dir> SMOKE_SHOTS="sticker,cat;warp,upsideDown" SMOKE_PAGE="settings,about" SMOKE_TEXT="Čćžšđ 🐱" SMOKE_GALLERY=1 FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs http://localhost:4173`

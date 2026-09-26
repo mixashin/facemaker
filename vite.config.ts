@@ -1,10 +1,14 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { cspPlugin } from './src/csp.ts';
 
+const MP_VER = JSON.parse(readFileSync('node_modules/@mediapipe/tasks-vision/package.json', 'utf8')).version as string;
+
 export default defineConfig({
   base: '/',
+  define: { __MP_VER__: JSON.stringify(MP_VER) },
   plugins: [
     preact(),
     cspPlugin(),
@@ -46,7 +50,7 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
-  worker: { format: 'es' },
+  worker: { format: 'iife' },
   build: { target: 'es2022' },
   test: { environment: 'node', passWithNoTests: true },
 });

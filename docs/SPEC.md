@@ -51,6 +51,7 @@ A camera toy for children aged 6 to 12. It warps faces, adds masks and stickers,
 - About sheet: plain-language privacy page first (camera stays on the device, nothing is sent, a photo leaves only via share, no accounts, no tracking) with a three-box data-flow picture, then attributions for every shipped dependency and asset with licence and link, generated from `package.json` plus a manual asset list.
 - First-launch tutorial: 3 to 4 steps, icon plus one line, skip, shown once after the camera is live, restart from settings.
 - New warp presets: no nose, big ears, double chin, fat face, upside-down face (constant rotation inside the face oval, feathered rim).
+- Several warp presets at once (operator, 2026-09-27): chips in the faces strip toggle on and off, 5 active at most (`MAX_ACTIVE`), a sixth pick replaces the oldest, the first chip clears all. Handles of one face are sorted from the largest region to the smallest, so a big head is undone before the eyes and mouth inside it and every bulge sits on its feature. Handle budget 32 (`MAX_HANDLES`, equal to `MAX_H` in `warp.frag`): five presets on two faces need up to 20.
 
 ### M2b: Tools (gallery, parametric sliders, photo editor)
 

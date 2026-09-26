@@ -101,3 +101,23 @@ export function handlesFor(preset: PresetId, faces: Face[], aspect: number, leve
   if (preset === 'none' || faces.length === 0) return [];
   return faces.flatMap((f) => faceHandles(preset, f.landmarks, aspect, level));
 }
+
+// Several filters at once (operator, 2026-09-27). Five is the limit: a sixth pick replaces the oldest.
+export const MAX_ACTIVE = 5;
+// Handle budget of the shader (warp.frag MAX_H): five filters on two faces need up to 20.
+export const MAX_HANDLES = 32;
+
+export function togglePreset(active: PresetId[], id: PresetId, max = MAX_ACTIVE): PresetId[] {
+  if (id === 'none') return [];
+  if (active.includes(id)) return active.filter((p) => p !== id);
+  const next = [...active, id];
+  return next.length > max ? next.slice(next.length - max) : next;
+}
+
+// The shader maps each screen pixel back to the camera picture, one handle after the other. The largest
+// region goes first: the head is undone, then the eyes are found where the camera saw them. With the
+// small region first, the eye bulge lands beside the eye that the head warp moved.
+export function handlesForAll(active: PresetId[], faces: Face[], aspect: number, level = 0): Handle[] {
+  if (active.length === 0 || faces.length === 0) return [];
+  return faces.flatMap((f) => active.flatMap((p) => faceHandles(p, f.landmarks, aspect, level)).sort((a, b) => b.r - a.r));
+}

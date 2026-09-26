@@ -157,3 +157,7 @@ Minor, not done:
 ## Operator phone check of M3 (2026-09-27): passed
 
 Hold to record with the mic prompt, clip playback, voice effects in the clip, shout preset, share to a messenger: all passed on the Fold. One request: no playback in the background. Done: the viewer video and the voice mirror stop when the app goes to the background (`src/app/background.ts`).
+
+## Several filters at once (operator, 2026-09-27): done
+
+Up to 5 face filters together (big head + big eyes + big mouth and so on). One constant, `MAX_ACTIVE` in `src/filters/presets.ts`, changes the limit; 10 also fits the handle budget of 32 for one face, and for two faces only when the picks are small ones. Not done, ask if wanted: several sticker packs at once (hat + glasses).

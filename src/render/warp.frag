@@ -1,5 +1,5 @@
 precision highp float;
-#define MAX_H 16
+#define MAX_H 32
 uniform sampler2D uTex;
 uniform float uAspect;        // width / height of the video
 uniform bool uMirror;

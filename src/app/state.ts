@@ -9,7 +9,7 @@ import type { VoiceId } from '../audio/voice';
 
 export type CamState = 'idle' | 'starting' | 'live' | 'denied' | 'nocam' | 'error';
 
-export const preset = signal<PresetId>('none'); // clean start, the kid picks
+export const presets = signal<PresetId[]>([]); // active face filters in pick order. Clean start, the kid picks
 export const facing = signal<Facing>('user');
 export const camState = signal<CamState>('idle');
 export const flash = signal(false);

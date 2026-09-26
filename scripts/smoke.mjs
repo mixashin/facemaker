@@ -3,6 +3,7 @@
 // Env:
 //   SMOKE_WAIT_MS   wait after load before reading state (default 4000)
 //   FACE            image used as the camera feed (default test/face.png if present; converted to y4m with ffmpeg)
+//   FACE_ROTATE     degrees to roll the face image (head-tilt check for sticker rotation)
 //   SMOKE_OUT       directory for screenshots; enables the shot options below
 //   SMOKE_SHOTS     "sticker,cat;warp,upsideDown": click each group's aria-labels in order, save <last label>.png of the canvas
 //   SMOKE_PAGE      "theme,Blossom": click labels, save page-<last label>.png of the whole page, then close any open sheet
@@ -19,7 +20,9 @@ const face = process.env.FACE ?? (existsSync('test/face.png') ? 'test/face.png' 
 const args = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--enable-unsafe-swiftshader'];
 if (face) {
   const y4m = join(mkdtempSync(join(tmpdir(), 'facemaker-')), 'face.y4m');
-  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-loop', '1', '-i', face, '-t', '2', '-r', '15', '-vf', 'scale=640:480', '-pix_fmt', 'yuv420p', y4m]);
+  const rot = Number(process.env.FACE_ROTATE ?? 0);
+  const vf = rot ? `rotate=${rot}*PI/180:c=black,scale=640:480` : 'scale=640:480';
+  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-loop', '1', '-i', face, '-t', '2', '-r', '15', '-vf', vf, '-pix_fmt', 'yuv420p', y4m]);
   args.push(`--use-file-for-fake-video-capture=${y4m}`);
   console.log('face feed:', face);
 }

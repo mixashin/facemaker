@@ -78,7 +78,7 @@ describe('handlesFor', () => {
     expect(h[0].type).toBe(2);
     expect(h[0].strength).toBeCloseTo(Math.PI, 6);
     expect(h[0].cy).toBeCloseTo(0.5, 4);
-    expect(h[0].r).toBeGreaterThan(0.3);
+    expect(h[0].r).toBeCloseTo(0.62 * Math.max(0.4, 0.6 / (16 / 9)), 4); // face height converted to x units
   });
 
   it('has twelve presets, each with an icon', () => {

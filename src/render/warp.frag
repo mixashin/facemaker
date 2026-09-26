@@ -5,7 +5,7 @@ uniform float uAspect;        // width / height of the video
 uniform bool uMirror;
 uniform int uCount;
 uniform vec4 uHandle[MAX_H];  // cx, cy, r, strength (normalized video coords, r in x units)
-uniform float uType[MAX_H];   // 0 scale, 1 swirl
+uniform float uType[MAX_H];   // 0 scale, 1 swirl, 2 flip
 varying vec2 vUv;
 
 void main() {

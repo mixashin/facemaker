@@ -24,3 +24,12 @@ describe('text layer math', () => {
     expect(elementToCanvas(0.2, 0.8, 1.5, 1.5)).toEqual([0.2, 0.8]);
   });
 });
+
+describe('fonts', () => {
+  it('font b ends in a generic family that differs from font a on every platform', async () => {
+    const { FONTS } = await import('./textLayer');
+    const generic = (stack: string) => stack.split(',').at(-1)!.trim();
+    expect(generic(FONTS.a)).toBe('sans-serif');
+    expect(generic(FONTS.b)).toBe('serif');
+  });
+});

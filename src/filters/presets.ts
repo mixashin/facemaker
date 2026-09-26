@@ -32,12 +32,13 @@ function mean(lm: Float32Array, idx: number[]): [number, number] {
   return [x / idx.length, y / idx.length];
 }
 
-function faceHandles(preset: PresetId, lm: Float32Array): Handle[] {
+function faceHandles(preset: PresetId, lm: Float32Array, aspect: number): Handle[] {
   const [lx] = pt(lm, L_CHEEK), [rx] = pt(lm, R_CHEEK);
   const width = Math.abs(rx - lx);
   const [cx, cy] = pt(lm, NOSE);
   const [, ty] = pt(lm, TOP), [, by] = pt(lm, CHIN);
   const height = Math.abs(by - ty);
+  const heightX = height / aspect; // face height in x units, for radii
   const [lex, ley] = mean(lm, L_IRIS), [rex, rey] = mean(lm, R_IRIS);
   const [mux, muy] = pt(lm, LIP_U), [mlx, mly] = pt(lm, LIP_L);
   const mouth: [number, number] = [(mux + mlx) / 2, (muy + mly) / 2];
@@ -51,9 +52,9 @@ function faceHandles(preset: PresetId, lm: Float32Array): Handle[] {
     case 'bigMouth':
       return [{ cx: mouth[0], cy: mouth[1], r: width * 0.35, strength: 0.6, type: 0 }];
     case 'bigHead':
-      return [{ cx, cy: (ty + by) / 2, r: Math.max(width, height) * 0.95, strength: 0.4, type: 0 }];
+      return [{ cx, cy: (ty + by) / 2, r: Math.max(width, heightX) * 0.95, strength: 0.4, type: 0 }];
     case 'smallFace':
-      return [{ cx, cy, r: Math.max(width, height) * 0.8, strength: -0.45, type: 0 }];
+      return [{ cx, cy, r: Math.max(width, heightX) * 0.8, strength: -0.45, type: 0 }];
     case 'bulge':
       return [{ cx, cy, r: width * 0.5, strength: 0.7, type: 0 }];
     case 'swirl':
@@ -80,13 +81,13 @@ function faceHandles(preset: PresetId, lm: Float32Array): Handle[] {
       ];
     }
     case 'upsideDown':
-      return [{ cx, cy: (ty + by) / 2, r: Math.max(width, height) * 0.62, strength: Math.PI, type: 2 }];
+      return [{ cx, cy: (ty + by) / 2, r: Math.max(width, heightX) * 0.62, strength: Math.PI, type: 2 }];
     default:
       return [];
   }
 }
 
-export function handlesFor(preset: PresetId, faces: Face[], _aspect: number): Handle[] {
+export function handlesFor(preset: PresetId, faces: Face[], aspect: number): Handle[] {
   if (preset === 'none' || faces.length === 0) return [];
-  return faces.flatMap((f) => faceHandles(preset, f.landmarks));
+  return faces.flatMap((f) => faceHandles(preset, f.landmarks, aspect));
 }

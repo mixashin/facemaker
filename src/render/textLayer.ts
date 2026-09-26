@@ -2,7 +2,8 @@ import * as THREE from 'three';
 
 export type TextState = { text: string; color: string; font: 'a' | 'b'; x: number; y: number; scale: number };
 export const TEXT_COLORS = ['#ffffff', '#ffe600', '#ff5fb0', '#3bd1ff', '#5cff7a', '#111111'];
-const FONTS = { a: 'system-ui, sans-serif', b: 'Impact, "Arial Black", sans-serif' };
+// Font b ends in serif: Impact on Windows, Noto Serif on Android, so the toggle changes the face everywhere.
+export const FONTS = { a: 'system-ui, sans-serif', b: 'Impact, "Arial Black", serif' };
 const W = 1024, H = 256, MAX_PX = 96;
 
 export function textVisible(s: TextState | null): boolean {

@@ -59,3 +59,15 @@ Items added during planning. Not yet triaged into spec. Triage happens in grill-
 - [ ] First-launch tutorial (M2): kid-friendly, icon and animation driven, 3 to 5 steps (pick a filter, tap the shutter, hold for video later, share, gallery). Skippable. Seen flag in localStorage. Button in the settings panel to restart the tutorial.
 - [ ] Tutorial step for M3: hold the shutter to record video, release to stop. Added to the tutorial when video ships.
 - M1 phone acceptance 2026-09-26: operator tested every filter and share on the phone, all good.
+
+## Deferred from the M2a review (2026-09-26)
+
+- [ ] `<html lang>` follows the active language (setLang + init).
+- [ ] Theme popover closes after a pick (one statement in ThemePicker).
+- [ ] Text: ✖ chip to clear the text (a typed word stays on every photo until backspaced).
+- [ ] Per-frame allocations: sprite transform object, text key string, `getBoundingClientRect` per frame (cache via ResizeObserver). Profile on the phone first.
+- [ ] Icon-only button labels: swatches labelled with hex codes, TopBar labels untranslated (smoke keys on them; add `data-id` for the smoke before translating).
+- [ ] `t` shadowed by the tracker variable inside the App effect; rename to `tracker`.
+- [ ] Tests: every `t('key')` literal exists in en.json; attributions versions match installed versions; SpriteLayer pool visibility with a stubbed scene.
+- [ ] Bundle one Apache-2.0 display font (woff2, font-src 'self', precached) for font B instead of the serif fallback; add to attributions; `document.fonts.load` before first draw.
+- [ ] Theme flash on slow phones before `initTheme()`: inline pre-paint script needs a CSP hash. All themes are dark, low priority.

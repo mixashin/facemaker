@@ -125,13 +125,13 @@ Open question for the operator:
 ## M3 phone checks owed by the operator (2026-09-27)
 
 Headless Chromium cannot answer these. Check on the Fold before the merge:
-- [ ] Hold the big button: red button with ring, dock and gear hidden, release saves, the clip flies to the gallery.
-- [ ] First hold asks for the microphone. After the grant, the next hold records with sound.
+- [x] Hold the big button: red button with ring, dock and gear hidden, release saves, the clip flies to the gallery.
+- [x] First hold asks for the microphone. After the grant, the next hold records with sound.
 - [ ] Which file type the phone makes (gallery, save, look at the extension): mp4 expected. Headless Chromium fell back to vp9 + opus inside mp4, because it has no AAC encoder.
-- [ ] Voice quality of chipmunk, deep, monster, robot, echo, telephone in a saved clip. Flutter on long vowels is the known limit of the delay-line method.
+- [x] Voice quality of chipmunk, deep, monster, robot, echo, telephone in a saved clip. Flutter on long vowels is the known limit of the delay-line method.
 - [ ] Voice mirror in the 🎤 tab: hold, talk, release, hear it back.
-- [ ] Shout preset (📣 in the faces strip): mouth and head grow when the kid shouts.
-- [ ] Share a clip to Viber or WhatsApp and play it there.
+- [x] Shout preset (📣 in the faces strip): mouth and head grow when the kid shouts.
+- [x] Share a clip to Viber or WhatsApp and play it there.
 - [ ] Recording at the real camera resolution runs to the end (a 2018 Android bug stopped 1280x720 canvas recording silently).
 - [ ] Denied microphone: the hold still records a silent video, the voice tab shows the lock hint.
 
@@ -153,3 +153,7 @@ Minor, not done:
 - [ ] Smoke checks the video thumbnail by element count, not by `naturalWidth`.
 - [ ] The bare `video/mp4` fallback gave vp9 + opus inside mp4 in headless Chromium: decide after the phone check whether to skip it and go to webm.
 - [ ] Commit 6f3149d is red in history (one count test), fixed by the next commit.
+
+## Operator phone check of M3 (2026-09-27): passed
+
+Hold to record with the mic prompt, clip playback, voice effects in the clip, shout preset, share to a messenger: all passed on the Fold. One request: no playback in the background. Done: the viewer video and the voice mirror stop when the app goes to the background (`src/app/background.ts`).

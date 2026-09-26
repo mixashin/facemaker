@@ -44,7 +44,7 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
-const RAIL = new Set(['warp', 'sticker', 'text', 'lab']);
+const RAIL = new Set(['warp', 'sticker', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
 const click = async (label) => {
   if (RAIL.has(label)) await openDock();

@@ -1,5 +1,5 @@
 {
-  "about": "Prop set for facemaker, generated on Piranesi (FLUX.1 schnell or FLUX.2 Klein, both Apache-2.0). Released CC0, committed under public/editor/gen/. Hand-drawn SVGs in public/editor/ stay. See research/05-asset-sources-2026-09-27.md.",
+  "about": "Prop set for facemaker, generated on Piranesi (FLUX.1 schnell or FLUX.2 Klein, both Apache-2.0). Released CC0, committed under public/editor/gen/. Hand-drawn SVGs in public/editor/ stay. See research/06-asset-sources-2026-09-27.md.",
   "output": {
     "dir": "public/editor/gen",
     "format": "png",

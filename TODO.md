@@ -88,7 +88,7 @@ Decisions from the sticker research (research/04-sticker-art-alternatives-2026-0
 Order for the next session:
 - [x] Fluent Emoji Color packs (branch fluent-emoji, 2026-09-26): 14 masks + 6 props, 6 editor props, LICENSE-ASSETS.md, chips show real art.
 - [ ] M3 plan (video + voice): docs/SPEC.md M3, grill only new questions, then execute Native + Fable subagents like M2a/M2b. Grilled 2026-09-27: mic at first need, voice mirror, one shout preset; pitch engine: native-node Jungle graph (research/05, 2026-09-27).
-- [x] Prompt list + spec for the Piranesi prop set: docs/piranesi-props.json (2026-09-27). Asset sources: research/05-asset-sources-2026-09-27.md.
+- [x] Prompt list + spec for the Piranesi prop set: docs/piranesi-props.json (2026-09-27). Asset sources: research/06-asset-sources-2026-09-27.md.
 
 ## Handoff 2026-09-27 (M3 plan next)
 

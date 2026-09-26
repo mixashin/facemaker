@@ -11,6 +11,7 @@ mkdirSync(dst, { recursive: true });
 const FILES = [
   '1f431', '1f436', '1f981', '1f438', '1f435', '1f437', '1f43c', '1f428', '1f47b', '1f978', // animal and face masks
   '1f576', '1f453', '1f451', '1f3a9', '1f380', '1f338', '2b50', '2764', '1f445',           // props
+  '1f9e2', '1f389', '1f440', '1f534', '1f921',                                           // editor: cap, party popper, eyes, red circle, clown
 ];
 for (const f of FILES) copyFileSync(`${src}/${f}.svg`, `${dst}/${f}.svg`);
 console.log('copied', FILES.length, 'twemoji svgs to', dst);

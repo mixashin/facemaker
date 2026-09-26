@@ -54,7 +54,7 @@ A camera toy for children aged 6 to 12. It warps faces, adds masks and stickers,
 
 ### M2b: Tools (gallery, parametric sliders, photo editor)
 
-- Gallery: OPFS files + IndexedDB metadata (id, type, created, duration, thumbnail blob). Grid, tap to view, share, save, delete, clear all. `navigator.storage.persist()` requested once.
+- Gallery: OPFS files under `photos/` and `thumbs/`; metadata from the file name (created, type) and the file handle (size); a sidecar `.json` for video duration when M3 needs it. No IndexedDB (decided 2026-09-26). Grid, tap to view, share, save, delete (two taps), clear all (two taps), storage usage in settings. `navigator.storage.persist()` requested once.
 - Parametric morph sliders (advanced panel): nose, mouth, each eye, forehead, chin, ears. Modes: scale, wobble (sine-animated displacement), swirl (rotation inside radius).
 - Post-capture sticker editor on a saved photo: moustache, pimples, sunglasses, googly eyes, party hats, caps. Move, resize, rotate. Saves a new photo to the gallery.
 
@@ -102,7 +102,7 @@ src/
   filters/        presets: warp handle sets, sticker packs, makeup, backgrounds
   capture/        snapshot, MediaRecorder, mimeType detect, share, download
   audio/          mic graph, worklets, effect presets, analyser
-  storage/        OPFS files, IndexedDB metadata, quota, persist
+  storage/        OPFS files (photos/, thumbs/), names carry metadata, quota, persist
   i18n/           sr.json, en.json, t()
 public/
   mediapipe/wasm/ copied from node_modules at build

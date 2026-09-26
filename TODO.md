@@ -37,7 +37,7 @@ Items added during planning. Not yet triaged into spec. Triage happens in grill-
 - Deploy: main = live at face.mxa.sh. Feature branches, PR build check, merge when it works on phone.
 - Pace: sprint. M1 as soon as possible.
 - Voice: @soundtouchjs/audio-worklet + formant-correction-worklet (MPL-2.0), audit before install. Robot, echo, telephone from native Web Audio nodes.
-- Gallery: in-app. OPFS files + IndexedDB metadata. Save to device and share buttons. persist() once.
+- Gallery: in-app. OPFS files only, metadata in file names (IndexedDB dropped 2026-09-26). Save to device and share buttons. persist() once.
 - Defaults set without asking: recording mp4 first then webm fallback, snapshot JPEG 0.92, front and back camera switch, live voice monitoring off by default on phone, sticker assets from a permissive emoji set (Noto or Twemoji, attribution in About).
 
 ## From operator (2026-09-26, during M1 dev)
@@ -71,3 +71,9 @@ Items added during planning. Not yet triaged into spec. Triage happens in grill-
 - [ ] Tests: every `t('key')` literal exists in en.json; attributions versions match installed versions; SpriteLayer pool visibility with a stubbed scene.
 - [ ] Bundle one Apache-2.0 display font (woff2, font-src 'self', precached) for font B instead of the serif fallback; add to attributions; `document.fonts.load` before first draw.
 - [ ] Theme flash on slow phones before `initTheme()`: inline pre-paint script needs a CSP hash. All themes are dark, low priority.
+
+## Deferred from the M2b review (2026-09-26)
+
+- [ ] Editor palette chips: dark SVGs (moustache) on a dark chip have low contrast; lighter chip background in the palette.
+- [ ] Shader handle budget: presets (up to 3) + sliders (up to 8) per face exceed MAX_H 16 with two faces; raise MAX_H or prioritise sliders.
+- [ ] Editor: highlight the selected sticker.

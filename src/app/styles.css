@@ -32,7 +32,7 @@ html, body, #app { height: 100%; background: var(--bg); color: var(--fg); font-f
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; color: inherit; }
 .top { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .themes { display: flex; gap: 8px; padding: 8px; background: var(--chip); border-radius: 20px; }
-.tabs { position: absolute; left: 0; right: 0; bottom: calc(var(--tap) * 2 + 64px + env(safe-area-inset-bottom)); display: flex; justify-content: center; gap: 16px; }
+.tabs { position: absolute; left: 0; right: 0; bottom: calc(var(--tap) * 2 + 96px + env(safe-area-inset-bottom)); display: flex; justify-content: center; gap: 16px; }
 .tab { width: 56px; height: 56px; border-radius: var(--radius); border: 3px solid transparent; background: var(--chip); font-size: 26px; display: grid; place-items: center; opacity: .7; }
 .tab.active { border-color: var(--accent); opacity: 1; }
 .texted { position: absolute; left: 16px; right: 16px; bottom: calc(var(--tap) + 48px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; }

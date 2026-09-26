@@ -11,7 +11,7 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 
 ## State (2026-09-26)
 
-M1 merged to main, tag `m1`, live at https://face.mxa.sh (HTTPS enforced). Verified headless with `scripts/smoke.mjs`; with `FACE=test/face.jpg` (operator selfie, gitignored) it tracks a real face and checks warp placement. Phone acceptance passed 2026-09-26 (operator: every filter and share work). M2 split: M2a look (stickers, text, themes, i18n, About + privacy, tutorial, new warp presets), then M2b tools (gallery, parametric sliders, post-capture sticker editor).
+M2a in progress on branch `m2a` (Tasks 1 to 9 done, Task 10 ship pending). M1 merged to main, tag `m1`, live at https://face.mxa.sh (HTTPS enforced). Verified headless with `scripts/smoke.mjs`; with `FACE=test/face.jpg` (operator selfie, gitignored) it tracks a real face and checks warp placement. Phone acceptance passed 2026-09-26 (operator: every filter and share work). M2 split: M2a look (stickers, text, themes, i18n, About + privacy, tutorial, new warp presets), then M2b tools (gallery, parametric sliders, post-capture sticker editor).
 
 ## Decisions (do not re-ask)
 
@@ -41,4 +41,5 @@ M1 merged to main, tag `m1`, live at https://face.mxa.sh (HTTPS enforced). Verif
     npm run dev      # vite --host, http://localhost:5173
     npm test         # vitest
     npm run build && npm run preview   # http://localhost:4173, production CSP active
-    FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs [url]   # headless check, needs dev or preview server
+    FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs [url]   # headless check, needs dev or preview server; SMOKE_OUT/SMOKE_SHOTS/SMOKE_PAGE/SMOKE_TEXT save screenshots
+    node scripts/attributions.mjs   # after dependency changes (About screen list)

@@ -108,3 +108,16 @@ Next: write `docs/superpowers/plans/2026-09-27-m3-video-voice.md` (superpowers:w
 - Tutorial: STEPS add `{ icon: '🎥', key: 'tutorial.record' }` after the shutter step (update the 4-step test to 5); strings en "Hold the big button to make a video" / sr "Drži veliko dugme da snimiš video". Privacy page `privacy.p5` about the microphone (used only while recording or trying a voice, stays on the device).
 - Smoke: `SMOKE_RECORD=1`: mouse down on the shutter, 2500 ms, up; gallery +1; open, Save -> ffprobe streams (video + audio from the fake mic) and duration >= 1.5 s; log `isTypeSupported` results; grant microphone permission in the context. Headless Chromium likely lacks H.264, so the webm fallback gets exercised there; mp4 on the Fold.
 - Subagent split: Fable worktree agent A = audio pure math + engine + mic; agent B = recorder + recordCanvas + gallery video support; native = hold gesture, App wiring, dock voice tab, mirror, shout, tutorial, strings, smoke, docs. Then reviewer, PR, merge, tag m3.
+
+## Noted from the parallel session (2026-09-27, asset research)
+
+Commits de5e176 and 1ed0d55 by a second session. Report: research/06-asset-sources-2026-09-27.md (renumbered from 05, because 05 is the voice-effects report). Prop spec: docs/piranesi-props.json (33 items: moustache-handlebar, moustache-walrus, beard-pirate, googly-eye, eyepatch, pirate-hat, party-hat, baseball-cap, chef-hat, witch-hat, viking-helmet, tiara, halo, devil-horns, bunny-ears, cat-ears, clown-nose, pig-nose, pimple, freckles, blush, braces, bow-tie, cucumber-slice, band-aid, kiss-mark, tear-drop, sweat-drop, gum-bubble, headphones, mosquito, fly, spider).
+
+Findings to keep in mind:
+- Etsy and other paid packs (Creative Market, Envato Elements, Creative Fabrica, Lusi Art) forbid free redistribution or extractable embedding. A public repo that serves raw files fails all of them. No paid pack under $30 works. Only a commission with a written CC0 release or rights transfer would.
+- Allowed sources: Kenney.nl (CC0: particles, UI sounds, 2D, 3D), FreeSVG.org (CC0, check each file), Quaternius (CC0 animated 3D, FBX/OBJ/Blend, needs a glTF export in Blender), Freesound with the CC0/CC-BY filter, BlendSwap CC0/CC-BY items. Excluded: Sonniss GDC bundle, Pixabay and Pexels raw loops (standalone clause), SVG Repo unless the icon page shows an allowed licence.
+- AR pests (M7 backlog): Quaternius bee and spider. No licensed mosquito exists: model one or generate a 2D sprite.
+- Custom face props: generate on Piranesi (FLUX.1 schnell or FLUX.2 Klein), release CC0 under public/editor/gen/. Operator runs the generation.
+
+Open question for the operator:
+- [ ] Allow SIL OFL fonts? No Apache-2.0 playful display font covers the Serbian letter đ (Chewy, Luckiest Guy and Fontdiner Swanky are latin only). OFL fonts with latin-ext: Fredoka, Baloo 2 (both confirmed), Lilita One, Titan One, Bangers, Bubblegum Sans, Sniglet, Chango. If yes: bundle Fredoka or Baloo 2 with its OFL.txt as text font B, add OFL-1.1 to the allowed list (CLAUDE.md, attributions test regex, LICENSE-ASSETS.md). If no: keep the system fallback font. Relates to the deferred M2a minor "bundled font B".

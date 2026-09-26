@@ -34,3 +34,52 @@ describe('FaceTracker.smooth', () => {
     expect(faces[0].landmarks[0]).toBeCloseTo(0.3, 4);
   });
 });
+
+describe('FaceTracker worker flow', () => {
+  type Msg = { type: string; [k: string]: unknown };
+  class FakeWorker {
+    static instances: FakeWorker[] = [];
+    posted: Msg[] = [];
+    onmessage: ((e: { data: unknown }) => void) | null = null;
+    ready = false;
+    constructor() { FakeWorker.instances.push(this); }
+    postMessage(m: Msg) {
+      this.posted.push(m);
+      if (m.type === 'init') setTimeout(() => { this.ready = true; this.onmessage?.({ data: { type: 'ready', delegate: 'CPU' } }); }, 5);
+      else if (m.type === 'frame' && this.ready) setTimeout(() => this.onmessage?.({ data: { type: 'result', result: result(1), ts: m.ts } }), 0);
+      // a frame before ready is dropped without a reply, like the real worker
+    }
+    terminate() {}
+  }
+  const video = { readyState: 4 } as unknown as HTMLVideoElement;
+  const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it('does not send frames before the worker is ready, then delivers results', async () => {
+    (globalThis as any).Worker = FakeWorker;
+    (globalThis as any).createImageBitmap = async () => ({ close() {} });
+    const got: number[] = [];
+    const t = new FaceTracker({ numFaces: 2, onFaces: (f) => got.push(f.length) });
+    t.start();
+    t.push(video, 0);
+    const w = FakeWorker.instances.at(-1)!;
+    expect(w.posted.filter((m) => m.type === 'frame')).toHaveLength(0);
+    await tick(15);
+    t.push(video, 33);
+    await tick(5);
+    expect(w.posted.filter((m) => m.type === 'frame')).toHaveLength(1);
+    expect(got).toEqual([1]);
+    t.push(video, 66);
+    await tick(5);
+    expect(got).toEqual([1, 1]);
+    t.stop();
+  });
+});
+
+describe('FaceTracker.smooth miss handling', () => {
+  it('holds the last faces for 9 misses and clears at 10', () => {
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {} });
+    t.smooth(result(1, 0.4), 0);
+    for (let i = 1; i <= 9; i++) expect(t.smooth(result(0), i * 33)).toHaveLength(1);
+    expect(t.smooth(result(0), 10 * 33)).toEqual([]);
+  });
+});

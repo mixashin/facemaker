@@ -26,7 +26,7 @@ type FaceResult = import('./types').FaceResult;
 }
 
 declare const Vision: typeof import('@mediapipe/tasks-vision');
-importScripts('/mediapipe/vision_bundle.js');
+importScripts(`/mediapipe/${__MP_VER__}/vision_bundle.js`);
 const { FilesetResolver, FaceLandmarker } = Vision;
 
 let landmarker: import('@mediapipe/tasks-vision').FaceLandmarker | null = null;

@@ -7,7 +7,7 @@ import { snapshot } from '../capture/snapshot';
 import { shareOrDownload } from '../capture/share';
 import { FilterStrip } from './FilterStrip';
 import { CaptureButton } from './CaptureButton';
-import { preset, facing, camState, flash, camStateFromError } from './state';
+import { preset, facing, camState, flash, busy, camStateFromError } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -18,7 +18,14 @@ export function App() {
     let faces: Face[] = [];
     let raf = 0;
     const r = new FaceRenderer(canvas, video);
-    const t = new FaceTracker({ numFaces: 2, onFaces: (f) => { faces = f; }, onError: (m) => console.error('tracker', m) });
+    // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
+    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '' });
+    const t = new FaceTracker({
+      numFaces: 2,
+      onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
+      onReady: (d) => { fm.delegate = d; },
+      onError: (m) => console.error('tracker', m),
+    });
     const loop = (now: number) => {
       t.push(video, now);
       r.setHandles(handlesFor(preset.value, faces, video.videoWidth / video.videoHeight));
@@ -44,11 +51,17 @@ export function App() {
   }, []);
 
   const capture = async () => {
-    const canvas = canvasRef.current!;
+    if (busy.value || camState.value !== 'live') return; // kids double tap
+    busy.value = true;
     flash.value = true;
     setTimeout(() => (flash.value = false), 120);
-    const file = await snapshot(canvas);
-    await shareOrDownload(file);
+    try {
+      await shareOrDownload(await snapshot(canvasRef.current!));
+    } catch (e) {
+      console.error('capture', e);
+    } finally {
+      setTimeout(() => (busy.value = false), 500); // lockout: a fast double tap makes one photo, not two
+    }
   };
 
   const retry = () => location.reload();

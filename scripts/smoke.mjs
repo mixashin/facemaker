@@ -1,12 +1,22 @@
 // Headless smoke check with Chrome's fake camera. Not part of `npm test`.
 // Usage: node scripts/smoke.mjs [url]   (default http://localhost:5173)
-import { statSync } from 'node:fs';
+// Env: SMOKE_WAIT_MS (default 4000), FACE=path/to/face.png (default test/face.png if present; converted to y4m with ffmpeg)
+import { existsSync, statSync, mkdtempSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { chromium } from 'playwright';
 
 const url = process.argv[2] ?? 'http://localhost:5173';
-const browser = await chromium.launch({
-  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--enable-unsafe-swiftshader'],
-});
+const face = process.env.FACE ?? (existsSync('test/face.png') ? 'test/face.png' : null);
+const args = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--enable-unsafe-swiftshader'];
+if (face) {
+  const y4m = join(mkdtempSync(join(tmpdir(), 'facemaker-')), 'face.y4m');
+  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-loop', '1', '-i', face, '-t', '2', '-r', '15', '-vf', 'scale=640:480', '-pix_fmt', 'yuv420p', y4m]);
+  args.push(`--use-file-for-fake-video-capture=${y4m}`);
+  console.log('face feed:', face);
+}
+const browser = await chromium.launch({ args });
 const page = await browser.newPage({ viewport: { width: 800, height: 600 }, acceptDownloads: true });
 const logs = [];
 page.on('console', (m) => logs.push(`${m.type()}: ${m.text()}`));
@@ -15,6 +25,8 @@ const egress = [];
 const own = new URL(url).hostname;
 page.on('request', (r) => { if (new URL(r.url()).hostname !== own) egress.push(`request ${r.url()}`); });
 page.on('requestfailed', (r) => { if (new URL(r.url()).hostname !== own) egress.push(`failed ${r.url()} ${r.failure()?.errorText}`); });
+const downloads = [];
+page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 const state = await page.evaluate(async () => {
@@ -24,16 +36,26 @@ const state = await page.evaluate(async () => {
     video: v ? { w: v.videoWidth, h: v.videoHeight, readyState: v.readyState, playing: !v.paused } : null,
     canvas: c ? { w: c.width, h: c.height } : null,
     buttons: [...document.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')),
-    text: document.body.innerText.slice(0, 200),
+    fm: globalThis.__fm ?? null,
     manifest: document.querySelector('link[rel=manifest]')?.getAttribute('href') ?? null,
     sw: await navigator.serviceWorker?.getRegistration().then((r) => r?.active?.state ?? 'none').catch(() => 'n/a'),
   };
 });
-console.log(JSON.stringify(state, null, 1));
+console.log(JSON.stringify(state));
+// Preset switch: the warped frame must differ from the plain one when a face is tracked.
+if (state.fm?.faces > 0) {
+  const shot = async (id) => { await page.getByRole('button', { name: id }).click(); await page.waitForTimeout(400); return page.locator('canvas').screenshot(); };
+  const plain = await shot('none'), eyes = await shot('bigEyes');
+  let diff = 0; for (let i = 0; i < plain.length; i++) if (plain[i] !== eyes[i]) diff++;
+  console.log('preset pixel diff (png bytes):', diff, diff > 0 ? 'OK' : 'FAIL');
+}
+// Shutter: a double tap must produce exactly one file.
 const shutter = page.getByRole('button', { name: 'take photo' });
 if (await shutter.count()) {
-  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), shutter.click()]);
-  console.log('download:', dl.suggestedFilename(), statSync(await dl.path()).size, 'bytes');
+  await shutter.dblclick({ delay: 30 });
+  await page.waitForTimeout(3000);
+  for (const d of downloads) console.log('download:', d.suggestedFilename(), statSync(await d.path()).size, 'bytes');
+  console.log('downloads after double tap:', downloads.length, downloads.length === 1 ? 'OK' : 'FAIL');
 }
 console.log('--- third-party requests:', egress.length ? '' : 'none');
 for (const e of egress) console.log(e);

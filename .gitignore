@@ -27,3 +27,6 @@ dist-ssr
 public/mediapipe
 .scrapling_cache
 *.stackdump
+
+# local test assets (operator selfie for scripts/smoke.mjs)
+test/face.*

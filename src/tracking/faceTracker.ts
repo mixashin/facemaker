@@ -16,6 +16,8 @@ const MISS_LIMIT = 10;
 export class FaceTracker {
   private worker: Worker | null = null;
   private inFlight = false;
+  private ready = false;
+  private last: Face[] = [];
   private filters: OneEuroArray[];
   private present: boolean[];
   private misses = 0;
@@ -29,16 +31,16 @@ export class FaceTracker {
     this.worker = new Worker(new URL('./face.worker.ts', import.meta.url));
     this.worker.onmessage = (e: MessageEvent<WorkerOut>) => {
       const m = e.data;
-      if (m.type === 'ready') this.opts.onReady?.(m.delegate);
+      if (m.type === 'ready') { this.ready = true; this.opts.onReady?.(m.delegate); }
       else if (m.type === 'error') { this.inFlight = false; this.opts.onError?.(m.message); }
       else if (m.type === 'result') { this.inFlight = false; this.opts.onFaces(this.smooth(m.result, m.ts)); }
     };
-    const msg: WorkerIn = { type: 'init', wasmPath: '/mediapipe/wasm', modelPath: '/models/face_landmarker.task', numFaces: this.opts.numFaces };
+    const msg: WorkerIn = { type: 'init', wasmPath: `/mediapipe/${__MP_VER__}/wasm`, modelPath: '/models/face_landmarker-f16-v1.task', numFaces: this.opts.numFaces };
     this.worker.postMessage(msg);
   }
 
   push(video: HTMLVideoElement, tMs: number): void {
-    if (!this.worker || this.inFlight || video.readyState < 2) return;
+    if (!this.worker || !this.ready || this.inFlight || video.readyState < 2) return;
     this.inFlight = true;
     createImageBitmap(video).then((bitmap) => {
       const msg: WorkerIn = { type: 'frame', bitmap, ts: tMs };
@@ -46,13 +48,13 @@ export class FaceTracker {
     }).catch(() => { this.inFlight = false; });
   }
 
-  stop(): void { this.worker?.terminate(); this.worker = null; this.inFlight = false; }
+  stop(): void { this.worker?.terminate(); this.worker = null; this.inFlight = false; this.ready = false; }
 
   smooth(r: FaceResult, tMs: number): Face[] {
     if (r.count === 0) {
       this.misses++;
-      if (this.misses >= MISS_LIMIT) { this.filters.forEach((f) => f.reset()); this.present.fill(false); return []; }
-      return [];
+      if (this.misses >= MISS_LIMIT) { this.filters.forEach((f) => f.reset()); this.present.fill(false); this.last = []; return []; }
+      return this.last; // hold the last faces through short dropouts
     }
     this.misses = 0;
     const out: Face[] = [];
@@ -64,6 +66,7 @@ export class FaceTracker {
       this.filters[f].filter(src, dst, tMs);
       out.push({ landmarks: dst, matrix: r.matrices.slice(f * 16, f * 16 + 16), blend: r.blend.slice(f * 52, f * 52 + 52) });
     }
+    this.last = out;
     return out;
   }
 }

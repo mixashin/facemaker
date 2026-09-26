@@ -11,6 +11,7 @@ varying vec2 vUv;
 void main() {
   // Work in unmirrored video space. Flip the *display* only.
   vec2 uv = uMirror ? vec2(1.0 - vUv.x, vUv.y) : vUv;
+  uv.y = 1.0 - uv.y;                             // image space: y down, same as the landmarks
   for (int i = 0; i < MAX_H; i++) {
     if (i >= uCount) break;
     vec4 h = uHandle[i];
@@ -34,5 +35,5 @@ void main() {
     }
   }
   uv = clamp(uv, 0.0, 1.0);
-  gl_FragColor = texture2D(uTex, uv);
+  gl_FragColor = texture2D(uTex, vec2(uv.x, 1.0 - uv.y)); // back to texture space (flipY)
 }

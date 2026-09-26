@@ -77,3 +77,15 @@ Items added during planning. Not yet triaged into spec. Triage happens in grill-
 - [ ] Editor palette chips: dark SVGs (moustache) on a dark chip have low contrast; lighter chip background in the palette.
 - [ ] Shader handle budget: presets (up to 3) + sliders (up to 8) per face exceed MAX_H 16 with two faces; raise MAX_H or prioritise sliders.
 - [ ] Editor: highlight the selected sticker.
+
+## Handoff 2026-09-26 late (next session starts here)
+
+Decisions from the sticker research (research/04-sticker-art-alternatives-2026-09-26.md):
+- Keep Twemoji and every current pack and prop. Nothing is removed.
+- Add Microsoft Fluent Emoji Color SVGs (MIT) as a second sticker source: copy script from a pinned commit of github.com/microsoft/fluentui-emoji (no npm package; layout assets/<Name>/Color/<name>_color.svg), new packs for more animal masks (tiger, bear, fox, cow, rabbit, hamster, unicorn, dragon, alien, robot, pumpkin) and props (nerd glasses, monocle, cowboy hat, graduation cap, woman's hat, bow, stars, rainbow, butterfly), MIT entry in the About attributions and a LICENSE-ASSETS.md at the repo root listing every asset source.
+- Custom props with no emoji (eyepatch, pirate hat, moustache, googly eyes, pimples, braces, freckles, clown nose, bow tie, halo, horns): the operator generates a consistent set on Piranesi (FLUX schnell, FLUX.2 Klein or SD; transparent PNG), committed CC0 under public/editor/. Not now; Claude writes the prompt list and file spec when asked. Hand-drawn SVGs stay.
+
+Order for the next session:
+- [ ] Fluent Emoji Color packs (small task, one branch, smoke with SMOKE_SHOTS).
+- [ ] M3 plan (video + voice): docs/SPEC.md M3, grill only new questions, then execute Native + Fable subagents like M2a/M2b.
+- [ ] Prompt list + spec for the Piranesi prop set (when the operator asks).

@@ -9,9 +9,11 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 3. `TODO.md`: backlog and every decision from grill-me. Add operator requests here as they arrive.
 4. `research/01-tech-stack-2026-09-26.md`, `02-filters-2026-09-26.md`, `03-mediapipe-telemetry-audit-2026-09-26.md`: verified research with sources.
 
-## State (2026-09-26)
+## State (2026-09-26, late)
 
-M2b (gallery, photo editor, face lab) merged, tag `m2b`, live. Next: M3 plan (video + voice), see docs/SPEC.md M3 and TODO.md. M2a merged, tag `m2a`. M1 merged to main, tag `m1`, live at https://face.mxa.sh (HTTPS enforced). Verified headless with `scripts/smoke.mjs`; with `FACE=test/face.jpg` (operator selfie, gitignored) it tracks a real face and checks warp placement. Phone acceptance passed 2026-09-26 (operator: every filter and share work). M2 split: M2a look (stickers, text, themes, i18n, About + privacy, tutorial, new warp presets), then M2b tools (gallery, parametric sliders, post-capture sticker editor).
+Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b). Shipped: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations: effects dock, shutter saves to gallery, cropped photos, editor gestures (select glow, pinch anywhere, mirror), floating save button. Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored). Operator phone checks passed for M1; M2a/M2b/UI checks partly done by the operator on a Fold cover screen.
+
+Next session, in order (details in TODO.md "Handoff 2026-09-26 late"): 1) add Fluent Emoji Color packs next to Twemoji (nothing removed), 2) plan and build M3 (video + voice), 3) prompt list for the Piranesi custom prop set when asked.
 
 ## Decisions (do not re-ask)
 
@@ -26,6 +28,7 @@ M2b (gallery, photo editor, face lab) merged, tag `m2b`, live. Next: M3 plan (vi
 - Capture flow (2026-09-26 operator): the shutter saves to the gallery with a fly-to-gallery animation, no share sheet; share and save live in the viewer; the share sheet is only the fallback when saving to the device fails. Camera screen holds only gear, tabs, strip, flip, shutter, gallery.
 - Gallery: OPFS only (`photos/`, `thumbs/`), metadata in file names, no IndexedDB. Destructive actions need two taps.
 - Recording (M3): mp4 first, webm fallback, `start()` in try/catch.
+- Sticker art: Twemoji (CC-BY 4.0) stays. Fluent Emoji Color (MIT) is added as a second source (research/04). OpenMoji (BY-SA) and JoyPixels excluded. Custom props come from the operator's Piranesi generator later, committed CC0.
 - Licenses allowed: MIT, Apache-2.0, BSD, MPL-2.0, Unlicense, CC0, CC-BY. No GPL.
 
 ## Conventions

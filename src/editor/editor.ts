@@ -4,6 +4,8 @@ export type Ctx = Pick<CanvasRenderingContext2D, 'drawImage' | 'save' | 'restore
 
 export const EDITOR_STICKERS: { id: string; src: string }[] = [
   { id: 'moustache', src: '/editor/moustache.svg' },
+  { id: 'eyepatch', src: '/editor/eyepatch.svg' },
+  { id: 'piratehat', src: '/editor/piratehat.svg' },
   { id: 'googly', src: '/editor/googly.svg' },
   { id: 'pimple', src: '/editor/pimple.svg' },
   { id: 'sunglasses', src: '/stickers/1f576.svg' },

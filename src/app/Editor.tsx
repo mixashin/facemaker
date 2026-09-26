@@ -19,6 +19,7 @@ export function Editor() {
   const [stickers, setStickers] = useState<EditorSticker[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [images, setImages] = useState(new Map<string, CanvasImageSource>());
+  const [dock, setDock] = useState(true); // stickers in view on entry, a tap on the photo hides them
   const nextId = useRef(1);
   const pointers = useRef(new Map<number, P>());
   const grabbed = useRef<number | null>(null);
@@ -50,6 +51,7 @@ export function Editor() {
     return elementToImage(e.clientX - r.left, e.clientY - r.top, c.width, c.height, r.width, r.height);
   };
   const onDown = (e: PointerEvent) => {
+    setDock(false);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const p = toImage(e);
     pointers.current.set(e.pointerId, p);
@@ -86,11 +88,16 @@ export function Editor() {
     <div class="sheet editor" role="dialog" aria-label={t('editor.title')}>
       <button class="close" aria-label={t('gallery.back')} onClick={() => (screen.value = 'viewer')}>✖</button>
       <canvas ref={canvasRef} class="edit-canvas" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
-      <div class="palette">
-        {EDITOR_STICKERS.map((s) => (
-          <button key={s.id} class="chip" aria-label={s.id} onClick={() => add(s.src)}><img src={s.src} alt="" /></button>
-        ))}
-      </div>
+      <aside class={'dock single' + (dock ? ' open' : '')} aria-label={t('editor.title')}>
+        <button class="pull" aria-label="effects" aria-expanded={dock} onClick={() => setDock(!dock)}>{dock ? '◀' : '✨'}</button>
+        <div class="dock-body">
+          <div class="strip palette" aria-label={t('editor.title')}>
+            {EDITOR_STICKERS.map((s) => (
+              <button key={s.id} class="chip" aria-label={s.id} onClick={() => add(s.src)}><img src={s.src} alt="" /></button>
+            ))}
+          </div>
+        </div>
+      </aside>
       <div class="bar editbar">
         <button class="round" aria-label={t('editor.remove')} disabled={selected === null} onClick={remove}>🧹</button>
         <button class="round shutter save" aria-label={t('editor.save')} onClick={save}>💾</button>

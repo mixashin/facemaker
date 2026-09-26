@@ -72,8 +72,6 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
 .line.small { font-size: 18px; } .rowbtn.danger { background: #c62828; color: #fff; }
 .editor { padding: 0; justify-content: flex-start; }
 .edit-canvas { position: absolute; inset: 0; width: 100%; height: calc(100% - var(--tap) * 2 - 64px); object-fit: contain; touch-action: none; }
-.palette { position: absolute; left: 0; right: 0; bottom: calc(var(--tap) + 32px + env(safe-area-inset-bottom)); display: flex; gap: 12px; padding: 8px 16px; overflow-x: auto; scrollbar-width: none; }
-.palette img { width: 40px; height: 40px; }
 .editbar { position: absolute; }
 .shutter.save { font-size: 34px; }
 .lab-row { display: grid; grid-template-columns: 48px 1fr; gap: 6px 10px; align-items: center; width: min(100%, 420px); }
@@ -100,3 +98,6 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
 .dock .row { flex-wrap: wrap; gap: 6px; }
 .dock .rail .tab { width: 40px; height: 40px; font-size: 18px; }
 .dock .rowbtn { width: 100%; }
+.dock.single { grid-template-columns: 1fr; }
+.dock .palette .chip { background: rgba(255, 255, 255, .18); }
+.dock .palette img { width: 62%; height: 62%; }

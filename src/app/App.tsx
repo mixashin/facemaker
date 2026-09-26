@@ -138,8 +138,8 @@ export function App() {
       {camState.value === 'live' && (
         <>
           <TopBar />
-          <Dock />
-          <CaptureButton onCapture={capture} onFlip={() => (facing.value = facing.value === 'user' ? 'environment' : 'user')} onGallery={() => { refreshGallery().catch(() => {}); screen.value = 'gallery'; }} />
+          {screen.value === 'camera' && <Dock />}
+          <CaptureButton onCapture={capture} onFlip={() => (facing.value = facing.value === 'user' ? 'environment' : 'user')} onGallery={() => { dockOpen.value = false; refreshGallery().catch(() => {}); screen.value = 'gallery'; }} />
         </>
       )}
       {shouldShowTutorial(tutorialSeen.value, camState.value) && <Tutorial />}

@@ -43,7 +43,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
 .swatch.active { border-color: var(--accent); }
 .chip.small { width: 56px; height: 56px; font-size: 20px; font-weight: bold; }
 .stage { touch-action: none; }
-.sheet { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 88%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 16px; padding: 24px; text-align: center; overflow-y: auto; }
+.sheet { position: absolute; z-index: 3; inset: 0; background: color-mix(in srgb, var(--bg) 88%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 16px; padding: 24px; text-align: center; overflow-y: auto; }
 .sheet h2 { font-size: 28px; } .sheet h3 { font-size: 18px; opacity: .8; margin-top: 8px; }
 .close { position: absolute; z-index: 1; top: calc(12px + env(safe-area-inset-top)); right: 12px; width: var(--tap); height: var(--tap); border-radius: var(--radius); border: none; background: var(--chip); font-size: 24px; }
 .huge { font-size: 120px; line-height: 1; }

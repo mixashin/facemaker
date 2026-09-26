@@ -118,6 +118,7 @@ if (process.env.SMOKE_GALLERY) {
   await page.waitForTimeout(1500);
   await click('gallery');
   const before = await page.locator('.thumb').count();
+  console.log('gallery thumbs after the shutter:', before);
   if (out) writeFileSync(`${out}/page-gallery.png`, await page.screenshot());
   await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
   const dl0 = downloads.length;

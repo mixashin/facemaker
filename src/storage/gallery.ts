@@ -9,6 +9,13 @@ export function parseName(name: string): GalleryItem | null {
   return { name, created: Date.UTC(+y, +mo - 1, +d, +h, +mi, +s, +ms), type: ext === 'jpg' ? 'image' : 'video', size: 0 };
 }
 
+export function mimeForName(name: string): string {
+  if (name.endsWith('.jpg')) return 'image/jpeg';
+  if (name.endsWith('.mp4')) return 'video/mp4';
+  if (name.endsWith('.webm')) return 'video/webm';
+  return 'application/octet-stream';
+}
+
 export interface GalleryStore {
   list(): Promise<GalleryItem[]>;
   put(name: string, blob: Blob): Promise<void>;
@@ -30,10 +37,37 @@ export async function makeThumbJpeg(blob: Blob, size = 256): Promise<Blob> {
   return c.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
 }
 
+// Browser only: a frame a little after the start (first frames can be black), as a 256 px JPEG.
+async function videoFrameJpeg(blob: Blob, size = 256): Promise<Blob> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+    await new Promise<void>((res, rej) => { v.onloadeddata = () => res(); v.onerror = () => rej(new Error('video thumb: load failed')); });
+    await new Promise<void>((res) => {
+      const t = setTimeout(res, 1500); // a seek that never lands must not hang the gallery
+      v.onseeked = () => { clearTimeout(t); res(); };
+      v.currentTime = Math.min(0.1, (Number.isFinite(v.duration) ? v.duration : 1) / 2);
+    });
+    const k = size / Math.max(v.videoWidth, v.videoHeight, 1);
+    const c = new OffscreenCanvas(Math.max(1, Math.round(v.videoWidth * k)), Math.max(1, Math.round(v.videoHeight * k)));
+    c.getContext('2d')!.drawImage(v, 0, 0, c.width, c.height);
+    return await c.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+export async function makeThumb(blob: Blob, name: string): Promise<Blob> {
+  const type = mimeForName(name);
+  if (type.startsWith('video/')) return videoFrameJpeg(new Blob([blob], { type }));
+  return makeThumbJpeg(blob);
+}
+
 export class MemoryStore implements GalleryStore {
   private files = new Map<string, Blob>();
   private thumbs = new Map<string, Blob>();
-  constructor(private makeThumb: (b: Blob) => Promise<Blob> = async (b) => b) {}
+  constructor(private makeThumb: (b: Blob, name: string) => Promise<Blob> = async (b) => b) {}
   async list() {
     const out: GalleryItem[] = [];
     for (const [name, b] of this.files) { const it = parseName(name); if (it && b.size > 0) out.push({ ...it, size: b.size }); }
@@ -48,7 +82,7 @@ export class MemoryStore implements GalleryStore {
     if (cached) return cached;
     const b = this.files.get(name);
     if (!b) return null;
-    const t = await this.makeThumb(b);
+    const t = await this.makeThumb(b, name);
     this.thumbs.set(name, t);
     return t;
   }
@@ -101,7 +135,7 @@ export class OpfsStore implements GalleryStore {
     if (cached) return cached;
     const full = await readFile(this.photos, name);
     if (!full) return null;
-    const t = await makeThumbJpeg(full);
+    const t = await makeThumb(full, name);
     await writeFile(this.thumbs, name, t).catch(() => {});
     return t;
   }
@@ -117,7 +151,7 @@ export async function openStore(): Promise<GalleryStore> {
   if (OpfsStore.available()) {
     try { return await OpfsStore.open(); } catch (e) { console.warn('OPFS unavailable, gallery is session only', e); }
   }
-  return new MemoryStore(makeThumbJpeg);
+  return new MemoryStore(makeThumb);
 }
 
 // Never lets a storage failure stop the capture flow.

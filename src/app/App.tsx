@@ -6,6 +6,7 @@ import { handlesFor } from '../filters/presets';
 import { snapshot } from '../capture/snapshot';
 import { shareOrDownload } from '../capture/share';
 import { FilterStrip } from './FilterStrip';
+import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
 import { preset, facing, camState, flash, busy, camStateFromError } from './state';
 
@@ -73,6 +74,7 @@ export function App() {
       {flash.value && <div class="flash" />}
       {camState.value === 'live' && (
         <>
+          <TopBar />
           <FilterStrip />
           <CaptureButton onCapture={capture} onFlip={() => (facing.value = facing.value === 'user' ? 'environment' : 'user')} />
         </>

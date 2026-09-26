@@ -2,13 +2,16 @@ import { useEffect, useRef } from 'preact/hooks';
 import { startCamera, stopCamera } from '../camera/camera';
 import { FaceTracker, type Face } from '../tracking/faceTracker';
 import { FaceRenderer } from '../render/renderer';
-import { handlesFor } from '../filters/presets';
+import { PRESETS, handlesFor } from '../filters/presets';
+import { STICKER_PACKS, spritesFor } from '../filters/stickers';
 import { snapshot } from '../capture/snapshot';
 import { shareOrDownload } from '../capture/share';
-import { FilterStrip } from './FilterStrip';
+import { Strip } from './Strip';
+import { ModeTabs } from './ModeTabs';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
-import { preset, facing, camState, flash, busy, camStateFromError } from './state';
+import { preset, facing, camState, flash, busy, mode, sticker, camStateFromError } from './state';
+import { t } from '../i18n/i18n';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -30,6 +33,7 @@ export function App() {
     const loop = (now: number) => {
       t.push(video, now);
       r.setHandles(handlesFor(preset.value, faces, video.videoWidth / video.videoHeight));
+      r.setSprites(spritesFor(sticker.value, faces, video.videoWidth / video.videoHeight));
       r.render();
       raf = requestAnimationFrame(loop);
     };
@@ -75,7 +79,9 @@ export function App() {
       {camState.value === 'live' && (
         <>
           <TopBar />
-          <FilterStrip />
+          <ModeTabs />
+          {mode.value === 'warp' && <Strip items={PRESETS} value={preset.value} onPick={(id) => (preset.value = id as typeof preset.value)} label={t('tabs.warp')} />}
+          {mode.value === 'sticker' && <Strip items={STICKER_PACKS} value={sticker.value} onPick={(id) => (sticker.value = id)} label={t('tabs.sticker')} />}
           <CaptureButton onCapture={capture} onFlip={() => (facing.value = facing.value === 'user' ? 'environment' : 'user')} />
         </>
       )}

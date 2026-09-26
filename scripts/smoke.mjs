@@ -43,12 +43,32 @@ const state = await page.evaluate(async () => {
 });
 console.log(JSON.stringify(state));
 // Preset switch: the warped frame must differ from the plain one when a face is tracked.
+const shot = async (labels) => {
+  for (const l of labels) { await page.locator(`[aria-label="${l}"]`).first().click(); await page.waitForTimeout(400); } // chips, tabs and picker buttons all carry aria-label
+  return page.locator('canvas').screenshot();
+};
 if (state.fm?.faces > 0) {
-  const shot = async (id) => { await page.getByRole('button', { name: id }).click(); await page.waitForTimeout(400); return page.locator('canvas').screenshot(); };
-  const plain = await shot('none'), eyes = await shot('bigEyes');
-  if (process.env.SMOKE_OUT) { const { writeFileSync } = await import('node:fs'); writeFileSync(`${process.env.SMOKE_OUT}/none.png`, plain); writeFileSync(`${process.env.SMOKE_OUT}/bigEyes.png`, eyes); }
+  const plain = await shot(['none']), eyes = await shot(['bigEyes']);
   let diff = 0; for (let i = 0; i < plain.length; i++) if (plain[i] !== eyes[i]) diff++;
   console.log('preset pixel diff (png bytes):', diff, diff > 0 ? 'OK' : 'FAIL');
+  if (process.env.SMOKE_OUT) { const { writeFileSync } = await import('node:fs'); writeFileSync(`${process.env.SMOKE_OUT}/none.png`, plain); writeFileSync(`${process.env.SMOKE_OUT}/bigEyes.png`, eyes); }
+}
+// SMOKE_SHOTS="sticker,cat;warp,upsideDown": click each group's labels in order, save <last label>.png
+if (process.env.SMOKE_SHOTS && process.env.SMOKE_OUT) {
+  const { writeFileSync } = await import('node:fs');
+  for (const group of process.env.SMOKE_SHOTS.split(';')) {
+    const labels = group.split(',').map((s) => s.trim()).filter(Boolean);
+    writeFileSync(`${process.env.SMOKE_OUT}/${labels.at(-1)}.png`, await shot(labels));
+    console.log('shot:', labels.join(' > '));
+  }
+}
+// SMOKE_PAGE="theme,Blossom": click labels, then save a full page screenshot as page-<last label>.png
+if (process.env.SMOKE_PAGE && process.env.SMOKE_OUT) {
+  const { writeFileSync } = await import('node:fs');
+  const labels = process.env.SMOKE_PAGE.split(',').map((s) => s.trim()).filter(Boolean);
+  for (const l of labels) { await page.locator(`[aria-label="${l}"]`).first().click(); await page.waitForTimeout(400); }
+  writeFileSync(`${process.env.SMOKE_OUT}/page-${labels.at(-1)}.png`, await page.screenshot());
+  console.log('page shot:', labels.join(' > '));
 }
 // Shutter: a double tap must produce exactly one file.
 const shutter = page.getByRole('button', { name: 'take photo' });

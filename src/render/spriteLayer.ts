@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { emojiFile, type Sprite } from '../filters/stickers';
+import type { Sprite } from '../filters/stickers';
 
 const TEX_SIZE = 256;
 
@@ -24,9 +24,9 @@ export class SpriteLayer {
 
   constructor(private scene: THREE.Scene) { scene.add(this.group); }
 
-  private texture(emoji: string): THREE.Texture | null {
-    if (this.textures.has(emoji)) return this.textures.get(emoji)!;
-    this.textures.set(emoji, null);
+  private texture(src: string): THREE.Texture | null {
+    if (this.textures.has(src)) return this.textures.get(src)!;
+    this.textures.set(src, null);
     const img = new Image();
     img.onload = () => {
       const c = document.createElement('canvas');
@@ -34,10 +34,10 @@ export class SpriteLayer {
       c.getContext('2d')!.drawImage(img, 0, 0, TEX_SIZE, TEX_SIZE);
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
-      this.textures.set(emoji, tex);
+      this.textures.set(src, tex);
     };
-    img.onerror = () => console.warn('sticker failed to load', emoji);
-    img.src = emojiFile(emoji);
+    img.onerror = () => console.warn('sticker failed to load', src);
+    img.src = src;
     return null;
   }
 
@@ -56,7 +56,7 @@ export class SpriteLayer {
     this.group.scale.set(1, aspect, 1);
     let n = 0;
     for (const s of sprites) {
-      const tex = this.texture(s.emoji);
+      const tex = this.texture(s.src);
       if (!tex) continue;
       const m = this.mesh(n++);
       if (m.material.map !== tex) { m.material.map = tex; m.material.needsUpdate = true; }

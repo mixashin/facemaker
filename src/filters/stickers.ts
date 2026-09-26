@@ -2,12 +2,20 @@ import type { Face } from '../tracking/faceTracker';
 
 export type Anchor = 'face' | 'eyes' | 'leftEye' | 'rightEye' | 'top' | 'mouth' | 'nose' | 'leftCheek' | 'rightCheek';
 export type Placement = { emoji: string; anchor: Anchor; scale: number; dx?: number; dy?: number }; // face-width units
-export type StickerPack = { id: string; icon: string; items: Placement[] };
-export type Sprite = { emoji: string; cx: number; cy: number; size: number; angle: number };
+export type Art = 'twemoji' | 'fluent'; // two sticker sources, same emoji keys, different files (see LICENSE-ASSETS.md)
+export type StickerPack = { id: string; icon: string; img?: string; art?: Art; items: Placement[] };
+export type Sprite = { src: string; cx: number; cy: number; size: number; angle: number };
+
+export function emojiFile(emoji: string, art: Art = 'twemoji'): string {
+  const cps = [...emoji].map((c) => c.codePointAt(0)!).filter((cp) => cp !== 0xfe0f);
+  return `/stickers/${art === 'fluent' ? 'fluent/' : ''}${cps.map((cp) => cp.toString(16)).join('-')}.svg`;
+}
 
 const mask = (id: string, emoji: string, scale = 1.25): StickerPack => ({ id, icon: emoji, items: [{ emoji, anchor: 'face', scale }] });
+const fmask = (id: string, emoji: string, scale = 1.25): StickerPack => ({ ...mask(`fluent-${id}`, emoji, scale), art: 'fluent' });
+const fluent = (id: string, icon: string, items: Placement[]): StickerPack => ({ id: `fluent-${id}`, icon, art: 'fluent', items });
 
-export const STICKER_PACKS: StickerPack[] = [
+const packs: StickerPack[] = [
   { id: 'none', icon: '🙂', items: [] },
   mask('cat', '🐱'), mask('dog', '🐶'), mask('lion', '🦁', 1.35), mask('frog', '🐸'), mask('monkey', '🐵'),
   mask('pig', '🐷'), mask('panda', '🐼'), mask('koala', '🐨'), mask('ghost', '👻', 1.35), mask('disguise', '🥸'),
@@ -20,12 +28,19 @@ export const STICKER_PACKS: StickerPack[] = [
   { id: 'stars', icon: '⭐', items: [{ emoji: '⭐', anchor: 'leftCheek', scale: 0.3 }, { emoji: '⭐', anchor: 'rightCheek', scale: 0.3 }] },
   { id: 'hearts', icon: '❤️', items: [{ emoji: '❤️', anchor: 'leftEye', scale: 0.35 }, { emoji: '❤️', anchor: 'rightEye', scale: 0.35 }] },
   { id: 'tongue', icon: '👅', items: [{ emoji: '👅', anchor: 'mouth', scale: 0.45, dy: 0.12 }] },
+  // Fluent Emoji (MIT): more masks and props in a second style, fetched by scripts/fetch-fluent.mjs
+  fmask('tiger', '🐯'), fmask('bear', '🐻'), fmask('fox', '🦊'), fmask('cow', '🐮'), fmask('rabbit', '🐰', 1.4), fmask('hamster', '🐹'),
+  fmask('unicorn', '🦄', 1.35), fmask('dragon', '🐲', 1.35), fmask('alien', '👽'), fmask('robot', '🤖'), fmask('pumpkin', '🎃'),
+  fmask('nerd', '🤓', 1.35), fmask('monocle', '🧐', 1.35), fmask('cowboy', '🤠', 1.45),
+  fluent('gradcap', '🎓', [{ emoji: '🎓', anchor: 'top', scale: 0.9, dy: -0.35 }]),
+  fluent('sunhat', '👒', [{ emoji: '👒', anchor: 'top', scale: 1.0, dy: -0.35 }]),
+  fluent('ribbon', '🎀', [{ emoji: '🎀', anchor: 'top', scale: 0.4, dx: 0.35, dy: -0.15 }]),
+  fluent('stars', '🌟', [{ emoji: '🌟', anchor: 'leftCheek', scale: 0.32 }, { emoji: '🌟', anchor: 'rightCheek', scale: 0.32 }]),
+  fluent('rainbow', '🌈', [{ emoji: '🌈', anchor: 'top', scale: 1.1, dy: -0.55 }]),
+  fluent('butterfly', '🦋', [{ emoji: '🦋', anchor: 'top', scale: 0.4, dx: -0.4, dy: -0.2 }]),
 ];
-
-export function emojiFile(emoji: string): string {
-  const cps = [...emoji].map((c) => c.codePointAt(0)!).filter((cp) => cp !== 0xfe0f);
-  return `/stickers/${cps.map((cp) => cp.toString(16)).join('-')}.svg`;
-}
+// Chips show the real art, not the system emoji font: the kid sees what lands on the face.
+export const STICKER_PACKS: StickerPack[] = packs.map((p) => (p.items.length ? { ...p, img: emojiFile(p.icon, p.art) } : p));
 
 // Landmark indices (MediaPipe canonical face mesh)
 const L_CHEEK = 234, R_CHEEK = 454, TOP = 10, CHIN = 152, LIP_U = 13, LIP_L = 14, NOSE = 4;
@@ -40,7 +55,7 @@ function mean(lm: Float32Array, idx: number[]): P {
   return [x / idx.length, y / idx.length];
 }
 
-function faceSprites(items: Placement[], lm: Float32Array, aspect: number): Sprite[] {
+function faceSprites(items: Placement[], art: Art | undefined, lm: Float32Array, aspect: number): Sprite[] {
   const lc = pt(lm, L_CHEEK), rc = pt(lm, R_CHEEK), top = pt(lm, TOP), chin = pt(lm, CHIN);
   const le = mean(lm, L_IRIS), re = mean(lm, R_IRIS);
   const width = Math.abs(rc[0] - lc[0]);
@@ -63,12 +78,12 @@ function faceSprites(items: Placement[], lm: Float32Array, aspect: number): Spri
     const dx = (it.dx ?? 0) * width, dy = (it.dy ?? 0) * width;     // offsets in x units, rotated with the head
     const ox = dx * cosA - dy * sinA, oy = dx * sinA + dy * cosA;
     const base = it.anchor === 'face' ? Math.max(width, heightX) : width;
-    return { emoji: it.emoji, cx: ax + ox, cy: ay + oy * aspect, size: it.scale * base, angle };
+    return { src: emojiFile(it.emoji, art), cx: ax + ox, cy: ay + oy * aspect, size: it.scale * base, angle };
   });
 }
 
 export function spritesFor(packId: string, faces: Face[], aspect: number): Sprite[] {
   const pack = STICKER_PACKS.find((p) => p.id === packId);
   if (!pack || pack.items.length === 0 || faces.length === 0) return [];
-  return faces.flatMap((f) => faceSprites(pack.items, f.landmarks, aspect));
+  return faces.flatMap((f) => faceSprites(pack.items, pack.art, f.landmarks, aspect));
 }

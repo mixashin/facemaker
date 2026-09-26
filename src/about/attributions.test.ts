@@ -14,6 +14,7 @@ describe('attributions', () => {
   it('lists the shipped assets', () => {
     const names = list.map((e) => e.name);
     expect(names).toContain('Twemoji graphics');
+    expect(names).toContain('Fluent Emoji graphics');
     expect(names).toContain('MediaPipe Face Landmarker model');
     expect(names).toContain('Workbox');
   });

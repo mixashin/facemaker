@@ -1,6 +1,7 @@
 // Writes src/about/attributions.json: every runtime dependency (from package.json) plus shipped assets.
 // Run after any change to dependencies. The test src/about/attributions.test.ts fails when the list is stale.
 import { readFileSync, writeFileSync } from 'node:fs';
+import { COMMIT as FLUENT_COMMIT, REPO as FLUENT_REPO } from './fetch-fluent.mjs';
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 const url = (p) => p.homepage ?? (typeof p.repository === 'string' ? p.repository : p.repository?.url ?? '').replace(/^git\+/, '').replace(/\.git$/, '');
@@ -14,6 +15,7 @@ const deps = Object.keys(pkg.dependencies).sort().map((name) => {
 
 const assets = [
   { name: 'Twemoji graphics', version: JSON.parse(readFileSync('node_modules/@twemoji/svg/package.json', 'utf8')).version, license: 'CC-BY-4.0', url: 'https://github.com/jdecked/twemoji' },
+  { name: 'Fluent Emoji graphics', version: FLUENT_COMMIT.slice(0, 7), license: 'MIT', url: FLUENT_REPO },
   { name: 'MediaPipe Face Landmarker model', version: 'float16/1', license: 'Apache-2.0', url: 'https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker' },
   { name: 'Workbox', version: JSON.parse(readFileSync('node_modules/workbox-build/package.json', 'utf8')).version, license: 'MIT', url: 'https://github.com/GoogleChrome/workbox' },
 ];

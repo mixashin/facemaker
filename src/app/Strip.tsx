@@ -1,4 +1,4 @@
-export function Strip({ items, value, onPick, label }: { items: { id: string; icon: string }[]; value: string; onPick: (id: string) => void; label: string }) {
+export function Strip({ items, value, onPick, label }: { items: { id: string; icon: string; img?: string }[]; value: string; onPick: (id: string) => void; label: string }) {
   return (
     <nav class="strip" aria-label={label}>
       {items.map((p) => (
@@ -9,7 +9,7 @@ export function Strip({ items, value, onPick, label }: { items: { id: string; ic
           aria-pressed={value === p.id}
           onClick={() => onPick(p.id)}
         >
-          {p.icon}
+          {p.img ? <img src={p.img} alt="" decoding="async" /> : p.icon}
         </button>
       ))}
     </nav>

@@ -22,6 +22,7 @@ html, body, #app { height: 100%; background: var(--bg); color: var(--fg); font-f
 .strip { position: absolute; left: 0; right: 0; bottom: calc(var(--bar) + 84px + var(--tabs-h) + 20px); display: flex; gap: 12px; padding: 8px 16px; overflow-x: auto; scrollbar-width: none; }
 .strip::-webkit-scrollbar { display: none; }
 .chip { flex: 0 0 auto; width: var(--tap); height: var(--tap); border-radius: var(--radius); border: 3px solid transparent; background: var(--chip); font-size: 32px; line-height: 1; display: grid; place-items: center; }
+.chip img { width: 68%; height: 68%; pointer-events: none; }
 .chip.active { border-color: var(--accent); background: var(--chip-on); }
 .bar { position: absolute; left: 0; right: 0; bottom: var(--bar); display: flex; justify-content: space-around; align-items: center; padding: 0 24px; }
 .round { width: var(--tap); height: var(--tap); border-radius: var(--radius); border: none; background: var(--chip); font-size: 28px; display: grid; place-items: center; }

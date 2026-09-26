@@ -28,7 +28,8 @@ void main() {
       // scale: strength>0 samples closer to centre (magnify), <0 samples farther (shrink)
       uv = c + d * (1.0 - h.w * f);
     } else {
-      float ang = h.w * f;
+      // 1 swirl: angle grows toward the centre. 2 flip: constant angle inside, feathered over the outer 30 %.
+      float ang = uType[i] < 1.5 ? h.w * f : h.w * (1.0 - smoothstep(0.7, 1.0, t));
       float s = sin(ang), co = cos(ang);
       vec2 rot = vec2(co * da.x - s * da.y, s * da.x + co * da.y);
       uv = c + vec2(rot.x, rot.y * uAspect);

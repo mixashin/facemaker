@@ -1,8 +1,10 @@
 import type { Face } from '../tracking/faceTracker';
 
-export type HandleType = 0 | 1;
+export type HandleType = 0 | 1 | 2; // 0 scale, 1 swirl, 2 flip (constant rotation, feathered rim)
 export type Handle = { cx: number; cy: number; r: number; strength: number; type: HandleType };
-export type PresetId = 'none' | 'bigEyes' | 'bigMouth' | 'bigHead' | 'smallFace' | 'bulge' | 'swirl';
+export type PresetId =
+  | 'none' | 'bigEyes' | 'bigMouth' | 'bigHead' | 'smallFace' | 'bulge' | 'swirl'
+  | 'noNose' | 'bigEars' | 'doubleChin' | 'fatFace' | 'upsideDown';
 
 export const PRESETS: { id: PresetId; icon: string }[] = [
   { id: 'none', icon: '🙂' },
@@ -12,6 +14,11 @@ export const PRESETS: { id: PresetId; icon: string }[] = [
   { id: 'smallFace', icon: '🤏' },
   { id: 'bulge', icon: '🔍' },
   { id: 'swirl', icon: '🌀' },
+  { id: 'noNose', icon: '👃' },
+  { id: 'bigEars', icon: '👂' },
+  { id: 'doubleChin', icon: '🍩' },
+  { id: 'fatFace', icon: '🎃' },
+  { id: 'upsideDown', icon: '🙃' },
 ];
 
 // Landmark indices (MediaPipe canonical face mesh)
@@ -51,6 +58,29 @@ function faceHandles(preset: PresetId, lm: Float32Array): Handle[] {
       return [{ cx, cy, r: width * 0.5, strength: 0.7, type: 0 }];
     case 'swirl':
       return [{ cx, cy, r: width * 0.6, strength: 1.2, type: 1 }];
+    case 'noNose':
+      return [{ cx, cy, r: width * 0.18, strength: -0.9, type: 0 }];
+    case 'bigEars': {
+      const [, ly] = pt(lm, L_CHEEK), [, ry] = pt(lm, R_CHEEK);
+      return [
+        { cx: lx - width * 0.1, cy: ly, r: width * 0.28, strength: 0.7, type: 0 },
+        { cx: rx + width * 0.1, cy: ry, r: width * 0.28, strength: 0.7, type: 0 },
+      ];
+    }
+    case 'doubleChin': {
+      const [chx, chy] = pt(lm, CHIN);
+      return [{ cx: chx, cy: chy + height * 0.12, r: width * 0.45, strength: 0.55, type: 0 }];
+    }
+    case 'fatFace': {
+      const [, ly] = pt(lm, L_CHEEK), [, ry] = pt(lm, R_CHEEK);
+      return [
+        { cx: lx + width * 0.05, cy: ly, r: width * 0.35, strength: 0.5, type: 0 },
+        { cx: rx - width * 0.05, cy: ry, r: width * 0.35, strength: 0.5, type: 0 },
+        { cx, cy: by - height * 0.05, r: width * 0.4, strength: 0.45, type: 0 },
+      ];
+    }
+    case 'upsideDown':
+      return [{ cx, cy: (ty + by) / 2, r: Math.max(width, height) * 0.62, strength: Math.PI, type: 2 }];
     default:
       return [];
   }

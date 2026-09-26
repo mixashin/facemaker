@@ -39,3 +39,5 @@ export async function refreshGallery(): Promise<void> {
 }
 export const sliders = signal<SliderState>(DEFAULT_SLIDERS);
 export const showFaceLab = signal(false);
+export const galleryThumb = signal<string | null>(null); // object URL of the newest photo, shown on the gallery button
+export const flyShot = signal<string | null>(null);      // object URL of the photo animating into the gallery button

@@ -54,6 +54,7 @@ A camera toy for children aged 6 to 12. It warps faces, adds masks and stickers,
 
 ### M2b: Tools (gallery, parametric sliders, photo editor)
 
+- Capture: the shutter saves the photo to the gallery (fly-to-gallery animation, newest photo on the gallery button); share, save and delete happen in the viewer; the share sheet opens directly only when saving to the device fails.
 - Gallery: OPFS files under `photos/` and `thumbs/`; metadata from the file name (created, type) and the file handle (size); a sidecar `.json` for video duration when M3 needs it. No IndexedDB (decided 2026-09-26). Grid, tap to view, share, save, delete (two taps), clear all (two taps), storage usage in settings. `navigator.storage.persist()` requested once.
 - Parametric morph sliders (advanced panel): nose, mouth, each eye, forehead, chin, ears. Modes: scale, wobble (sine-animated displacement), swirl (rotation inside radius).
 - Post-capture sticker editor on a saved photo: moustache, pimples, sunglasses, googly eyes, party hats, caps. Move, resize, rotate. Saves a new photo to the gallery.

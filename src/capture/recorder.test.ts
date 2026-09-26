@@ -6,6 +6,9 @@ class FakeRec {
   static last: FakeRec | null = null;
   static throwOnNew = false;
   static bytes = 10;
+  static failTypes = new Set<string>(); // these types start, then fail with an encoder error
+  static made: FakeRec[] = [];
+  static silentStop = false; // stop() never reports back
   state = 'inactive';
   timeslice: number | undefined = -1;
   ondataavailable: ((e: { data: Blob }) => void) | null = null;
@@ -14,10 +17,22 @@ class FakeRec {
   constructor(public stream: unknown, public options: MediaRecorderOptions) {
     if (FakeRec.throwOnNew) throw new Error('NotSupportedError');
     FakeRec.last = this;
+    FakeRec.made.push(this);
   }
-  start(timeslice?: number) { this.timeslice = timeslice; this.state = 'recording'; }
+  start(timeslice?: number) {
+    this.timeslice = timeslice; this.state = 'recording';
+    if (FakeRec.failTypes.has(this.options.mimeType ?? '')) {
+      setTimeout(() => { // Chromium order: error, an empty dataavailable, stop
+        this.state = 'inactive';
+        this.onerror?.({ error: { name: 'EncodingError' } });
+        this.ondataavailable?.({ data: new Blob([]) });
+        this.onstop?.();
+      }, 5);
+    }
+  }
   stop() {
     this.state = 'inactive';
+    if (FakeRec.silentStop) return;
     this.ondataavailable?.({ data: new Blob([new Uint8Array(FakeRec.bytes)]) });
     this.onstop?.();
   }
@@ -27,7 +42,7 @@ const stream = { id: 's' } as unknown as MediaStream;
 const all = () => true;
 const webmOnly = (t: string) => t.startsWith('video/webm');
 
-beforeEach(() => { FakeRec.last = null; FakeRec.throwOnNew = false; FakeRec.bytes = 10; vi.useFakeTimers(); });
+beforeEach(() => { FakeRec.last = null; FakeRec.throwOnNew = false; FakeRec.bytes = 10; FakeRec.failTypes = new Set(); FakeRec.made = []; FakeRec.silentStop = false; vi.useFakeTimers(); });
 afterEach(() => vi.useRealTimers());
 
 describe('mime selection', () => {
@@ -126,5 +141,85 @@ describe('Recorder', () => {
     expect(r.start(stream)).toBe(true);
     expect(FakeRec.last!.options).toEqual({ mimeType: 'audio/webm' });
     expect((await r.stop())?.type).toBe('audio/webm');
+  });
+
+  it('falls back to the next type when the encoder fails after start (isTypeSupported lied)', async () => {
+    FakeRec.failTypes = new Set([MIME_ORDER[0]]);
+    const r = new Recorder(Ctor, all);
+    expect(r.start(stream)).toBe(true);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(r.active).toBe(true);
+    expect(FakeRec.made.map((m) => m.options.mimeType)).toEqual([MIME_ORDER[0], MIME_ORDER[1]]);
+    expect(FakeRec.made[1].stream).toBe(stream);
+    const f = await r.stop();
+    expect(f?.type).toBe('video/mp4');
+    expect(f?.size).toBe(10);
+  });
+
+  it('walks down the whole order and lands on webm', async () => {
+    FakeRec.failTypes = new Set([MIME_ORDER[0], MIME_ORDER[1]]);
+    const r = new Recorder(Ctor, all);
+    r.start(stream);
+    await vi.advanceTimersByTimeAsync(20);
+    const f = await r.stop();
+    expect(f?.name.endsWith('.webm')).toBe(true);
+    expect(f?.type).toBe('video/webm');
+  });
+
+  it('remembers a failed type, so the next clip starts on a working one', async () => {
+    FakeRec.failTypes = new Set([MIME_ORDER[0]]);
+    const r = new Recorder(Ctor, all);
+    r.start(stream);
+    await vi.advanceTimersByTimeAsync(10);
+    await r.stop();
+    FakeRec.made = [];
+    r.start(stream);
+    expect(FakeRec.made.map((m) => m.options.mimeType)).toEqual([MIME_ORDER[1]]);
+    expect((await r.stop())?.type).toBe('video/mp4');
+  });
+
+  it('gives null and goes inactive when every type fails', async () => {
+    FakeRec.failTypes = new Set(MIME_ORDER);
+    const onFail = vi.fn();
+    const r = new Recorder(Ctor, all);
+    expect(r.start(stream, onFail)).toBe(true);
+    await vi.advanceTimersByTimeAsync(50);
+    expect(r.active).toBe(false);
+    expect(onFail).toHaveBeenCalledTimes(1); // the caller learns the clip ended
+    expect(await r.stop()).toBeNull();
+  });
+
+  it('an encoder error that arrives after the release does not start a new recording', async () => {
+    FakeRec.failTypes = new Set([MIME_ORDER[0]]);
+    const r = new Recorder(Ctor, all);
+    r.start(stream);
+    const f = await r.stop(); // released before the error event arrives
+    await vi.advanceTimersByTimeAsync(10);
+    expect(FakeRec.made).toHaveLength(1);
+    expect(r.active).toBe(false);
+    expect(f?.size).toBe(10);
+  });
+
+  it('a recorder that never reports stop gives null after 5 s, so the shutter is never locked for good', async () => {
+    FakeRec.silentStop = true;
+    const r = new Recorder(Ctor, all);
+    r.start(stream);
+    let settled: File | null | 'pending' = 'pending';
+    r.stop().then((f) => { settled = f; });
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(settled).toBe('pending');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(settled).toBeNull();
+  });
+
+  it('the safety timer of one clip never ends the next clip', async () => {
+    const r = new Recorder(Ctor, all);
+    r.start(stream);
+    expect((await r.stop())?.size).toBe(10);
+    await vi.advanceTimersByTimeAsync(1000);
+    r.start(stream); // second clip, one second later
+    await vi.advanceTimersByTimeAsync(4500); // the first clip's 5 s timer fires in here
+    const f = await r.stop();
+    expect(f?.size).toBe(10);
   });
 });

@@ -32,10 +32,17 @@ type Rec = {
 export type RecCtor = new (stream: MediaStream, options: MediaRecorderOptions) => Rec;
 export type RecorderOptions = { maxMs?: number; now?: () => Date; order?: string[]; bitsPerSecond?: number };
 
+const STOP_TIMEOUT_MS = 5000;
+
 export class Recorder {
   private rec: Rec | null = null;
   private done: Promise<File | null> = Promise.resolve(null);
+  private resolve: (f: File | null) => void = () => {};
   private timer: ReturnType<typeof setTimeout> | undefined;
+  private onEnd: (() => void) | undefined;
+  // Types that failed while recording. isTypeSupported can say yes and the encoder still refuses after
+  // start() (seen 2026-09-27: mp4 with AAC in a Chromium without an AAC encoder). Kept for the session.
+  private bad = new Set<string>();
   private maxMs: number;
   private now: () => Date;
   private order: string[];
@@ -50,30 +57,52 @@ export class Recorder {
 
   get active(): boolean { return this.rec !== null; }
 
-  start(stream: MediaStream, onAutoStop?: () => void): boolean {
+  // onEnd fires when the clip ends by itself: the time cap, or every type failed.
+  start(stream: MediaStream, onEnd?: () => void): boolean {
     if (this.rec) return false;
-    const mime = pickMimeType(this.isSupported, this.order);
-    if (!mime) return false;
-    try {
-      const options: MediaRecorderOptions = { mimeType: mime };
-      if (this.bits > 0) options.videoBitsPerSecond = this.bits;
-      const rec = new this.Ctor(stream, options);
-      const chunks: Blob[] = [];
-      const name = recordName(extFor(mime), this.now());
-      const type = mime.split(';')[0];
-      this.done = new Promise((resolve) => {
+    let resolve: (f: File | null) => void = () => {};
+    this.done = new Promise((r) => { resolve = r; });
+    this.resolve = resolve; // every handler and timer of this clip keeps its own resolver
+    if (!this.begin(stream, resolve)) { resolve(null); return false; }
+    this.onEnd = onEnd;
+    this.timer = setTimeout(() => onEnd?.(), this.maxMs);
+    return true;
+  }
+
+  // Starts the first type that constructs. A type that fails later restarts here with the next one.
+  private begin(stream: MediaStream, resolve: (f: File | null) => void): boolean {
+    const skip = new Set<string>(); // constructor refusals, this attempt only
+    for (;;) {
+      const mime = pickMimeType(this.isSupported, this.order.filter((t) => !this.bad.has(t) && !skip.has(t)));
+      if (!mime) return false;
+      try {
+        const options: MediaRecorderOptions = { mimeType: mime };
+        if (this.bits > 0) options.videoBitsPerSecond = this.bits;
+        const rec = new this.Ctor(stream, options);
+        const chunks: Blob[] = [];
+        const name = recordName(extFor(mime), this.now());
+        const type = mime.split(';')[0];
+        let failed = false;
         rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-        rec.onstop = () => resolve(chunks.length ? new File(chunks, name, { type }) : null);
-        rec.onerror = () => resolve(null);
-      });
-      rec.start();
-      this.rec = rec;
-      this.timer = setTimeout(() => onAutoStop?.(), this.maxMs);
-      return true;
-    } catch (e) {
-      console.warn('recorder start failed', e);
-      this.rec = null;
-      return false;
+        rec.onstop = () => { if (!failed) resolve(chunks.length ? new File(chunks, name, { type }) : null); };
+        rec.onerror = () => {
+          failed = true;
+          this.bad.add(mime);
+          console.warn('recorder failed, next type', mime);
+          if (this.rec !== rec) { resolve(null); return; } // already released: never start again
+          this.rec = null;
+          if (this.begin(stream, resolve)) return;
+          clearTimeout(this.timer);
+          resolve(null);
+          this.onEnd?.();
+        };
+        rec.start();
+        this.rec = rec;
+        return true;
+      } catch (e) {
+        console.warn('recorder start failed', mime, e);
+        skip.add(mime);
+      }
     }
   }
 
@@ -82,7 +111,14 @@ export class Recorder {
     if (!rec) return null;
     clearTimeout(this.timer);
     this.rec = null;
-    try { if (rec.state !== 'inactive') rec.stop(); } catch { return null; }
-    return this.done;
+    const resolve = this.resolve, done = this.done; // this clip's, not the next one's
+    try {
+      if (rec.state === 'inactive') resolve(null);
+      else rec.stop();
+    } catch {
+      resolve(null);
+    }
+    setTimeout(() => resolve(null), STOP_TIMEOUT_MS); // a recorder that never reports back must not lock the shutter
+    return done;
   }
 }

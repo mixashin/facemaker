@@ -5,7 +5,7 @@ uniform float uAspect;        // width / height of the video
 uniform bool uMirror;
 uniform int uCount;
 uniform vec4 uHandle[MAX_H];  // cx, cy, r, strength (normalized video coords, r in x units)
-uniform float uType[MAX_H];   // 0 scale, 1 swirl
+uniform float uType[MAX_H];   // 0 scale, 1 swirl, 2 flip
 varying vec2 vUv;
 
 void main() {
@@ -28,7 +28,8 @@ void main() {
       // scale: strength>0 samples closer to centre (magnify), <0 samples farther (shrink)
       uv = c + d * (1.0 - h.w * f);
     } else {
-      float ang = h.w * f;
+      // 1 swirl: angle grows toward the centre. 2 flip: constant angle inside, feathered over the outer 30 %.
+      float ang = uType[i] < 1.5 ? h.w * f : h.w * (1.0 - smoothstep(0.7, 1.0, t));
       float s = sin(ang), co = cos(ang);
       vec2 rot = vec2(co * da.x - s * da.y, s * da.x + co * da.y);
       uv = c + vec2(rot.x, rot.y * uAspect);

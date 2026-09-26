@@ -52,5 +52,5 @@ export default defineConfig({
   ],
   worker: { format: 'iife' },
   build: { target: 'es2022' },
-  test: { environment: 'node', passWithNoTests: true },
+  test: { environment: 'node', passWithNoTests: true, exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'] },
 });

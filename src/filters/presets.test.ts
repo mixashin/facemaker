@@ -43,4 +43,46 @@ describe('handlesFor', () => {
   it('every preset has an icon', () => {
     for (const p of PRESETS) expect(p.icon.length).toBeGreaterThan(0);
   });
+
+  it('noNose pinches the nose tip with a small radius', () => {
+    const h = handlesFor('noNose', [face()], 16 / 9);
+    expect(h).toHaveLength(1);
+    expect(h[0].cx).toBeCloseTo(0.5, 4); expect(h[0].cy).toBeCloseTo(0.5, 4);
+    expect(h[0].strength).toBeLessThan(0);
+    expect(h[0].r).toBeLessThan(0.4 * 0.25);
+  });
+
+  it('bigEars puts two positive handles outside the cheeks', () => {
+    const h = handlesFor('bigEars', [face()], 16 / 9);
+    expect(h).toHaveLength(2);
+    expect(h[0].cx).toBeLessThan(0.3); expect(h[1].cx).toBeGreaterThan(0.7);
+    expect(h[0].strength).toBeGreaterThan(0); expect(h[1].strength).toBeGreaterThan(0);
+  });
+
+  it('doubleChin bulges below the chin', () => {
+    const h = handlesFor('doubleChin', [face()], 16 / 9);
+    expect(h).toHaveLength(1);
+    expect(h[0].cy).toBeGreaterThan(0.8);
+    expect(h[0].strength).toBeGreaterThan(0);
+  });
+
+  it('fatFace gives three positive handles', () => {
+    const h = handlesFor('fatFace', [face()], 16 / 9);
+    expect(h).toHaveLength(3);
+    for (const x of h) expect(x.strength).toBeGreaterThan(0);
+  });
+
+  it('upsideDown is one flip handle rotating by pi around the face centre', () => {
+    const h = handlesFor('upsideDown', [face()], 16 / 9);
+    expect(h).toHaveLength(1);
+    expect(h[0].type).toBe(2);
+    expect(h[0].strength).toBeCloseTo(Math.PI, 6);
+    expect(h[0].cy).toBeCloseTo(0.5, 4);
+    expect(h[0].r).toBeCloseTo(0.62 * Math.max(0.4, 0.6 / (16 / 9)), 4); // face height converted to x units
+  });
+
+  it('has twelve presets, each with an icon', () => {
+    expect(PRESETS).toHaveLength(12);
+    expect(new Set(PRESETS.map((p) => p.icon)).size).toBe(12);
+  });
 });

@@ -1,6 +1,8 @@
 import { signal } from '@preact/signals';
 import type { PresetId } from '../filters/presets';
 import type { Facing } from '../camera/camera';
+import type { ThemeId } from './themes';
+import type { TextState } from '../render/textLayer';
 
 export type CamState = 'idle' | 'starting' | 'live' | 'denied' | 'nocam' | 'error';
 
@@ -15,3 +17,13 @@ export function camStateFromError(name: string): 'denied' | 'nocam' | 'error' {
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'nocam';
   return 'error';
 }
+
+export const theme = signal<ThemeId>('neutral');
+export const showThemes = signal(false);
+export const tutorialSeen = signal(false);
+export const showSettings = signal(false);
+export const showAbout = signal(false);
+export const text = signal<TextState>({ text: '', color: '#ffffff', font: 'a', x: 0.5, y: 0.25, scale: 1 });
+export type Mode = 'warp' | 'sticker' | 'text';
+export const mode = signal<Mode>('warp');
+export const sticker = signal<string>('none');

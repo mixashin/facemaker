@@ -11,9 +11,9 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 
 ## State (2026-09-26, late)
 
-Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b). Shipped: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations: effects dock, shutter saves to gallery, cropped photos, editor gestures (select glow, pinch anywhere, mirror), floating save button. Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored). Operator phone checks passed for M1; M2a/M2b/UI checks partly done by the operator on a Fold cover screen.
+Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b). Shipped: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations: effects dock, shutter saves to gallery, cropped photos, editor gestures (select glow, pinch anywhere, mirror), floating save button; Fluent Emoji Color packs (PR #11, 20 packs, 6 editor props, LICENSE-ASSETS.md). Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored). Operator phone checks passed for M1; M2a/M2b/UI checks partly done by the operator on a Fold cover screen.
 
-Next session, in order (details in TODO.md "Handoff 2026-09-26 late"): 1) add Fluent Emoji Color packs next to Twemoji (nothing removed), 2) plan and build M3 (video + voice), 3) prompt list for the Piranesi custom prop set when asked.
+Next, in order (details in TODO.md "Handoff 2026-09-26 late"): 1) plan and build M3 (video + voice), 2) prompt list for the Piranesi custom prop set when asked. Operator phone check pending for the Fluent packs (mask sizes on the Fold).
 
 ## Decisions (do not re-ask)
 

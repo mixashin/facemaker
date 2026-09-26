@@ -35,4 +35,17 @@ describe('i18n', () => {
       expect((sr as Record<string, string>)[k].length, `empty sr ${k}`).toBeGreaterThan(0);
     }
   });
+
+  it('every tutorial step and the privacy lines have text in both languages', () => {
+    for (const k of ['tutorial.record', 'privacy.p4', 'privacy.p5', 'tabs.voice', 'voice.try', 'voice.denied']) {
+      expect((en as Record<string, string>)[k], `en ${k}`).toBeTruthy();
+      expect((sr as Record<string, string>)[k], `sr ${k}`).toBeTruthy();
+    }
+  });
+
+  it('the privacy page tells the truth about storage: photos and videos stay on the device', () => {
+    expect((en as Record<string, string>)['privacy.p4']).not.toMatch(/does not keep/i);
+    expect((en as Record<string, string>)['privacy.p4']).toMatch(/on this device/i);
+    expect((en as Record<string, string>)['privacy.p5']).toMatch(/microphone/i);
+  });
 });

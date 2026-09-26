@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
+    "@preact/signals": "^2.11.2",
     "preact": "^10.29.8",
     "three": "^0.186.1"
   },

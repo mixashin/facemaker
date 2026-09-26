@@ -1,12 +1,13 @@
 // Headless smoke check with Chrome's fake camera. Not part of `npm test`.
 // Usage: node scripts/smoke.mjs [url]   (default http://localhost:5173)
+import { statSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const url = process.argv[2] ?? 'http://localhost:5173';
 const browser = await chromium.launch({
   args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--enable-unsafe-swiftshader'],
 });
-const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+const page = await browser.newPage({ viewport: { width: 800, height: 600 }, acceptDownloads: true });
 const logs = [];
 page.on('console', (m) => logs.push(`${m.type()}: ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`pageerror: ${e.message}`));
@@ -23,6 +24,11 @@ const state = await page.evaluate(() => {
   };
 });
 console.log(JSON.stringify(state, null, 1));
+const shutter = page.getByRole('button', { name: 'take photo' });
+if (await shutter.count()) {
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), shutter.click()]);
+  console.log('download:', dl.suggestedFilename(), statSync(await dl.path()).size, 'bytes');
+}
 console.log('--- console:');
 for (const l of logs) console.log(l);
 await browser.close();

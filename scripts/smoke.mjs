@@ -46,6 +46,7 @@ console.log(JSON.stringify(state));
 if (state.fm?.faces > 0) {
   const shot = async (id) => { await page.getByRole('button', { name: id }).click(); await page.waitForTimeout(400); return page.locator('canvas').screenshot(); };
   const plain = await shot('none'), eyes = await shot('bigEyes');
+  if (process.env.SMOKE_OUT) { const { writeFileSync } = await import('node:fs'); writeFileSync(`${process.env.SMOKE_OUT}/none.png`, plain); writeFileSync(`${process.env.SMOKE_OUT}/bigEyes.png`, eyes); }
   let diff = 0; for (let i = 0; i < plain.length; i++) if (plain[i] !== eyes[i]) diff++;
   console.log('preset pixel diff (png bytes):', diff, diff > 0 ? 'OK' : 'FAIL');
 }

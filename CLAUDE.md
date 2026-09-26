@@ -11,7 +11,7 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 
 ## State (2026-09-26)
 
-M1 implemented on branch `m1` (Tasks 1 to 11), headless-verified with `scripts/smoke.mjs`. Owed to the operator: phone acceptance (SPEC section 7) on https://face.mxa.sh. Next: M2 plan (stickers, text, gallery, themes, i18n).
+M1 merged to main, tag `m1`, live at https://face.mxa.sh (HTTPS enforced). Verified headless with `scripts/smoke.mjs`; with `FACE=test/face.jpg` (operator selfie, gitignored) it tracks a real face and checks warp placement. Still owed: phone acceptance (SPEC section 7). M2 split: M2a look (stickers, text, themes, i18n, About + privacy, tutorial, new warp presets), then M2b tools (gallery, parametric sliders, post-capture sticker editor).
 
 ## Decisions (do not re-ask)
 
@@ -41,3 +41,4 @@ M1 implemented on branch `m1` (Tasks 1 to 11), headless-verified with `scripts/s
     npm run dev      # vite --host, http://localhost:5173
     npm test         # vitest
     npm run build && npm run preview   # http://localhost:4173, production CSP active
+    FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs [url]   # headless check, needs dev or preview server

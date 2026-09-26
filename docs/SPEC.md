@@ -40,14 +40,23 @@ A camera toy for children aged 6 to 12. It warps faces, adds masks and stickers,
 - CSP fence. DevTools network test documented.
 - Deploy: GitHub Actions to Pages, custom domain, HTTPS.
 
-### M2: Stickers, text, gallery, themes, i18n
+### M2a: Look (stickers, text, themes, i18n, About, tutorial, more warps)
 
-- Sticker packs: emoji (permissive set), animal masks (SVG or PNG). Anchored to landmarks: forehead, nose, eyes, ears via face oval, mouth. Scale with face width. Follow head rotation from the transformation matrix.
-- Text overlay: type, drag, pinch to scale, colour, two fonts. Baked into the render.
+- Mode tabs on the main screen: faces (warps), stickers, text. A warp preset and a sticker pack can be active at the same time.
+- Sticker packs from Twemoji SVGs (graphics CC-BY 4.0, code MIT), copied at install time, served from the app origin. Full-face animal masks (cat, dog, lion, frog, monkey, pig, panda, koala, ghost, disguise) scaled to the face oval, and props anchored to landmarks (sunglasses, glasses, crown, top hat, bow, flower, stars on cheeks, hearts on eyes, tongue). Scale with face width, rotate with head roll (eye line). Every tracked face gets the stickers.
+- Text overlay: one line, typed in a native input, six colours, two fonts, drag to move, pinch to scale. Rendered in the WebGL scene so it is baked into photos and later videos. Serbian diacritics must render.
+- Themes: neutral (default), girl, boy, cyberpunk. CSS custom properties on `data-theme`, persisted in localStorage, applied before first paint. Theme button on the main screen. No feature differences.
+- i18n: `sr` (Latin script) and `en` JSON string tables, `t(key)`, auto-detect from `navigator.language` (any `sr`, `hr`, `bs` locale is Serbian), switch in settings, persisted.
+- Settings sheet (gear): language, theme, restart tutorial, About.
+- About sheet: plain-language privacy page first (camera stays on the device, nothing is sent, a photo leaves only via share, no accounts, no tracking) with a three-box data-flow picture, then attributions for every shipped dependency and asset with licence and link, generated from `package.json` plus a manual asset list.
+- First-launch tutorial: 3 to 4 steps, icon plus one line, skip, shown once after the camera is live, restart from settings.
+- New warp presets: no nose, big ears, double chin, fat face, upside-down face (constant rotation inside the face oval, feathered rim).
+
+### M2b: Tools (gallery, parametric sliders, photo editor)
+
 - Gallery: OPFS files + IndexedDB metadata (id, type, created, duration, thumbnail blob). Grid, tap to view, share, save, delete, clear all. `navigator.storage.persist()` requested once.
-- Themes: four, switcher on the main screen.
-- i18n: `sr` and `en` JSON, language switch in advanced panel. Serbian Latin script (assumption, confirm).
 - Parametric morph sliders (advanced panel): nose, mouth, each eye, forehead, chin, ears. Modes: scale, wobble (sine-animated displacement), swirl (rotation inside radius).
+- Post-capture sticker editor on a saved photo: moustache, pimples, sunglasses, googly eyes, party hats, caps. Move, resize, rotate. Saves a new photo to the gallery.
 
 ### M3: Video + voice
 

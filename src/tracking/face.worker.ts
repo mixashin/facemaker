@@ -1,8 +1,16 @@
 /// <reference lib="webworker" />
-import { FilesetResolver, FaceLandmarker } from '@mediapipe/tasks-vision';
-import type { WorkerIn, WorkerOut, FaceResult } from './types';
+// Classic worker (no ES imports at runtime). MediaPipe loads its wasm via importScripts, which
+// throws in module workers; the import() fallback cannot set the global ModuleFactory it then expects.
+// Inline import() types only: an `import type` statement makes esbuild emit `export {}`, which a classic worker cannot parse.
+type WorkerIn = import('./types').WorkerIn;
+type WorkerOut = import('./types').WorkerOut;
+type FaceResult = import('./types').FaceResult;
 
-let landmarker: FaceLandmarker | null = null;
+declare const Vision: typeof import('@mediapipe/tasks-vision');
+importScripts('/mediapipe/vision_bundle.js');
+const { FilesetResolver, FaceLandmarker } = Vision;
+
+let landmarker: import('@mediapipe/tasks-vision').FaceLandmarker | null = null;
 let numFaces = 2;
 
 const post = (m: WorkerOut, transfer: Transferable[] = []) => (self as unknown as Worker).postMessage(m, transfer);

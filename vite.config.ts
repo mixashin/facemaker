@@ -46,7 +46,7 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
-  worker: { format: 'es' },
+  worker: { format: 'iife' },
   build: { target: 'es2022' },
   test: { environment: 'node', passWithNoTests: true },
 });

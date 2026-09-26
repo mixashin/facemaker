@@ -26,7 +26,7 @@ export class FaceTracker {
   }
 
   start(): void {
-    this.worker = new Worker(new URL('./face.worker.ts', import.meta.url), { type: 'module' });
+    this.worker = new Worker(new URL('./face.worker.ts', import.meta.url));
     this.worker.onmessage = (e: MessageEvent<WorkerOut>) => {
       const m = e.data;
       if (m.type === 'ready') this.opts.onReady?.(m.delegate);

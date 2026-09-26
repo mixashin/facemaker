@@ -1,4 +1,4 @@
-import { sliders, preset } from './state';
+import { sliders, presets } from './state';
 import { REGIONS, MODES, DEFAULT_SLIDERS } from '../filters/sliders';
 import { t } from '../i18n/i18n';
 
@@ -13,7 +13,7 @@ export function LabRows() {
           <div class="row">
             {MODES.map((m) => (
               <button key={m.id} class={'chip small' + (s[r.id].mode === m.id ? ' active' : '')} aria-label={t('region.' + r.id) + ' ' + t('mode.' + m.id)} aria-pressed={s[r.id].mode === m.id}
-                onClick={() => { sliders.value = { ...s, [r.id]: { ...s[r.id], mode: m.id } }; if (m.id !== 'off') preset.value = 'none'; }}>{m.icon}</button>
+                onClick={() => { sliders.value = { ...s, [r.id]: { ...s[r.id], mode: m.id } }; if (m.id !== 'off') presets.value = []; }}>{m.icon}</button>
             ))}
           </div>
           <input type="range" min="-1" max="1" step="0.05" value={s[r.id].amount} aria-label={t('region.' + r.id)}

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import { startCamera, stopCamera } from '../camera/camera';
 import { FaceTracker, type Face } from '../tracking/faceTracker';
 import { FaceRenderer } from '../render/renderer';
-import { handlesFor } from '../filters/presets';
+import { handlesForAll } from '../filters/presets';
 import { spritesFor } from '../filters/stickers';
 import { snapshot } from '../capture/snapshot';
 import { shareOrDownload } from '../capture/share';
@@ -24,7 +24,7 @@ import { RecordCanvas } from '../capture/recordCanvas';
 import { acquireVoice, currentEngine, type Lease } from '../audio/session';
 import { micState } from '../audio/mic';
 import { isRealClip, type HoldEvent } from './hold';
-import { preset, facing, camState, flash, busy, dockOpen, sticker, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice } from './state';
+import { presets, facing, camState, flash, busy, dockOpen, sticker, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -55,8 +55,8 @@ export function App() {
     const loop = (now: number) => {
       if (screen.value === 'camera') t.push(video, now);
       const aspect = video.videoWidth / video.videoHeight;
-      const level = preset.value === 'shout' ? currentEngine()?.level() ?? 0 : 0; // mic volume drives the shout preset
-      r.setHandles([...handlesFor(preset.value, faces, aspect, level), ...sliderHandles(sliders.value, faces, aspect, now)]);
+      const level = presets.value.includes('shout') ? currentEngine()?.level() ?? 0 : 0; // mic volume drives the shout preset
+      r.setHandles([...handlesForAll(presets.value, faces, aspect, level), ...sliderHandles(sliders.value, faces, aspect, now)]);
       r.setSprites(spritesFor(sticker.value, faces, aspect));
       r.setText(text.value);
       r.render();
@@ -84,11 +84,11 @@ export function App() {
     // The shout preset listens to the mic. It holds the mic only while it is on the visible camera screen.
     let shout: Promise<Lease> | null = null;
     const syncShout = () => {
-      const want = preset.value === 'shout' && screen.value === 'camera' && !document.hidden;
+      const want = presets.value.includes('shout') && screen.value === 'camera' && !document.hidden;
       if (want && !shout) shout = acquireVoice(voice.value);
       else if (!want && shout) { shout.then((l) => l.release()); shout = null; }
     };
-    const unsubShout = [preset.subscribe(syncShout), screen.subscribe(syncShout)];
+    const unsubShout = [presets.subscribe(syncShout), screen.subscribe(syncShout)];
     document.addEventListener('visibilitychange', syncShout);
     return () => {
       document.removeEventListener('visibilitychange', onHide);

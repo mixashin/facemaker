@@ -5,7 +5,7 @@
 //   FACE            image used as the camera feed (default test/face.png if present; converted to y4m with ffmpeg)
 //   FACE_ROTATE     degrees to roll the face image (head-tilt check for sticker rotation)
 //   SMOKE_OUT       directory for screenshots; enables the shot options below
-//   SMOKE_SHOTS     "sticker,cat;warp,upsideDown": click each group's aria-labels in order, save <last label>.png of the canvas
+//   SMOKE_SHOTS     "sticker,cat;warp,upsideDown": click each group's aria-labels in order, save <last label>.png of the canvas; a label "-" closes the dock before the shot
 //   SMOKE_PAGE      "theme,Blossom": click labels, save page-<last label>.png of the whole page, then close any open sheet
 //   SMOKE_TEXT      "Čćžšđ 🐱": type it in text mode, save text.png of the canvas
 //   SMOKE_GALLERY   1: take a photo, open the gallery, edit it with a sticker, save, expect one more photo
@@ -77,7 +77,14 @@ const state = await page.evaluate(async () => {
 });
 console.log(JSON.stringify(state));
 
-const shot = async (labels) => { for (const l of labels) await click(l); return page.locator('canvas').screenshot(); };
+// A label "-" closes the dock, so the shot shows the whole picture.
+const shot = async (labels) => {
+  for (const l of labels) {
+    if (l === '-') { await page.locator('canvas.stage').click({ position: { x: vw - 20, y: 120 } }); await page.waitForTimeout(400); }
+    else await click(l);
+  }
+  return page.locator('canvas').screenshot();
+};
 
 // Preset switch: the warped frame must differ from the plain one when a face is tracked.
 if (state.fm?.faces > 0) {
@@ -86,11 +93,26 @@ if (state.fm?.faces > 0) {
   let diff = 0; for (let i = 0; i < plain.length; i++) if (plain[i] !== eyes[i]) diff++;
   console.log('preset pixel diff (png bytes):', diff, diff > 0 ? 'OK' : 'FAIL');
   if (out) { writeFileSync(`${out}/none.png`, plain); writeFileSync(`${out}/bigEyes.png`, eyes); }
+  // Several filters at once: chips toggle, five at most, the oldest pick makes room.
+  const pressed = () => page.evaluate(() => [...document.querySelectorAll('.dock .chip[aria-pressed="true"]')].map((b) => b.getAttribute('aria-label')));
+  const combo = await shot(['bigMouth', 'bigHead']);
+  const three = await pressed();
+  let d2 = 0; for (let i = 0; i < eyes.length; i++) if (eyes[i] !== combo[i]) d2++;
+  console.log('three filters at once:', three.join('+'), 'differs from one filter:', d2 > 0, three.length === 3 && d2 > 0 ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/combo.png`, combo);
+  for (const l of ['bigEars', 'noNose', 'doubleChin']) await click(l);
+  const five = await pressed();
+  console.log('limit of five:', five.join('+'), five.length === 5 && !five.includes('bigEyes') && five.includes('doubleChin') ? 'OK' : 'FAIL');
+  await click('bigEars');
+  const four = await pressed();
+  await click('none');
+  const zero = await pressed();
+  console.log('a second tap turns one off, none clears all:', four.length, zero.join('+'), four.length === 4 && !four.includes('bigEars') && zero.length === 1 && zero[0] === 'none' ? 'OK' : 'FAIL');
 }
 if (process.env.SMOKE_SHOTS && out) {
   for (const group of process.env.SMOKE_SHOTS.split(';')) {
     const labels = group.split(',').map((s) => s.trim()).filter(Boolean);
-    writeFileSync(`${out}/${labels.at(-1)}.png`, await shot(labels));
+    writeFileSync(`${out}/${labels.filter((l) => l !== '-').at(-1)}.png`, await shot(labels));
     console.log('shot:', labels.join(' > '));
   }
 }
@@ -155,7 +177,7 @@ if (process.env.SMOKE_RECORD) {
   const micNow = () => page.evaluate(() => globalThis.__fm?.mic?.() ?? 'n/a');
   const closeDock = async () => { await page.locator('canvas.stage').click({ position: { x: vw - 20, y: 120 } }); await page.waitForTimeout(300); };
   // The shout preset listens to the mic: on while it is picked, off a few seconds after.
-  await click('warp'); await click('shout'); await page.waitForTimeout(1500);
+  await click('warp'); await click('none'); await click('shout'); await page.waitForTimeout(1500);
   const micShout = await micNow();
   await click('none'); await closeDock(); await page.waitForTimeout(4000);
   const micNone = await micNow();

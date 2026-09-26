@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import vert from './quad.vert?raw';
 import frag from './warp.frag?raw';
-import type { Handle } from '../filters/presets';
+import { MAX_HANDLES, type Handle } from '../filters/presets';
 import { SpriteLayer } from './spriteLayer';
 import { TextLayer, type TextState } from './textLayer';
 import type { Sprite } from '../filters/stickers';
 
-const MAX_H = 16;
+const MAX_H = MAX_HANDLES; // must equal MAX_H in warp.frag (a test checks it)
 
 export class FaceRenderer {
   private renderer: THREE.WebGLRenderer;

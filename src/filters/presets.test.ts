@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { handlesFor, PRESETS } from './presets';
+import { readFileSync } from 'node:fs';
+import { handlesFor, handlesForAll, togglePreset, PRESETS, MAX_ACTIVE, MAX_HANDLES, type PresetId } from './presets';
 import type { Face } from '../tracking/faceTracker';
 
 function face(): Face {
@@ -114,5 +115,86 @@ describe('shout', () => {
 
   it('the level does not change other presets', () => {
     expect(handlesFor('bigEyes', [face()], 16 / 9, 0)).toEqual(handlesFor('bigEyes', [face()], 16 / 9, 1));
+  });
+});
+
+describe('togglePreset', () => {
+  it('a tap turns a filter on, a second tap turns it off, the order of the picks is kept', () => {
+    let a = togglePreset([], 'bigHead');
+    a = togglePreset(a, 'bigEyes');
+    a = togglePreset(a, 'bigMouth');
+    expect(a).toEqual(['bigHead', 'bigEyes', 'bigMouth']);
+    expect(togglePreset(a, 'bigEyes')).toEqual(['bigHead', 'bigMouth']);
+  });
+
+  it('none clears everything and is never in the list', () => {
+    expect(togglePreset(['bigHead', 'swirl'], 'none')).toEqual([]);
+    expect(togglePreset([], 'none')).toEqual([]);
+  });
+
+  it('holds five filters at most: the oldest pick makes room', () => {
+    expect(MAX_ACTIVE).toBe(5);
+    const five: PresetId[] = ['bigHead', 'bigEyes', 'bigMouth', 'bigEars', 'noNose'];
+    expect(togglePreset(five, 'swirl')).toEqual(['bigEyes', 'bigMouth', 'bigEars', 'noNose', 'swirl']);
+  });
+
+  it('does not change the list it was given', () => {
+    const a: PresetId[] = ['bigHead'];
+    togglePreset(a, 'bigEyes');
+    togglePreset(a, 'bigHead');
+    expect(a).toEqual(['bigHead']);
+  });
+});
+
+describe('handlesForAll', () => {
+  it('returns nothing without filters or without faces', () => {
+    expect(handlesForAll([], [face()], 16 / 9)).toEqual([]);
+    expect(handlesForAll(['bigEyes'], [], 16 / 9)).toEqual([]);
+  });
+
+  it('one filter gives the same handles as before', () => {
+    expect(handlesForAll(['bigEyes'], [face()], 16 / 9)).toEqual(handlesFor('bigEyes', [face()], 16 / 9));
+  });
+
+  it('puts the largest region first, whatever the order of the picks: the head is warped, then the eyes inside it', () => {
+    const a = handlesForAll(['bigEyes', 'bigMouth', 'bigHead'], [face()], 16 / 9);
+    const b = handlesForAll(['bigHead', 'bigMouth', 'bigEyes'], [face()], 16 / 9);
+    expect(a).toHaveLength(4); // head 1, mouth 1, eyes 2
+    for (let i = 1; i < a.length; i++) expect(a[i - 1].r).toBeGreaterThanOrEqual(a[i].r);
+    expect(a[0].r).toBeCloseTo(Math.max(0.4, 0.6 / (16 / 9)) * 0.95, 6); // the head
+    expect(a[3].r).toBeCloseTo(0.4 * 0.22, 6);                          // an eye
+    expect(a).toEqual(b);
+  });
+
+  it('keeps the handles of each face together', () => {
+    const h = handlesForAll(['bigHead', 'bigEyes'], [face(), face()], 16 / 9);
+    expect(h).toHaveLength(6);
+    expect(h.slice(0, 3)).toEqual(h.slice(3));
+    expect(h[0].r).toBeGreaterThan(h[1].r);
+  });
+
+  it('passes the voice level to the shout filter', () => {
+    expect(handlesForAll(['shout', 'bigEyes'], [face()], 16 / 9, 0)).toHaveLength(2);
+    expect(handlesForAll(['shout', 'bigEyes'], [face()], 16 / 9, 1)).toHaveLength(4);
+  });
+});
+
+describe('handle budget', () => {
+  it('any five filters on two faces fit into the shader', () => {
+    const ids = PRESETS.map((p) => p.id).filter((id) => id !== 'none');
+    let worst = 0;
+    const pick = (start: number, chosen: PresetId[]) => {
+      if (chosen.length === MAX_ACTIVE) { worst = Math.max(worst, handlesForAll(chosen, [face(), face()], 16 / 9, 1).length); return; }
+      for (let i = start; i < ids.length; i++) pick(i + 1, [...chosen, ids[i]]);
+    };
+    pick(0, []);
+    expect(worst).toBeGreaterThan(16); // the old budget was too small
+    expect(worst).toBeLessThanOrEqual(MAX_HANDLES);
+  });
+
+  it('the shader and the renderer use the same budget', () => {
+    expect(MAX_HANDLES).toBe(32);
+    expect(readFileSync('src/render/warp.frag', 'utf8')).toContain(`#define MAX_H ${MAX_HANDLES}`);
+    expect(readFileSync('src/render/renderer.ts', 'utf8')).toContain('MAX_HANDLES');
   });
 });

@@ -3,6 +3,8 @@ import type { PresetId } from '../filters/presets';
 import type { Facing } from '../camera/camera';
 import type { ThemeId } from './themes';
 import type { TextState } from '../render/textLayer';
+import type { GalleryStore, GalleryItem } from '../storage/gallery';
+import { DEFAULT_SLIDERS, type SliderState } from '../filters/sliders';
 
 export type CamState = 'idle' | 'starting' | 'live' | 'denied' | 'nocam' | 'error';
 
@@ -27,3 +29,13 @@ export const text = signal<TextState>({ text: '', color: '#ffffff', font: 'a', x
 export type Mode = 'none' | 'warp' | 'sticker' | 'text';
 export const mode = signal<Mode>('none'); // clean screen: no strip open until a tab is tapped
 export const sticker = signal<string>('none');
+export type Screen = 'camera' | 'gallery' | 'viewer' | 'editor';
+export const screen = signal<Screen>('camera');
+export const store = signal<GalleryStore | null>(null);
+export const items = signal<GalleryItem[]>([]);
+export const current = signal<string | null>(null);
+export async function refreshGallery(): Promise<void> {
+  items.value = store.value ? await store.value.list() : [];
+}
+export const sliders = signal<SliderState>(DEFAULT_SLIDERS);
+export const showFaceLab = signal(false);

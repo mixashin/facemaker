@@ -14,9 +14,15 @@ import { Settings } from './Settings';
 import { About } from './About';
 import { shouldShowTutorial } from './tutorialState';
 import { textVisible } from '../render/textLayer';
+import { Gallery } from './Gallery';
+import { Viewer } from './Viewer';
+import { Editor } from './Editor';
+import { FaceLab } from './FaceLab';
+import { openStore, safePut } from '../storage/gallery';
+import { sliderHandles } from '../filters/sliders';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
-import { preset, facing, camState, flash, busy, mode, sticker, text, tutorialSeen, showSettings, showAbout, camStateFromError } from './state';
+import { preset, facing, camState, flash, busy, mode, sticker, text, tutorialSeen, showSettings, showAbout, screen, store, refreshGallery, sliders, showFaceLab, camStateFromError } from './state';
 import { t } from '../i18n/i18n';
 
 export function App() {
@@ -24,6 +30,7 @@ export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    openStore().then((s) => { store.value = s; return refreshGallery(); });
     const video = videoRef.current!, canvas = canvasRef.current!;
     let faces: Face[] = [];
     let raf = 0;
@@ -38,8 +45,9 @@ export function App() {
     });
     const loop = (now: number) => {
       t.push(video, now);
-      r.setHandles(handlesFor(preset.value, faces, video.videoWidth / video.videoHeight));
-      r.setSprites(spritesFor(sticker.value, faces, video.videoWidth / video.videoHeight));
+      const aspect = video.videoWidth / video.videoHeight;
+      r.setHandles([...handlesFor(preset.value, faces, aspect), ...sliderHandles(sliders.value, faces, aspect, now)]);
+      r.setSprites(spritesFor(sticker.value, faces, aspect));
       r.setText(text.value);
       r.render();
       raf = requestAnimationFrame(loop);
@@ -68,7 +76,9 @@ export function App() {
     flash.value = true;
     setTimeout(() => (flash.value = false), 120);
     try {
-      await shareOrDownload(await snapshot(canvasRef.current!));
+      const file = await snapshot(canvasRef.current!);
+      if (store.value && (await safePut(store.value, file.name, file))) refreshGallery();
+      await shareOrDownload(file);
     } catch (e) {
       console.error('capture', e);
     } finally {
@@ -122,12 +132,16 @@ export function App() {
           {mode.value === 'warp' && <Strip items={PRESETS} value={preset.value} onPick={(id) => (preset.value = id as typeof preset.value)} label={t('tabs.warp')} />}
           {mode.value === 'sticker' && <Strip items={STICKER_PACKS} value={sticker.value} onPick={(id) => (sticker.value = id)} label={t('tabs.sticker')} />}
           {mode.value === 'text' && <TextEditor />}
-          <CaptureButton onCapture={capture} onFlip={() => (facing.value = facing.value === 'user' ? 'environment' : 'user')} />
+          <CaptureButton onCapture={capture} onFlip={() => (facing.value = facing.value === 'user' ? 'environment' : 'user')} onGallery={() => { refreshGallery(); screen.value = 'gallery'; }} />
         </>
       )}
       {shouldShowTutorial(tutorialSeen.value, camState.value) && <Tutorial />}
       {showSettings.value && <Settings />}
       {showAbout.value && <About />}
+      {showFaceLab.value && <FaceLab />}
+      {screen.value === 'gallery' && <Gallery />}
+      {screen.value === 'viewer' && <Viewer />}
+      {screen.value === 'editor' && <Editor />}
       {(camState.value === 'denied' || camState.value === 'nocam' || camState.value === 'error') && (
         <button class="blocker" onClick={retry} aria-label="retry camera">
           <span class="big">{camState.value === 'denied' ? '🔒📷' : camState.value === 'nocam' ? '🚫📷' : '⚠️📷'}</span>

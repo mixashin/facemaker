@@ -31,5 +31,6 @@
   "theme.neutral": "Night",
   "theme.girl": "Blossom",
   "theme.boy": "Rocket",
-  "theme.cyber": "Cyber"
+  "theme.cyber": "Cyber",
+  "text.clear": "Clear text"
 }

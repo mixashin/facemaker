@@ -19,6 +19,7 @@ export function TextEditor() {
           <button key={c} class={'swatch' + (s.color === c ? ' active' : '')} style={{ background: c }} aria-label={c} aria-pressed={s.color === c} onClick={() => (text.value = { ...text.value, color: c })} />
         ))}
         <button class="chip small" aria-label={t('text.font')} onClick={() => (text.value = { ...text.value, font: text.value.font === 'a' ? 'b' : 'a' })}>Aa</button>
+        <button class="chip small" aria-label={t('text.clear')} onClick={() => (text.value = { ...text.value, text: '' })}>✖</button>
       </div>
     </div>
   );

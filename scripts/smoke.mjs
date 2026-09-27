@@ -10,7 +10,7 @@
 //   SMOKE_TEXT      "Čćžšđ 🐱": type it in text mode, save text.png of the canvas
 //   SMOKE_GALLERY   1: take a photo, open the gallery, edit it with a sticker, save, expect one more photo
 //   SMOKE_VIEWPORT  "412x915": browser viewport (default 800x600)
-//   SMOKE_RECORD    1: pick the robot voice, hold the shutter 2.5 s, expect one video in the gallery with a video and an audio stream
+//   SMOKE_RECORD    1: pick a makeup look and the robot voice, hold the shutter 2.5 s, expect one video in the gallery with a video and an audio stream
 import { existsSync, statSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -248,6 +248,7 @@ if (process.env.SMOKE_RECORD) {
   await click('none'); await closeDock(); await page.waitForTimeout(4000);
   const micNone = await micNow();
   console.log('mic with the shout preset:', micShout, '| a few seconds after it is off:', micNone, micShout === 'live' && micNone === 'idle' ? 'OK' : 'FAIL');
+  await click('makeup'); await click('glam'); // the clip is recorded with a look on
   await click('voice'); await click('robot');
   await page.waitForTimeout(800); // mic prompt (auto-accepted) and the audio graph
   const mic = await page.evaluate(() => document.querySelector('[aria-label="voice mirror"]') ? 'mirror button' : document.querySelector('.voice [role=status]') ? 'denied hint' : 'nothing');

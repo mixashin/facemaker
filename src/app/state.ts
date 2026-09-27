@@ -15,6 +15,10 @@ export type CamState = 'idle' | 'starting' | 'live' | 'denied' | 'nocam' | 'erro
 export const presets = signal<PresetId[]>([]); // active face filters in pick order. Clean start, the kid picks
 export const facing = signal<Facing>('user');
 export const camState = signal<CamState>('idle');
+export const wasLive = signal(false); // the camera gave a picture at least one time
+// The buttons of the camera screen and the tutorial. They stay while a camera that ran before starts again (a
+// flip, a return from the background): the tutorial kept its step only so, and the panels their state.
+export const controlsUp = (state: CamState, ranBefore: boolean): boolean => state === 'live' || (state === 'starting' && ranBefore);
 export const flash = signal(false);
 export const busy = signal(false); // a capture is in progress
 

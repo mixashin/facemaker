@@ -4,13 +4,14 @@ import type { VoiceId } from './voice';
 
 type FakeEngine = { mic: unknown; preset: VoiceId; disposed: boolean; resumed: number; setPreset(p: VoiceId): void; resume(): Promise<void>; dispose(): void; level(): number; stream: MediaStream };
 
-function setup(opts: { throwOnMake?: boolean } = {}) {
+function setup(opts: { throwOnMake?: boolean; hidden?: () => boolean } = {}) {
   const log: string[] = [];
   const engines: FakeEngine[] = [];
   let mic: unknown = { id: 'mic1' };
   const s = createVoiceSession({
     getMic: async () => mic as MediaStream | null,
     releaseMic: () => { log.push('releaseMic'); },
+    hidden: opts.hidden,
     makeEngine: (m, id) => {
       if (opts.throwOnMake) throw new Error('no audio device');
       const e: FakeEngine = {
@@ -52,6 +53,37 @@ describe('voice session', () => {
     expect(t.s.current()).toBeNull();
   });
 
+  it('no mic in the background: the last user lets go while the page is hidden, and the mic goes off at once', async () => {
+    const t = setup({ hidden: () => true });
+    const lease = await t.s.acquire('none');
+    lease.release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.log).toEqual(['dispose', 'releaseMic']);
+    expect(t.s.current()).toBeNull();
+  });
+  it('no mic in the background: the page hides inside the idle time, and the mic goes off at once', async () => {
+    const t = setup();
+    const lease = await t.s.acquire('none');
+    lease.release();
+    await vi.advanceTimersByTimeAsync(1000);
+    t.s.rest();
+    expect(t.log).toEqual(['dispose', 'releaseMic']);
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    expect(t.log).toEqual(['dispose', 'releaseMic']); // one time
+  });
+  it('the page hides while a user holds the mic: the user decides (a clip that ends saves its sound first)', async () => {
+    const t = setup();
+    const lease = await t.s.acquire('none');
+    t.s.rest();
+    expect(t.log).toEqual([]);
+    expect(t.s.current()).not.toBeNull();
+    lease.release();
+  });
+  it('the page hides with no mic in use: nothing to do', async () => {
+    const t = setup();
+    t.s.rest();
+    expect(t.log).toEqual([]);
+  });
   it('keeps the mic while any user holds it', async () => {
     const t = setup();
     const rec = await t.s.acquire('none');

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cameraLost, startCamera, stopCamera, startOnReturn } from './camera';
+import { cameraLost, startCamera, stopCamera, startOnReturn, retryIn, RETRY_MS } from './camera';
 
 const stream = (...states: string[]) => ({ getVideoTracks: () => states.map((readyState) => ({ readyState })) }) as unknown as MediaStream;
 
@@ -30,6 +30,22 @@ const devices = () => {
 const screenOf = (play: () => Promise<void> = async () => {}) =>
   ({ srcObject: null, muted: false, playsInline: false, videoWidth: 640, play, addEventListener() {} }) as unknown as HTMLVideoElement;
 const page = (hidden = false) => ({ hidden });
+const tick = () => new Promise((r) => setTimeout(r, 0)); // all steps that are ready run before it ends
+// A video element that has no picture size yet, with its events
+const slowScreen = () => {
+  const on = new Map<string, Set<() => void>>();
+  const v = {
+    srcObject: null as unknown, muted: false, playsInline: false, videoWidth: 0, play: async () => {},
+    addEventListener(type: string, f: () => void, opts?: { signal?: AbortSignal }) {
+      if (!on.has(type)) on.set(type, new Set());
+      on.get(type)!.add(f);
+      opts?.signal?.addEventListener('abort', () => on.get(type)!.delete(f));
+    },
+    fire(type: string) { [...(on.get(type) ?? [])].forEach((f) => f()); },
+    listeners: () => [...on.values()].reduce((n, s) => n + s.size, 0),
+  };
+  return v as unknown as HTMLVideoElement & { fire(type: string): void; listeners(): number };
+};
 
 describe('startCamera', () => {
   it('gives the stream to the video', async () => {
@@ -93,12 +109,42 @@ describe('startCamera', () => {
     const v = screenOf(() => new Promise<void>((_ok, no) => { fail = no; })), d = devices(), s = cam();
     const p = startCamera(v, 'user', d, page());
     d.asks[0].resolve(s);
-    await Promise.resolve(); await Promise.resolve();
+    await tick();
     expect(v.srcObject).toBe(s);
     stopCamera(v); // the page went to the background
     fail(new Error('The play() request was interrupted'));
     expect(await p).toBe(null);
     expect(s.track.readyState).toBe('ended');
+  });
+  it('a new start stops the camera that runs, at once', async () => {
+    const v = screenOf(), d = devices(), first = cam();
+    const a = startCamera(v, 'user', d, page());
+    d.asks[0].resolve(first);
+    await a;
+    startCamera(v, 'environment', d, page()); // a phone gives one camera at a time: the front one must be free
+    expect(first.track.readyState).toBe('ended');
+    expect(v.srcObject).toBe(null);
+  });
+  it('waits until the picture has a size', async () => {
+    const v = slowScreen(), d = devices(), s = cam();
+    let done = false;
+    const p = startCamera(v, 'user', d, page()).then((r) => { done = true; return r; });
+    d.asks[0].resolve(s);
+    await tick();
+    expect(done).toBe(false);
+    v.fire('loadedmetadata');
+    expect(await p).toBe(s);
+    expect(v.listeners()).toBe(0); // no listener stays on the video
+  });
+  it('ends the wait for the size when the camera stops: the start gives nothing, and no listener stays', async () => {
+    const v = slowScreen(), d = devices(), s = cam();
+    const p = startCamera(v, 'user', d, page());
+    d.asks[0].resolve(s);
+    await tick();
+    stopCamera(v); // the page went to the background
+    v.fire('emptied'); // the video element says that it has no source any more
+    expect(await Promise.race([p, tick().then(() => 'still waits')])).toBe(null);
+    expect(v.listeners()).toBe(0);
   });
   it('gives the error of a video that does not play', async () => {
     const v = screenOf(async () => { throw new Error('no play'); }), d = devices();
@@ -119,7 +165,24 @@ describe('startOnReturn', () => {
   it('leaves a camera that works', () => {
     expect(startOnReturn('live', stream('live'))).toBe(false);
   });
-  it('leaves the error screens: the child has a button there', () => {
-    for (const s of ['idle', 'denied', 'nocam', 'error'] as const) expect(startOnReturn(s, null)).toBe(false);
+  it('tries again after an error that can go away: the camera was busy, the phone was locked', () => {
+    expect(startOnReturn('error', null)).toBe(true);
+  });
+  it('leaves the screens that a new try does not cure: no permission, no camera', () => {
+    for (const s of ['idle', 'denied', 'nocam'] as const) expect(startOnReturn(s, null)).toBe(false);
+  });
+});
+
+describe('retryIn', () => {
+  it('a camera that is busy gets two more tries before the error screen', () => {
+    expect(retryIn('error', 0)).toBe(RETRY_MS[0]);
+    expect(retryIn('error', 1)).toBe(RETRY_MS[1]);
+    expect(retryIn('error', 2)).toBe(null);
+    expect(RETRY_MS).toHaveLength(2);
+    expect(RETRY_MS[0] + RETRY_MS[1]).toBeLessThanOrEqual(3000); // the child does not wait long for the error screen
+  });
+  it('no new try when a try does not help: no permission, no camera', () => {
+    expect(retryIn('denied', 0)).toBe(null);
+    expect(retryIn('nocam', 0)).toBe(null);
   });
 });

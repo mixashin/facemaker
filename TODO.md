@@ -558,8 +558,17 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [x] The page is hidden: the app stops the tracks of the camera. The page is back: the camera starts again, also when it was on its way before (`startOnReturn`). The error screens stay as they are.
 - [x] A start of the camera gives nothing when the page is hidden or a newer start came (`startCamera`). It does not ask for the camera while the page is hidden. A stream that arrives too late is stopped, an error that arrives too late is dropped. So two fast starts (flip, flip) leave one live track, not two.
 - [x] Tests: 13 new unit tests, two new verdicts in `scripts/smoke.mjs` (they fail on the code before the fix).
+- [x] Review by a fresh reviewer (30 headless probes, 17 mutants of the fix): ready after fixes. Fixed after it:
+  - [x] A camera that was busy at the return gave the error screen, and the app did not try again. Now: two more tries (0.5 s, 2 s) before the error screen, for every start. A return to the app starts the camera after an error too.
+  - [x] A clip and the mic could start while the page was hidden (finger down, page hides, no finger-up comes). Older than the fix. Now `startRec` stops there, at its start and after the answer of the mic.
+  - [x] The mic stayed live for 3 s after the page hid. Now it goes off at once when nobody holds it.
+  - [x] The stage took the default size and showed the last picture stretched while the camera started again. Now the last picture stays as it is.
+  - [x] The tutorial was at its first step after a return, and the buttons went away for the time of the start. Now both stay while a camera that ran before starts again. The same for a flip of the camera.
+  - [x] The wait for the size of the picture did not end when the camera stopped in that time.
+  - [x] Tests: a new start stops the camera that runs, the wait for the size, 9 more. The headless checks count every stream that the browser gives. New verdicts: a stream that arrives in the background, a camera that is busy, a camera that stays busy, the step of the tutorial, the mic in the background, a hold that meets the background. Each one fails with its defect in.
+- [ ] Not tested, needs a phone: what Android says to the page while the lock screen shows. If the page is visible there, the camera cannot start, and the error screen shows after the tries. The return after the unlock starts the camera only if the page was hidden in between.
+- [ ] Not covered by the headless check: a hidden event of the browser itself (the check sets the state by hand, and frames still run there). The reviewer ran a tab in the back for 11 s: tracker results came again, no error, no new start.
 - [ ] Operator, on the phone: put the app in the background. The camera sign of Android (green dot) goes off. A second page with the app gets a picture. Back in the first app: the picture comes again in about a second.
-- Known: the buttons go away for the time of the new start (the same as after a flip of the camera).
 
 ### The photo editor: costume parts and the two-finger hold (2026-09-27): on branch `editor-costume-parts`
 

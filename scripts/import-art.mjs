@@ -1,4 +1,4 @@
-// Art from Astra (astra/out, not in git) to app files. Runs by hand after a delivery: node scripts/import-art.mjs targets|facepaint|backgrounds
+// Art from Astra (astra/out, not in git) to app files. Runs by hand after a delivery: node scripts/import-art.mjs targets|facepaint|backgrounds|props
 // Needs ffmpeg and ffprobe on PATH. The results are committed.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -92,6 +92,22 @@ JOBS.backgrounds = function () {
   });
   writeFileSync('src/filters/scenes.json', JSON.stringify(scenes, null, 2) + '\n');
   console.log('src/filters/scenes.json:', scenes.length, 'scenes');
+};
+
+// Sticker props (brief R3): square, with transparency, one prop per file. For the photo editor and the live stickers.
+JOBS.props = function () {
+  const src = 'astra/out/R3-props', dst = 'public/props';
+  mkdirSync(dst, { recursive: true });
+  for (const f of pngs(src)) {
+    const [w, h, fmt] = probe(`${src}/${f}`);
+    if (w !== h || Number(w) < 512) throw new Error(`${f}: ${w}x${h}, expected a square of 512 px or more`);
+    if (!hasAlpha(fmt)) throw new Error(`${f}: ${fmt} has no transparency`);
+    ffmpeg('-i', `${src}/${f}`, '-vf', 'scale=512:512:flags=lanczos', '-c:v', 'libwebp', '-quality', '82', `${dst}/${f.replace(/\.png$/, '.webp')}`);
+    console.log('imported', f.replace(/\.png$/, ''));
+  }
+  const names = readdirSync(dst).filter((n) => /^[a-z0-9-]+\.webp$/.test(n)).map((n) => n.replace(/\.webp$/, '')).sort();
+  writeFileSync('src/filters/props.json', JSON.stringify(names, null, 2) + '\n');
+  console.log('src/filters/props.json:', names.length, 'props');
 };
 
 const job = JOBS[process.argv[2]];

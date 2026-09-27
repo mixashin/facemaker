@@ -2,12 +2,11 @@ export type P = { x: number; y: number };
 export type EditorSticker = { id: number; src: string; x: number; y: number; scale: number; rot: number; flip?: boolean };
 export type Ctx = Pick<CanvasRenderingContext2D, 'drawImage' | 'save' | 'restore' | 'translate' | 'rotate' | 'clearRect' | 'strokeRect' | 'scale' | 'shadowBlur' | 'shadowColor' | 'strokeStyle' | 'lineWidth'> & { canvas: { width: number; height: number } };
 
+import props from '../filters/props.json';
+
+// Props by Astra first (CC0, brief R3, converted by scripts/import-art.mjs props), then emoji art.
 export const EDITOR_STICKERS: { id: string; src: string }[] = [
-  { id: 'moustache', src: '/editor/moustache.svg' },
-  { id: 'eyepatch', src: '/editor/eyepatch.svg' },
-  { id: 'piratehat', src: '/editor/piratehat.svg' },
-  { id: 'googly', src: '/editor/googly.svg' },
-  { id: 'pimple', src: '/editor/pimple.svg' },
+  ...(props as string[]).map((id) => ({ id, src: `/props/${id}.webp` })),
   { id: 'sunglasses', src: '/stickers/1f576.svg' },
   { id: 'cap', src: '/stickers/1f9e2.svg' },
   { id: 'tophat', src: '/stickers/1f3a9.svg' },

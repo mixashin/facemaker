@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { STICKER_PACKS, MAX_STICKERS, emojiFile, isMask, spritesFor, spritesForAll, toggleSticker } from './stickers';
+import { STICKER_PACKS, MAX_STICKERS, emojiFile, isMask, spritesFor, spritesForAll, toggleSticker, faceSprites } from './stickers';
 import type { Face } from '../tracking/faceTracker';
 // @ts-expect-error plain node script, no types; one copy of the scan for the fetch script and this test
 import { unsafeSvg } from '../../scripts/fetch-fluent.mjs';
@@ -42,8 +42,22 @@ describe('STICKER_PACKS', () => {
 
   it('every emoji used has its svg on disk (scripts/copy-twemoji.mjs, scripts/fetch-fluent.mjs)', () => {
     for (const p of STICKER_PACKS) for (const it of p.items) {
-      expect(existsSync('public' + emojiFile(it.emoji, p.art)), `${p.id}: ${it.emoji}`).toBe(true);
+      const file = 'src' in it ? it.src : emojiFile(it.emoji, p.art);
+      expect(existsSync('public' + file), `${p.id}: ${file}`).toBe(true);
     }
+  });
+
+  it('a placement can name its file: the sprite shows that file', () => {
+    const lm = new Float32Array(478 * 3);
+    const set = (i: number, x: number, y: number) => { lm[i * 3] = x; lm[i * 3 + 1] = y; };
+    set(234, 0.3, 0.5); set(454, 0.7, 0.5); set(10, 0.5, 0.2); set(152, 0.5, 0.8); set(4, 0.5, 0.5);
+    for (const i of [468, 469, 470, 471, 472]) set(i, 0.4, 0.4);
+    for (const i of [473, 474, 475, 476, 477]) set(i, 0.6, 0.4);
+    const s = faceSprites([{ src: '/props/clown-nose.webp', anchor: 'nose', scale: 0.25 }, { emoji: '👑', anchor: 'top', scale: 0.7 }], undefined, lm, 1);
+    expect(s[0].src).toBe('/props/clown-nose.webp');
+    expect(s[0].cx).toBeCloseTo(0.5); expect(s[0].cy).toBeCloseTo(0.5);
+    expect(s[0].size).toBeCloseTo(0.25 * 0.4);
+    expect(s[1].src).toBe(emojiFile('👑'));
   });
 
   it('has the Fluent packs next to the Twemoji ones, nothing removed', () => {

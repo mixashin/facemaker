@@ -321,7 +321,7 @@ if (process.env.SMOKE_GALLERY) {
   }
   await click('Edit');
   await page.waitForTimeout(800);
-  await click('moustache'); await page.waitForTimeout(400);
+  await click('moustache-handlebar'); await page.waitForTimeout(400);
   if (out) writeFileSync(`${out}/page-editor.png`, await page.screenshot());
   const dots = await page.locator('.fab .shutter.save svg.dots circle').count();
   console.log('the action button of the editor shows three dots:', dots === 3 ? 'OK' : 'FAIL');
@@ -353,7 +353,7 @@ if (process.env.SMOKE_GALLERY) {
   console.log('drag to the trash can: stickers', n0, 'then', n1, '| the can shows', shows === 1, '| it lights up', lights === 1, n0 === 1 && n1 === 0 && shows === 1 && lights === 1 ? 'OK' : 'FAIL');
   // A drag that ends somewhere else keeps the sticker
   await page.locator('.pull').first().click(); await page.waitForTimeout(400);
-  await click('moustache'); await page.waitForTimeout(300);
+  await click('moustache-handlebar'); await page.waitForTimeout(300);
   await page.mouse.click(photo.x + photo.width - 12, photo.y + photo.height / 2); await page.waitForTimeout(300);
   await page.mouse.move(mx, my); await page.mouse.down(); await page.mouse.move(mx + 40, my - 120, { steps: 6 }); await page.mouse.up();
   await page.waitForTimeout(300);
@@ -367,7 +367,7 @@ if (process.env.SMOKE_GALLERY) {
   console.log('leave without saving, then close the viewer:', left && backInGallery ? 'OK' : 'FAIL');
   await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
   await click('Edit'); await page.waitForTimeout(800);
-  await click('moustache'); await page.waitForTimeout(400);
+  await click('moustache-handlebar'); await page.waitForTimeout(400);
   await click('Done'); await click('Save as new photo'); await page.waitForTimeout(1200);
   const after = await page.locator('.thumb').count();
   console.log('gallery photos before/after edit:', before, after, before >= 1 && after === before + 1 ? 'OK' : 'FAIL');

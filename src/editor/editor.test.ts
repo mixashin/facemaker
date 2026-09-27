@@ -6,8 +6,10 @@ const st = (id: number, x: number, y: number, scale = 100, rot = 0): EditorStick
 
 describe('editor assets', () => {
   it('every palette entry has a file under public', () => {
-    expect(EDITOR_STICKERS.length).toBeGreaterThanOrEqual(8);
+    expect(EDITOR_STICKERS.length).toBeGreaterThanOrEqual(40);
     for (const s of EDITOR_STICKERS) expect(existsSync('public' + s.src), s.id).toBe(true);
+    expect(new Set(EDITOR_STICKERS.map((s) => s.id)).size).toBe(EDITOR_STICKERS.length);
+    expect(EDITOR_STICKERS.slice(0, 3).every((s) => s.src.startsWith('/props/'))).toBe(true); // the props by Astra come first
   });
 });
 

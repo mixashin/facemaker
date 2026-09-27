@@ -1,7 +1,9 @@
 import type { Face } from '../tracking/faceTracker';
 
 export type Anchor = 'face' | 'eyes' | 'leftEye' | 'rightEye' | 'top' | 'mouth' | 'nose' | 'leftCheek' | 'rightCheek';
-export type Placement = { emoji: string; anchor: Anchor; scale: number; dx?: number; dy?: number }; // face-width units
+// What is placed: an emoji (its file comes from the art of the pack), or a file by its address (props by Astra).
+// Where: anchor, scale and offsets in face-width units.
+export type Placement = ({ emoji: string } | { src: string }) & { anchor: Anchor; scale: number; dx?: number; dy?: number };
 export type Art = 'twemoji' | 'fluent'; // two sticker sources, same emoji keys, different files (see LICENSE-ASSETS.md)
 export type StickerPack = { id: string; icon: string; img?: string; art?: Art; items: Placement[] };
 export type Sprite = { src: string; cx: number; cy: number; size: number; angle: number };
@@ -55,7 +57,7 @@ function mean(lm: Float32Array, idx: number[]): P {
   return [x / idx.length, y / idx.length];
 }
 
-function faceSprites(items: Placement[], art: Art | undefined, lm: Float32Array, aspect: number): Sprite[] {
+export function faceSprites(items: Placement[], art: Art | undefined, lm: Float32Array, aspect: number): Sprite[] {
   const lc = pt(lm, L_CHEEK), rc = pt(lm, R_CHEEK), top = pt(lm, TOP), chin = pt(lm, CHIN);
   const le = mean(lm, L_IRIS), re = mean(lm, R_IRIS);
   const width = Math.abs(rc[0] - lc[0]);
@@ -78,7 +80,7 @@ function faceSprites(items: Placement[], art: Art | undefined, lm: Float32Array,
     const dx = (it.dx ?? 0) * width, dy = (it.dy ?? 0) * width;     // offsets in x units, rotated with the head
     const ox = dx * cosA - dy * sinA, oy = dx * sinA + dy * cosA;
     const base = it.anchor === 'face' ? Math.max(width, heightX) : width;
-    return { src: emojiFile(it.emoji, art), cx: ax + ox, cy: ay + oy * aspect, size: it.scale * base, angle };
+    return { src: 'src' in it ? it.src : emojiFile(it.emoji, art), cx: ax + ox, cy: ay + oy * aspect, size: it.scale * base, angle };
   });
 }
 

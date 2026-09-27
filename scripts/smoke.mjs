@@ -488,6 +488,37 @@ if (await shutter.count()) {
   console.log('upright again: the shutter is at the bottom in the middle', back.y > back.h - 140 && Math.abs(back.x - back.w / 2) < 8 ? 'OK' : 'FAIL');
 }
 if (out) writeFileSync(`${out}/page-end.png`, await page.screenshot()); // final state: gallery button shows the newest photo
+// Version, device report, the slow tracker, the update button. Last: the update button loads the app again.
+{
+  await click('settings'); await page.waitForTimeout(400);
+  const version = (await page.locator('.version span').textContent()) ?? '';
+  console.log('the settings show the version:', version, /^v \d{4}-\d\d-\d\d \d\d:\d\d \S+$/.test(version) ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/page-version.png`, await page.screenshot());
+  await click('about'); await page.waitForTimeout(400);
+  await click('Device report'); await page.waitForTimeout(800);
+  const text = (await page.locator('.report').textContent()) ?? '';
+  if (out) { await page.locator('.report').scrollIntoViewIfNeeded(); writeFileSync(`${out}/page-report.png`, await page.screenshot()); }
+  const face = /tracker: (GPU|CPU) \(asked: auto\)/.test(text) && /with a face: [1-9]/.test(text) && text.includes(version.slice(2)) && /graphics: \S/.test(text) && /camera: \d+x\d+/.test(text);
+  console.log('the device report names version, camera, graphics and a tracker that finds the face:', face ? 'OK' : 'FAIL');
+  if (!face) console.log(text);
+  await closeSheet();
+  // The slow tracker by the address: the CPU finds the face too, and the choice stays for the next start
+  const state = () => page.evaluate(() => ({ d: globalThis.__fm.delegate, faces: globalThis.__fm.faces, frames: globalThis.__fm.frames, kept: localStorage.getItem('fm.tracker') }));
+  await page.goto(url + '/?tracker=cpu', { waitUntil: 'load' }); await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+  const cpu = await state();
+  console.log('?tracker=cpu: tracker', cpu.d, 'faces', cpu.faces, 'kept', cpu.kept, cpu.d === 'CPU' && cpu.faces === 1 && cpu.kept === 'CPU' ? 'OK' : 'FAIL');
+  await page.goto(url + '/?tracker=auto', { waitUntil: 'load' }); await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+  const auto = await state();
+  console.log('?tracker=auto: tracker', auto.d, 'faces', auto.faces, 'kept', auto.kept, auto.d !== '' && auto.faces === 1 && auto.kept === null ? 'OK' : 'FAIL');
+  // The update button: the app loads again from the network and runs
+  await click('settings'); await page.waitForTimeout(400);
+  await click('Get the newest version'); await click('Get the newest version'); // two taps
+  await page.waitForURL(/\?u=\d+/, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+  const again = await state().catch(() => null);
+  const caches = await page.evaluate(async () => (await caches.keys()).length).catch(() => -1);
+  console.log('the update button loads the app again:', page.url().replace(/\d{6,}/, 'N'), '| tracker frames', again?.frames, '| faces', again?.faces, '| caches', caches, /\?u=\d+/.test(page.url()) && again && again.frames > 0 && again.faces === 1 ? 'OK' : 'FAIL');
+}
 console.log('--- third-party requests:', egress.length ? '' : 'none');
 for (const e of egress) console.log(e);
 console.log('--- console:');

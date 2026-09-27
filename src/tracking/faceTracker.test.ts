@@ -149,3 +149,118 @@ describe('FaceTracker.detectStill', () => {
     t.stop();
   });
 });
+
+describe('FaceTracker health', () => {
+  type Msg = { type: string; [k: string]: unknown };
+  class W {
+    static all: W[] = [];
+    static delegate = 'GPU';
+    static silent = false; // a worker that never says ready
+    posted: Msg[] = [];
+    ended = false;
+    onmessage: ((e: { data: unknown }) => void) | null = null;
+    onerror: ((e: { message: string }) => void) | null = null;
+    constructor() { W.all.push(this); }
+    postMessage(m: Msg) {
+      this.posted.push(m);
+      if (m.type === 'init' && !W.silent) setTimeout(() => this.say({ type: 'ready', delegate: m.prefer === 'CPU' ? 'CPU' : W.delegate }), 1);
+    }
+    say(data: unknown) { if (!this.ended) this.onmessage?.({ data }); }
+    terminate() { this.ended = true; }
+  }
+  const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const video = { readyState: 4 } as unknown as HTMLVideoElement;
+  function setup(prefer?: 'auto' | 'GPU' | 'CPU', startLimitMs?: number) {
+    W.all = []; W.delegate = 'GPU'; W.silent = false;
+    (globalThis as any).Worker = W;
+    (globalThis as any).createImageBitmap = async () => ({ close() {} });
+    const errors: string[] = [], ready: string[] = [];
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {}, onError: (m) => errors.push(m), onReady: (d) => ready.push(d), prefer, startLimitMs });
+    return { t, errors, ready, w: () => W.all.at(-1)! };
+  }
+
+  it('tells the worker which tracker is asked for', async () => {
+    const a = setup();
+    a.t.start();
+    expect(a.w().posted[0]).toMatchObject({ type: 'init', prefer: 'auto' });
+    a.t.stop();
+    const b = setup('CPU');
+    b.t.start();
+    expect(b.w().posted[0]).toMatchObject({ type: 'init', prefer: 'CPU' });
+    await tick(5);
+    expect(b.t.health.delegate).toBe('CPU');
+    b.t.stop();
+  });
+
+  it('counts results and errors', async () => {
+    const s = setup();
+    s.t.start(); await tick(5);
+    s.w().say({ type: 'result', result: result(1), ts: 1 });
+    s.w().say({ type: 'result', result: result(0), ts: 2 });
+    s.w().say({ type: 'error', message: 'gl lost' });
+    expect(s.t.health).toMatchObject({ delegate: 'GPU', results: 2, withFace: 1, errors: 1, lastError: 'gl lost' });
+    expect(s.errors).toEqual(['gl lost']);
+    s.t.stop();
+  });
+
+  it('goes to the CPU after five errors in a row on the GPU: a new worker, and frames go on', async () => {
+    const s = setup();
+    s.t.start(); await tick(5);
+    const first = s.w();
+    for (let i = 0; i < 5; i++) first.say({ type: 'error', message: 'gl lost' });
+    expect(W.all).toHaveLength(2);
+    expect(first.ended).toBe(true);
+    expect(s.w().posted[0]).toMatchObject({ type: 'init', prefer: 'CPU' });
+    await tick(5);
+    expect(s.t.health.delegate).toBe('CPU');
+    expect(s.ready).toEqual(['GPU', 'CPU']);
+    s.t.push(video, 100); await tick(2);
+    expect(s.w().posted.filter((m) => m.type === 'frame')).toHaveLength(1);
+    for (let i = 0; i < 10; i++) s.w().say({ type: 'error', message: 'x' });
+    expect(W.all).toHaveLength(2); // one time only
+    s.t.stop();
+  });
+
+  it('stays on the tracker that was forced', async () => {
+    const s = setup('GPU');
+    s.t.start(); await tick(5);
+    for (let i = 0; i < 10; i++) s.w().say({ type: 'error', message: 'gl lost' });
+    expect(W.all).toHaveLength(1);
+    s.t.stop();
+  });
+
+  it('a worker that dies is an error, and the CPU takes over', async () => {
+    const s = setup();
+    s.t.start(); await tick(5);
+    s.w().onerror?.({ message: 'Script error' });
+    expect(s.errors[0]).toContain('Script error');
+    expect(W.all).toHaveLength(2);
+    expect(s.w().posted[0]).toMatchObject({ prefer: 'CPU' });
+    s.t.stop();
+  });
+
+  it('a tracker that does not start in time is an error, and the CPU takes over', async () => {
+    const s = setup('auto', 20);
+    W.silent = true;
+    s.t.start();
+    await tick(40);
+    expect(s.t.health.lastError).toContain('no start');
+    expect(W.all).toHaveLength(2);
+    s.t.stop();
+    await tick(40);
+    expect(W.all).toHaveLength(2); // stop() ends the wait
+  });
+
+  it('a frame with no answer does not block the tracker for ever', async () => {
+    const s = setup();
+    s.t.start(); await tick(5);
+    s.t.push(video, 0); await tick(2);
+    s.t.push(video, 1000); await tick(2);
+    expect(s.w().posted.filter((m) => m.type === 'frame')).toHaveLength(1); // the first one is still out
+    s.t.push(video, 6000); await tick(2);
+    expect(s.t.health.lastError).toContain('no answer');
+    s.t.push(video, 6033); await tick(2);
+    expect(s.w().posted.filter((m) => m.type === 'frame')).toHaveLength(2);
+    s.t.stop();
+  });
+});

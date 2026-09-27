@@ -36,7 +36,7 @@ let model = '';
 
 const post = (m: WorkerOut, transfer: Transferable[] = []) => (self as unknown as Worker).postMessage(m, transfer);
 
-async function init(wasmPath: string, modelPath: string, faces: number) {
+async function init(wasmPath: string, modelPath: string, faces: number, prefer: 'auto' | 'GPU' | 'CPU' = 'auto') {
   numFaces = faces;
   const vision = await FilesetResolver.forVisionTasks(wasmPath);
   fileset = vision;
@@ -50,12 +50,17 @@ async function init(wasmPath: string, modelPath: string, faces: number) {
       outputFacialTransformationMatrixes: true,
       canvas: delegate === 'GPU' ? new OffscreenCanvas(1, 1) : undefined,
     });
+  if (prefer !== 'auto') {
+    landmarker = await make(prefer);
+    post({ type: 'ready', delegate: prefer });
+    return;
+  }
   try {
     landmarker = await make('GPU');
     post({ type: 'ready', delegate: 'GPU' });
   } catch (e) {
     landmarker = await make('CPU');
-    post({ type: 'ready', delegate: 'CPU' });
+    post({ type: 'ready', delegate: 'CPU', note: 'GPU failed: ' + String((e as Error)?.message ?? e) });
   }
 }
 
@@ -112,7 +117,7 @@ async function still(bitmap: ImageBitmap, id: number) {
 
 self.onmessage = (e: MessageEvent<WorkerIn>) => {
   const m = e.data;
-  if (m.type === 'init') init(m.wasmPath, m.modelPath, m.numFaces).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));
+  if (m.type === 'init') init(m.wasmPath, m.modelPath, m.numFaces, m.prefer).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));
   else if (m.type === 'still') void still(m.bitmap, m.id);
   else if (m.type === 'frame') {
     try { frame(m.bitmap, m.ts); } catch (err) { post({ type: 'error', message: String((err as Error)?.message ?? err) }); }

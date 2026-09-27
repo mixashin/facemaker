@@ -132,3 +132,7 @@ video.full { background: #000; height: calc(100% - (var(--tap) + 32px + env(safe
   .top { right: calc(16px + 84px + 12px + env(safe-area-inset-right)); } /* the gear stands beside the buttons, not on them */
   .dock { bottom: calc(12px + env(safe-area-inset-bottom)); }
 }
+/* Version and update button in the settings, device report in the About sheet */
+.version { display: flex; align-items: center; gap: 8px; margin-top: -10px; font-size: 12px; opacity: .85; font-variant-numeric: tabular-nums; }
+.version .chip.small { width: 44px; height: 44px; font-size: 18px; }
+.report { width: min(100%, 420px); margin: 8px 0 24px; padding: 10px; font-size: 12px; line-height: 1.5; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; border: 1px solid currentColor; border-radius: 10px; opacity: .85; }

@@ -322,3 +322,20 @@ Phone checks owed for these:
 - [ ] Buttons on the right in landscape, on the phone and on the tablet. The gallery fly animation ends at the gallery button.
 - [ ] Drag a sticker to the trash can with a finger. The can must be easy to hit.
 - [ ] The question on close: all three answers.
+
+## A phone where the face is not tracked (operator, 2026-09-27)
+
+Report: on one Fold 7 (Chrome, installed app) the place behind the person works, the face effects do not (no eyes and mouth on the orange). The same app version runs on the operator's devices with no fault. The live site passes the headless check.
+
+What is known: the segmenter runs on the CPU, the face tracker on the GPU first. The app showed nothing when the tracker failed. Cause on that phone: not known yet.
+
+Built on branch `tracker-health`:
+- [x] Version under the title of the settings, with a button that gets the newest version now (two taps).
+- [x] Device report in the About sheet, with a copy button.
+- [x] The tracker goes to the CPU by itself when the worker dies, does not start, or gives five errors in a row. `?tracker=cpu` and the 🐢 button force the CPU.
+- [x] `scripts/phone-inspect.mjs` reads the state of the app on a phone over USB.
+
+Open:
+- [ ] Read the report on that phone (About, 🩺, 📋) or attach the phone by USB and run `node scripts/phone-inspect.mjs reload`.
+- [ ] Try the 🐢 button on that phone. If the face works with it, the GPU path of MediaPipe fails on that phone. Then: a rule that finds this case by itself (results with no face for some seconds on the GPU, one try on the CPU, keep what finds a face).
+- [ ] Icons differ between devices: the rail and the buttons use the emoji font of the device (old art on an old Android). Option: own icon art for the rail and the buttons, as the chips have.

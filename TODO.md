@@ -357,7 +357,7 @@ Open:
 - [ ] The operator's word for each merge. Wished order: #23, #24, #25. Read `gh pr checks <number>` in full before a merge.
 - [ ] After a merge: rebase the next branch on main. Conflicts to expect: `CLAUDE.md` (State, Decisions), the end of `TODO.md`, the end of `scripts/smoke.mjs`, `src/app/App.tsx`, `src/app/styles.css`, `src/i18n/*.json`, `vite.config.ts` (define line, glob patterns), `src/vite-env.d.ts`. Keep both sides. For the State section take the newest text.
 - [ ] After the merge of #24: set the base of #25 to main.
-- [ ] #25: run the headless check on the production build again (it passed before the review fixes, the dev server passed after them).
+- [x] #25: headless check on the production build after the review fixes: 57 verdicts OK, zero third-party requests. CI of #24 ran again after a later run cancelled it: green.
 - [ ] After #23 and #25 are both on main: the editor palette of #25 gets `loading="lazy"` chips already, nothing to do. The report of #23 gets no 3D line. Nothing to join by hand except the conflicts above.
 
 ### The phone where the face is not tracked

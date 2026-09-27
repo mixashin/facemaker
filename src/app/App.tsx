@@ -20,6 +20,7 @@ import { sliderHandles } from '../filters/sliders';
 import { TARGETS, faceFrame, windows } from '../filters/faceon';
 import { sceneById, bitSprites } from '../filters/scenes';
 import { placeProps, headPose } from '../filters/props3d';
+import { partsOf, wornWith, placeParts } from '../filters/costumes';
 import { SegTracker } from '../tracking/segTracker';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
@@ -49,7 +50,7 @@ export function App() {
     let raf = 0;
     const r = new FaceRenderer(canvas, video);
     // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
-    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }), masks: 0, mask: [0, 0], face: () => (faces[0] ? { landmarks: Array.from(faces[0].landmarks), matrix: Array.from(faces[0].matrix) } : null), nose: () => (faces[0] ? [faces[0].landmarks[4 * 3], faces[0].landmarks[4 * 3 + 1]] : null), scene: (s: import('../filters/scenes').Scene | null) => { tryScene.value = s; scene.value = s ? s.id : 'none'; } });
+    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }), masks: 0, mask: [0, 0], placed: [] as string[], face: () => (faces[0] ? { landmarks: Array.from(faces[0].landmarks), matrix: Array.from(faces[0].matrix) } : null), nose: () => (faces[0] ? [faces[0].landmarks[4 * 3], faces[0].landmarks[4 * 3 + 1]] : null), scene: (s: import('../filters/scenes').Scene | null) => { tryScene.value = s; scene.value = s ? s.id : 'none'; } });
     const t = new FaceTracker({
       numFaces: 2,
       onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
@@ -70,8 +71,13 @@ export function App() {
       const lm = faces[0]?.landmarks;
       r.setFaceOn(tg ? { target: tg, frame: lm ? faceFrame(lm, aspect) : null, wins: lm ? windows(lm, handles, aspect, tg) : [] } : null);
       r.setMakeup(makeup.value, faces);
-      const heads = props3d.value.length ? faces.map((f) => headPose(f, aspect)) : [];
-      r.setProps3d(placeProps(props3d.value, faces, aspect, now, heads), heads, now, props3d.value.length > 0);
+      // 3D props of the child's choice, and the parts of a costume (a makeup look that wears 3D parts)
+      const parts = partsOf(makeup.value), worn = wornWith(props3d.value, makeup.value);
+      const solid = worn.length + parts.length > 0;
+      const heads = solid ? faces.map((f) => headPose(f, aspect)) : [];
+      const placed = [...placeProps(worn, faces, aspect, now, heads), ...placeParts(parts, heads)];
+      fm.placed = placed.map((p) => p.id);
+      r.setProps3d(placed, heads, now, solid);
       const place = screen.value === 'camera' && !tg && !document.hidden ? sceneById(scene.value, tryScene.value) : null; // a face-on picture has no camera view
       if (place && !seg.running) seg.start(); else if (!place && seg.running) seg.stop();
       if (place) seg.push(video, now);

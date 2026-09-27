@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { Props3dLayer, type Model } from './props3dLayer';
+import { Props3dLayer, lights, type Model } from './props3dLayer';
 import { headPose, placeProps, PROPS3D } from '../filters/props3d';
+import { partsOf, placeParts } from '../filters/costumes';
 import type { Face } from '../tracking/faceTracker';
 
 const A = 4 / 3;
@@ -125,6 +126,20 @@ describe('Props3dLayer', () => {
     }
   });
 
+  it('draws the parts of a costume from their own files, beside a prop', () => {
+    const s = setup();
+    const faces = [face()], heads = faces.map((f) => headPose(f, A));
+    const both = () => s.layer.update([...placeProps(['bee'], faces, A, 0), ...placeParts(partsOf('paint-witch'), heads)], heads, A, 0);
+    both();
+    expect(s.asked.sort()).toEqual(['/costumes/witch/witch-hat-hair.glb', '/costumes/witch/witch-nose.glb', '/props3d/bee.glb']);
+    for (const f of s.asked) s.pending.get(f)!.done(model());
+    expect(both()).toBe(true);
+    expect(s.shown()).toEqual(['prop:bee#0', 'prop:witch-hat-hair#0', 'prop:witch-nose#0']);
+    const hat = s.layer.scene.getObjectByName('prop:witch-hat-hair#0')!;
+    expect(hat.position.toArray()).toEqual(heads[0].centre.toArray());
+    expect(hat.scale.x).toBeCloseTo(heads[0].width);
+  });
+
   it('writes colours as the camera picture has them (no tone mapping, sRGB values)', () => {
     const s = setup();
     const m = model();
@@ -140,6 +155,16 @@ describe('Props3dLayer', () => {
     expect(THREE.ShaderLib.standard.fragmentShader).toContain('#include <colorspace_fragment>');
     expect(THREE.ShaderLib.basic.fragmentShader).toContain('#include <colorspace_fragment>');
     expect(THREE.ShaderChunk.colorspace_pars_fragment).toContain('sRGBTransferOETF');
+  });
+
+  it('a surface that faces the viewer shows its own colour: the light on it sums up to one', () => {
+    const [sky, sun] = lights() as [THREE.HemisphereLight, THREE.DirectionalLight];
+    const n = new THREE.Vector3(0, 0, 1);
+    const around = sky.color.clone().lerp(sky.groundColor, 0.5).multiplyScalar(sky.intensity); // a normal with no tilt: half sky, half ground
+    const direct = sun.color.clone().multiplyScalar(sun.intensity * Math.max(0, n.dot(sun.position.clone().normalize())));
+    const green = (around.g + direct.g) / Math.PI; // a matt surface gives back its colour times the light over pi
+    expect(green).toBeGreaterThan(0.96);
+    expect(green).toBeLessThan(1.06);
   });
 
   it('keeps the shape of the picture', () => {

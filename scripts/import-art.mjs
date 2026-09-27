@@ -1,4 +1,4 @@
-// Art from Astra (astra/out, not in git) to app files. Runs by hand after a delivery: node scripts/import-art.mjs targets|facepaint|backgrounds|props|props3d
+// Art from Astra (astra/out, not in git) to app files. Runs by hand after a delivery: node scripts/import-art.mjs targets|facepaint|backgrounds|props|props3d|costumes
 // Needs ffmpeg and ffprobe on PATH. The results are committed.
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -68,12 +68,16 @@ JOBS.facepaint = function () {
     ffmpeg('-i', `${src}/${f}`, '-vf', 'scale=128:128:flags=lanczos', '-c:v', 'libwebp', '-quality', '85', `${dst}/${id}-chip.webp`);
     console.log('imported', id);
   }
-  const names = readdirSync(dst).filter((n) => /^[a-z0-9-]+\.webp$/.test(n) && !/-chip\.webp$/.test(n)).map((n) => n.replace(/\.webp$/, '')).sort();
+  writeLooks();
+  leftOut(left, good.length);
+};
+// The list of the painted looks, from all pictures in public/makeup
+function writeLooks() {
+  const names = readdirSync('public/makeup').filter((n) => /^[a-z0-9-]+\.webp$/.test(n) && !/-chip\.webp$/.test(n)).map((n) => n.replace(/\.webp$/, '')).sort();
   const looks = names.map((n) => ({ id: `paint-${n}`, icon: '🎨', img: `/makeup/${n}.webp`, chip: `/makeup/${n}-chip.webp` }));
   writeFileSync('src/filters/paintLooks.json', JSON.stringify(looks, null, 2) + '\n');
   console.log('src/filters/paintLooks.json:', looks.length, 'looks');
-  leftOut(left, good.length);
-};
+}
 
 // Background scenes (brief R2), form A: <scene>/plate.png (square, opaque), optional far.png and near.png (same
 // size, with transparency), optional bits/<name>.png (small, with transparency). The scene list of the app is
@@ -205,6 +209,56 @@ JOBS.props3d = function () {
   }
   writeFileSync('src/filters/props3d.json', JSON.stringify(list, null, 2) + '\n');
   console.log('src/filters/props3d.json:', list.length, 'props');
+};
+
+// Costumes (brief R7): one folder per costume with <id>-paint.png (face paint, as R4), <id>.png (the whole costume,
+// for the chip) and the parts <id>-<part>.glb. A part is in the head frame: origin between the sides of the face,
+// one unit is the face width. So the rule "largest side 1" of the props does not hold here.
+const COSTUMES = { witch: { src: 'astra/out/R7-witch', triangles: { 'witch-hat-hair': 8000, 'witch-nose': 2000 } } };
+// A part must lie around a head: no point farther than this from the middle of the head, in face widths
+export const PART_REACH = 3;
+export function inspectPart(bytes, limit) {
+  const facts = inspectGlb(bytes);
+  if (facts.triangles > limit) throw new Error(`${facts.triangles} triangles, the limit is ${limit}`);
+  if (facts.clips.length) throw new Error('has clips: a part of a costume has no motion of its own yet');
+  const far = Math.max(...facts.centre.map((c, k) => Math.abs(c) + facts.size[k] / 2));
+  if (far > PART_REACH) throw new Error(`reaches ${far.toFixed(2)} face widths from the middle of the head, the limit is ${PART_REACH}: is it in the head frame?`);
+  if (Math.max(...facts.size) < 0.05) throw new Error('smaller than 0.05 face widths: is it in the head frame?');
+  return facts;
+}
+JOBS.costumes = function () {
+  const list = [], work = [];
+  for (const [id, c] of Object.entries(COSTUMES)) { // every file is checked before one is written
+    if (!existsSync(c.src)) { console.error(c.src, 'not found: no delivery for this costume yet'); process.exit(1); }
+    const paint = `${c.src}/${id}-paint.png`, chip = `${c.src}/${id}.png`;
+    for (const f of [paint, chip]) if (!existsSync(f)) throw new Error(`${f}: not found`);
+    const [w, h, fmt] = probe(paint);
+    if (w !== h || Number(w) < 1024) throw new Error(`${paint}: ${w}x${h}, expected a square of 1024 px or more`);
+    if (!hasAlpha(fmt)) throw new Error(`${paint}: ${fmt} has no transparency. Bare skin must be transparent`);
+    cutOut(paint, paint);
+    const [cw, ch] = probe(chip);
+    if (cw !== ch) throw new Error(`${chip}: ${cw}x${ch}, expected a square`);
+    const parts = Object.keys(c.triangles).map((part) => {
+      const file = `${c.src}/${part}.glb`;
+      if (!existsSync(file)) throw new Error(`${file}: not found`);
+      if (statSync(file).size > 1.5 * 1024 * 1024) throw new Error(`${file}: larger than 1.5 MB`);
+      try { return { id: part, file: `/costumes/${id}/${part}.glb`, ...inspectPart(readFileSync(file), c.triangles[part]) }; } catch (e) { throw new Error(`${file}: ${e.message}`); }
+    });
+    const other = readdirSync(c.src).filter((n) => /\.glb$/.test(n) && !parts.some((p) => `${p.id}.glb` === n));
+    if (other.length) throw new Error(`${c.src}: parts that the job does not know: ${other.join(', ')}`);
+    work.push({ id, c, paint, chip, parts });
+  }
+  for (const { id, c, paint, chip, parts } of work) {
+    mkdirSync(`public/costumes/${id}`, { recursive: true });
+    ffmpeg('-i', paint, '-vf', 'scale=1024:1024:flags=lanczos', '-c:v', 'libwebp', '-quality', '90', `public/makeup/${id}.webp`);
+    ffmpeg('-i', chip, '-vf', 'scale=128:128:flags=lanczos', '-c:v', 'libwebp', '-quality', '85', `public/makeup/${id}-chip.webp`);
+    for (const p of parts) copyFileSync(`${c.src}/${p.id}.glb`, `public${p.file}`);
+    list.push({ id, look: `paint-${id}`, parts });
+    console.log('imported costume', id, 'with', parts.map((p) => `${p.id} (${p.triangles} triangles)`).join(', '));
+  }
+  writeFileSync('src/filters/costumes.json', JSON.stringify(list, null, 2) + '\n');
+  console.log('src/filters/costumes.json:', list.length, 'costumes');
+  writeLooks();
 };
 
 if (import.meta.main) {

@@ -89,6 +89,10 @@ Dock tab 🎩 on the live camera, and the first 11 entries of the palette in the
 - No perspective on the live camera (a prop keeps its size when it goes behind the head). Mild perspective in the editor.
 - Zero requests to other hosts: the models are files of the app, the import refuses a model that names a file outside itself.
 
+### Costumes on the head (after the 3D props, operator 2026-09-27)
+
+A costume is one chip in the makeup list that puts on face paint and 3D parts at once. First costume: the witch (paint, hat with hair, nose with a wart), art by Astra (CC0). The parts are made around a head stand-in, so they fit the head with no rule per part: they take place, turn and size from the head. The hat of a costume takes the place of a chosen 3D hat. A second tap on the chip takes the costume off.
+
 ### M5: Body and costumes
 
 - PoseLandmarker (Lite or Full) with `outputSegmentationMasks`, or HolisticLandmarker when face + pose both needed. Worker.

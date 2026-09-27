@@ -86,7 +86,7 @@ export function headPose(face: Face, aspect: number): Head {
 }
 
 // Where a prop is drawn. pos in stage space, quat as x y z w, scale: size of the largest side on the stage.
-export type Placed = { id: string; face: number; pos: V3; quat: [number, number, number, number]; scale: number; clip?: string };
+export type Placed = { id: string; face: number; file: string; pos: V3; quat: [number, number, number, number]; scale: number; clip?: string };
 
 const TAU = Math.PI * 2;
 // A pest that flies leans toward the viewer, so its back and its wings show (from the side a butterfly is a line)
@@ -126,10 +126,10 @@ export function placeProps(active: string[], faces: Face[], aspect: number, tMs:
     for (const id of active) {
       const p = BY_ID.get(id);
       if (!p) continue;
-      if (p.kind === 'pest') { out.push({ id, face, ...pest(p, head, f.landmarks, aspect, face, tMs / 1000), scale: p.scale * head.width, clip: p.clip }); continue; }
+      if (p.kind === 'pest') { out.push({ id, face, file: p.file, ...pest(p, head, f.landmarks, aspect, face, tMs / 1000), scale: p.scale * head.width, clip: p.clip }); continue; }
       const anchor = p.at.reduce((s, i) => s.add(toStage(f.landmarks, i, aspect)), new THREE.Vector3()).multiplyScalar(1 / p.at.length);
       const pos = new THREE.Vector3(...p.offset).multiplyScalar(head.width).applyQuaternion(head.quat).add(anchor);
-      out.push({ id, face, pos: pos.toArray() as V3, quat: head.quat.toArray() as Placed['quat'], scale: p.scale * head.width });
+      out.push({ id, face, file: p.file, pos: pos.toArray() as V3, quat: head.quat.toArray() as Placed['quat'], scale: p.scale * head.width });
     }
   });
   return out;

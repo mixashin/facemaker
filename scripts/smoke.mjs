@@ -170,6 +170,28 @@ if (state.fm?.faces > 0) {
     console.log('none takes the 3D props off:', differ(bare3, gone) < 30 ? 'OK' : 'FAIL');
     await click('warp');
   }
+  // Costume: one chip of the makeup list puts on the paint and its 3D parts. The hat of the costume takes the
+  // place of the hat that the child chose, and the chosen hat comes back when the costume goes.
+  {
+    const snap = () => page.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 160; c.height = 120;
+      const g = c.getContext('2d'); g.drawImage(document.querySelector('canvas.stage'), 0, 0, 160, 120);
+      return [...g.getImageData(0, 0, 160, 120).data];
+    });
+    const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 40) n++; return n; };
+    const placed = () => page.evaluate(() => [...globalThis.__fm.placed].sort().join('+'));
+    await click('props3d'); await click('none'); await click('crown'); await click('bee');
+    await click('makeup'); await click('none'); await page.waitForTimeout(2500);
+    const before = await snap(), had = await placed();
+    await click('paint-witch'); await page.waitForTimeout(3500); // the two parts load
+    const dressed = await snap(), wears = await placed();
+    if (out) writeFileSync(`${out}/costume-witch.png`, await page.locator('canvas').screenshot());
+    console.log('the witch puts on paint, hat with hair and nose: parts', wears, '| pixels that changed', differ(before, dressed), had === 'bee+crown' && wears === 'bee+witch-hat-hair+witch-nose' && differ(before, dressed) > 2500 ? 'OK' : 'FAIL');
+    await click('paint-witch'); await page.waitForTimeout(800); // a second tap takes the costume off
+    const after = await placed();
+    console.log('the costume goes, the chosen hat comes back:', after, after === 'bee+crown' ? 'OK' : 'FAIL');
+    await click('props3d'); await click('none'); await click('warp');
+  }
   // Makeup: a look paints the face, follows the warp, and works together with a filter and a sticker.
   const tinted = (test) => page.evaluate((body) => {
     const hit = new Function('r', 'g', 'b', `return ${body};`);

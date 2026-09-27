@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { prop3dById, OCCLUDERS, type Placed, type Head } from '../filters/props3d';
+import { OCCLUDERS, type Placed, type Head } from '../filters/props3d';
 
 export type Model = { scene: THREE.Object3D; clips: THREE.AnimationClip[] };
 export type LoadModel = (file: string, done: (m: Model) => void, fail: () => void) => void;
@@ -24,11 +24,13 @@ export function likeTheCamera(root: THREE.Object3D): void {
   });
 }
 
-// The light of every 3D prop, on the camera and in the photo editor
+// The light of every 3D prop, on the camera and in the photo editor. The strength is set so that a surface
+// that faces the viewer shows its own colour (light over pi is one). The nose of a costume must have the
+// colour of the paint around it.
 export function lights(): THREE.Light[] {
-  const sun = new THREE.DirectionalLight(0xffffff, 1.7);
+  const sun = new THREE.DirectionalLight(0xffffff, 2.3);
   sun.position.set(0.4, 1, 2);
-  return [new THREE.HemisphereLight(0xffffff, 0x9090b0, 1.3), sun];
+  return [new THREE.HemisphereLight(0xffffff, 0x9090b0, 1.75), sun];
 }
 
 type Instance = { root: THREE.Group; mixer: THREE.AnimationMixer | null; playing: string | null; clips: THREE.AnimationClip[] };
@@ -90,8 +92,7 @@ export class Props3dLayer {
     if (this.camera.top !== 1 / aspect) { this.camera.top = 1 / aspect; this.camera.bottom = -1 / aspect; this.camera.updateProjectionMatrix(); }
     const on = new Set<string>();
     for (const p of placed) {
-      const def = prop3dById(p.id);
-      const m = def ? this.model(def.file) : null;
+      const m = this.model(p.file);
       if (!m) continue;
       const key = `prop:${p.id}#${p.face}`;
       const inst = this.instance(key, m);

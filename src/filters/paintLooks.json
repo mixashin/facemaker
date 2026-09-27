@@ -70,5 +70,11 @@
     "icon": "🎨",
     "img": "/makeup/unicorn.webp",
     "chip": "/makeup/unicorn-chip.webp"
+  },
+  {
+    "id": "paint-witch",
+    "icon": "🎨",
+    "img": "/makeup/witch.webp",
+    "chip": "/makeup/witch-chip.webp"
   }
 ]

@@ -1,0 +1,32 @@
+// A costume (operator, 2026-09-27): one chip in the makeup list that puts on face paint and 3D parts at once.
+// The first one is the witch: paint, a hat with hair, a nose with a wart. Art by Astra (CC0, brief R7), imported
+// by scripts/import-art.mjs costumes.
+//
+// A part is made around a head (template astra/templates/head-standin.obj). It is in the head frame: its origin
+// is the middle of the head between the sides of the face, one unit is the face width, x right, y up, z out of
+// the face. So a part needs no rule for its place: it goes where the head is, with the turn and the size of
+// the head.
+import list from './costumes.json';
+import { prop3dById, type Head, type Kind, type Placed } from './props3d';
+
+export type Part = { id: string; file: string; takes?: Kind };
+export type Costume = { id: string; look: string; parts: Part[] };
+
+// What a part takes the place of: with the hat of the witch on, a hat of the child's choice has no room
+const TAKES: Record<string, Kind> = { 'witch-hat-hair': 'hat' };
+
+export const COSTUMES: Costume[] = (list as { id: string; look: string; parts: { id: string; file: string }[] }[])
+  .map((c) => ({ id: c.id, look: c.look, parts: c.parts.map((p) => ({ id: p.id, file: p.file, takes: TAKES[p.id] })) }));
+const BY_LOOK = new Map(COSTUMES.map((c) => [c.look, c.parts]));
+
+export const partsOf = (look: string): Part[] => BY_LOOK.get(look) ?? [];
+
+// The 3D props of the child's choice that show together with a look
+export function wornWith(active: string[], look: string): string[] {
+  const taken = new Set(partsOf(look).map((p) => p.takes));
+  return taken.size ? active.filter((id) => !taken.has(prop3dById(id)?.kind)) : active;
+}
+
+export function placeParts(parts: Part[], heads: Head[]): Placed[] {
+  return heads.flatMap((h, face) => parts.map((p) => ({ id: p.id, face, file: p.file, pos: h.centre.toArray(), quat: h.quat.toArray() as Placed['quat'], scale: h.width })));
+}

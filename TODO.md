@@ -379,3 +379,25 @@ Known limits:
 ## Install size after the 3D props (2026-09-27)
 
 Precache on `props3d`: 194 entries, 7.9 MB (the 3D props are 1.1 MB of it). The option of a runtime cache in the background stands (see "Install size").
+
+## Costume: the witch (operator, 2026-09-27): built on branch `costume-witch`, not live
+
+Operator: "can we add a witch to the face makeup with a hat and nose with wart and hair". Art by Astra (request R7), all files accepted.
+
+- [x] One chip in the makeup list (the picture of the whole witch). It puts on the face paint, the hat with hair and the nose. A second tap takes all off.
+- [x] The parts sit on the head with no tuning by hand: they are made around the head stand-in, in the head frame.
+- [x] The turn of the head comes from the landmarks (the tracker gives no pose matrix). This holds for all 3D props.
+- [x] The nose and the paint around it have one colour (lights and paint calibrated).
+- [x] The hat of the witch takes the place of a chosen hat. Glasses and pests stay.
+- [x] Headless checks on the production build: all verdicts OK, zero third-party requests.
+
+Phone checks owed by the operator:
+- [ ] The witch on the head of a child: size of the hat, the curls beside the cheeks and the ears, the nose over the nose.
+- [ ] Head turned to the side and nodding: the nose stays on the nose, the join to the paint stays covered.
+- [ ] With face filters (big nose, big head): paint and parts bend together.
+- [ ] Frame rate with the witch (9 500 triangles, 4 samples).
+
+Open:
+- [ ] The photo editor has no costume parts in its palette.
+- [ ] More costumes: the way is ready (template, brief section R7 as the pattern, import job, one line per costume in `COSTUMES` of the import script).
+- [ ] Install size with the witch: precache 198 entries, 8.2 MB.

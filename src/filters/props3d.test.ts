@@ -124,6 +124,9 @@ describe('placeProps', () => {
     expect(v(g).distanceTo(bridge)).toBeLessThan(0.6 * 0.15);
     expect(g.scale).toBeGreaterThan(0.6 * 0.8); expect(g.scale).toBeLessThan(0.6 * 1.3);
   });
+  it('names the file of the prop', () => {
+    expect(only(placeProps(['crown'], [face()], A, 0), 'crown').file).toBe('/props3d/crown.glb');
+  });
   it('dresses two faces', () => {
     const placed = placeProps(['crown', 'bee'], [face(0.3), face(0.7)], A, 0);
     expect(placed).toHaveLength(4);

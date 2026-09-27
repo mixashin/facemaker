@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { inspectGlb, pngs, cornerAlpha } from './import-art.mjs';
+import { inspectGlb, inspectPart, pngs, cornerAlpha, PART_REACH } from './import-art.mjs';
 
 // A glTF 2.0 binary with a JSON chunk only: enough for the checks that read the JSON
 function glb(json) {
@@ -84,5 +84,41 @@ describe.skipIf(!tools)('cornerAlpha (needs ffmpeg)', () => {
   });
   it('is 255 for a picture with no transparency at all', () => {
     expect(cornerAlpha(make('rgb.png', 'color=c=blue:s=64x64,format=rgb24'))).toBe(255);
+  });
+});
+
+describe('inspectPart (a part of a costume, in the head frame)', () => {
+  const part = (min, max, more = {}) => glb(plain({ accessors: [{ count: 4, min, max }, { count: 6 }], animations: [], ...more }));
+  it('takes a part that lies around a head, of any size up to the reach', () => {
+    expect(inspectPart(part([-1.03, -1.08, -1.14], [1.03, 1.95, 0.68]), 8000)).toMatchObject({ triangles: 2, size: [2.06, 3.03, 1.82] });
+    expect(inspectPart(part([-0.18, -0.27, 0.39], [0.23, 0.25, 1.03]), 2000).centre).toEqual([0.025, -0.01, 0.71]);
+  });
+  it('refuses more triangles than the limit of the part', () => {
+    expect(() => inspectPart(part([-1, -1, -1], [1, 1, 1]), 1)).toThrow(/2 triangles, the limit is 1/);
+  });
+  it('refuses a part that is not in the head frame: far from the head, or as small as a dot', () => {
+    expect(PART_REACH).toBe(3);
+    expect(() => inspectPart(part([-1, -1, -1], [1, 8, 1]), 8000)).toThrow(/head frame/);
+    expect(() => inspectPart(part([40, 0, 0], [41, 1, 1]), 8000)).toThrow(/head frame/);
+    expect(() => inspectPart(part([0, 0, 0], [0.01, 0.01, 0.01]), 8000)).toThrow(/head frame/);
+  });
+  it('refuses what every model is refused for, and clips', () => {
+    expect(() => inspectPart(part([-1, -1, -1], [1, 1, 1], { skins: [{ joints: [0] }] }), 8000)).toThrow(/skin/);
+    expect(() => inspectPart(part([-1, -1, -1], [1, 1, 1], { animations: [{ name: 'idle' }] }), 8000)).toThrow(/clips/);
+  });
+  it('accepts every part that ships, and the list of the app holds its facts', () => {
+    const list = JSON.parse(readFileSync('src/filters/costumes.json', 'utf8'));
+    expect(list.length).toBeGreaterThanOrEqual(1);
+    const looks = JSON.parse(readFileSync('src/filters/paintLooks.json', 'utf8')).map((l) => l.id);
+    for (const c of list) {
+      expect(looks, c.id).toContain(c.look);
+      expect(readdirSync(`public/costumes/${c.id}`).sort()).toEqual(c.parts.map((p) => `${p.id}.glb`).sort());
+      for (const p of c.parts) {
+        const { id, file, ...facts } = p;
+        expect(file).toBe(`/costumes/${c.id}/${id}.glb`);
+        expect(inspectGlb(readFileSync('public' + file)), id).toEqual(facts);
+      }
+    }
+    expect(readdirSync('public/costumes').sort()).toEqual(list.map((c) => c.id).sort());
   });
 });

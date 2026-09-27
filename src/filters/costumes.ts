@@ -23,8 +23,15 @@ export const partsOf = (look: string): Part[] => BY_LOOK.get(look) ?? [];
 
 // The 3D props of the child's choice that show together with a look
 export function wornWith(active: string[], look: string): string[] {
-  const taken = new Set(partsOf(look).map((p) => p.takes));
-  return taken.size ? active.filter((id) => !taken.has(prop3dById(id)?.kind)) : active;
+  const taken = new Set(partsOf(look).flatMap((p) => (p.takes ? [p.takes] : [])));
+  return taken.size ? active.filter((id) => { const kind = prop3dById(id)?.kind; return !kind || !taken.has(kind); }) : active;
+}
+
+// The look after a tap on a 3D prop. A costume with a hat of its own hides a chosen hat: the chip would light
+// and nothing would change. So a tap on a hat takes such a costume off.
+export function lookAfterPick(look: string, prop: string): string {
+  const kind = prop3dById(prop)?.kind;
+  return kind && partsOf(look).some((p) => p.takes === kind) ? 'none' : look;
 }
 
 export function placeParts(parts: Part[], heads: Head[]): Placed[] {

@@ -12,7 +12,6 @@
 // The picture is not mirrored here: the warp pass mirrors it with everything on it.
 import * as THREE from 'three';
 import list from './props3d.json';
-import { faceFrame } from './faceon';
 import type { Face } from '../tracking/faceTracker';
 
 type V3 = [number, number, number];
@@ -28,7 +27,13 @@ type Rule = Worn | Pest;
 type Facts = { id: string; triangles: number; size: number[]; centre: number[]; clips: string[] };
 export type Prop3D = Rule & { id: string; icon: string; file: string; chip: string; clips: string[] };
 
-const FOREHEAD = 10, CHIN = 152, BRIDGE = 168, BROW = 151, SIDE_R = 234, SIDE_L = 454;
+const FOREHEAD = 10, CHIN = 152, NOSE_BASE = 2, BRIDGE = 168, BROW = 151, SIDE_R = 234, SIDE_L = 454;
+// The width of a head for the props: side to side, or this much of the way from the forehead to the base of
+// the nose when that is more (a face seen from the side is narrow in the picture). Both with depth, so a turn,
+// a nod and a tilt change nothing. The chin is not in the measure: a mouth that opens wide made the hat grow by
+// 20 %. The number: 0.867 of the face height as in faceon.ts, and the height is 1.68 of the way to the nose
+// (measured on a real face, 1.69 on the generic face of MediaPipe).
+const WIDE_BY_NOSE = 0.867 * 1.68;
 const hat = (scale: number, up: number, back = -0.55): Worn => ({ kind: 'hat', at: [FOREHEAD], offset: [0, up, back], scale });
 const orbit = (radius: number, height: number, period: number, scale: number, clip = 'fly'): Pest => ({ kind: 'pest', path: 'orbit', radius, height, period, scale, clip });
 // Order of the chips: what a child wears first, then what flies and crawls.
@@ -75,14 +80,16 @@ export function headPose(face: Face, aspect: number): Head {
   const lm = face.landmarks;
   const right = toStage(lm, SIDE_R, aspect), left = toStage(lm, SIDE_L, aspect);
   const centre = right.clone().add(left).multiplyScalar(0.5);
-  const x = left.sub(right), up = toStage(lm, FOREHEAD, aspect).sub(toStage(lm, CHIN, aspect));
+  const forehead = toStage(lm, FOREHEAD, aspect);
+  const x = left.sub(right), up = forehead.clone().sub(toStage(lm, CHIN, aspect));
+  const width = Math.max(x.length(), WIDE_BY_NOSE * forehead.distanceTo(toStage(lm, NOSE_BASE, aspect)));
   const z = new THREE.Vector3().crossVectors(x, up);
   const quat = new THREE.Quaternion();
   if (x.lengthSq() > 1e-12 && z.lengthSq() > 1e-12) { // a face with all points at one place has no turn
     x.normalize(); z.normalize();
     quat.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, new THREE.Vector3().crossVectors(z, x), z));
   }
-  return { centre, width: faceFrame(lm, aspect).width * 2, quat };
+  return { centre, width, quat };
 }
 
 // Where a prop is drawn. pos in stage space, quat as x y z w, scale: size of the largest side on the stage.
@@ -137,11 +144,13 @@ export function placeProps(active: string[], faces: Face[], aspect: number, tMs:
 
 // The head hides what is behind it: a pest on the far side of its round, the back of a hat. The layer draws
 // these shapes into the depth buffer only. Radii and places in face widths, from the middle of the head.
-// Two shapes: the face up to the hairline, as deep as a head, and the top of the head, thin. The hats are
-// smaller than a real head (they are toys): a top as deep as a head cuts the front of their brim.
+// Three shapes: the face up to the hairline, as deep as a head, the top of the head, thin, and the neck.
+// The hats are smaller than a real head (they are toys): a top as deep as a head cuts the front of their brim.
+// The neck: the hair of a costume hangs behind it, and must not show over the throat.
 // The shapes are a little smaller than a head on purpose. Too large hides the glasses, too small only shows
 // a pest a moment longer at the edge of the head.
 export const OCCLUDERS: { radii: V3; up: number; back: number }[] = [
   { radii: [0.46, 0.57, 0.52], up: -0.07, back: 0 },
   { radii: [0.46, 0.7, 0.2], up: 0.13, back: 0 },
+  { radii: [0.3, 0.5, 0.3], up: -0.95, back: 0.2 },
 ];

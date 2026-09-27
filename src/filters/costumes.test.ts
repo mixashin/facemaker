@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync } from 'node:fs';
 import * as THREE from 'three';
-import { COSTUMES, partsOf, wornWith, placeParts } from './costumes';
+import { COSTUMES, partsOf, wornWith, placeParts, lookAfterPick } from './costumes';
 import { LOOKS, MAKEUP } from './makeup';
 import type { Head } from './props3d';
 
@@ -55,5 +55,21 @@ describe('placeParts', () => {
   it('gives nothing with no head or no part', () => {
     expect(placeParts(parts, [])).toEqual([]);
     expect(placeParts([], [head(0, 0.5)])).toEqual([]);
+  });
+});
+
+describe('lookAfterPick', () => {
+  it('a tap on a hat takes the costume off that has a hat of its own: the child sees the hat that it chose', () => {
+    expect(lookAfterPick('paint-witch', 'crown')).toBe('none');
+    expect(lookAfterPick('paint-witch', 'witch-hat')).toBe('none');
+  });
+  it('glasses and pests go with the costume', () => {
+    expect(lookAfterPick('paint-witch', 'sunglasses')).toBe('paint-witch');
+    expect(lookAfterPick('paint-witch', 'bee')).toBe('paint-witch');
+    expect(lookAfterPick('paint-witch', 'none')).toBe('paint-witch');
+  });
+  it('a look with no parts stays', () => {
+    expect(lookAfterPick('paint-tiger', 'crown')).toBe('paint-tiger');
+    expect(lookAfterPick('none', 'crown')).toBe('none');
   });
 });

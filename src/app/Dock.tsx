@@ -5,6 +5,7 @@ import { STICKER_PACKS, toggleSticker } from '../filters/stickers';
 import { MAKEUP, pickLook, type LookId } from '../filters/makeup';
 import { BACKDROPS, pickScene } from '../filters/scenes';
 import { PROPS3D_CHIPS, toggleProp } from '../filters/props3d';
+import { lookAfterPick } from '../filters/costumes';
 import { Strip } from './Strip';
 import { TextEditor } from './TextEditor';
 import { LabRows } from './FaceLab';
@@ -47,7 +48,7 @@ export function Dock() {
       <div class="dock-body">
         {tab === 'warp' && <Strip items={PRESETS} value={presets.value} onPick={(id) => { presets.value = togglePreset(presets.value, id as PresetId); if (presets.value.length > 0) sliders.value = DEFAULT_SLIDERS; }} label={t('tabs.warp')} />}
         {tab === 'sticker' && <Strip items={STICKER_PACKS} value={stickers.value} onPick={(id) => (stickers.value = toggleSticker(stickers.value, id))} label={t('tabs.sticker')} />}
-        {tab === 'props3d' && <Strip items={PROPS3D_CHIPS} value={props3d.value} onPick={(id) => (props3d.value = toggleProp(props3d.value, id))} label={t('tabs.props3d')} />}
+        {tab === 'props3d' && <Strip items={PROPS3D_CHIPS} value={props3d.value} onPick={(id) => { makeup.value = lookAfterPick(makeup.value, id); props3d.value = toggleProp(props3d.value, id); }} label={t('tabs.props3d')} />}
         {tab === 'makeup' && <Strip items={MAKEUP} value={makeup.value} onPick={(id) => (makeup.value = pickLook(makeup.value, id as LookId))} label={t('tabs.makeup')} />}
         {tab === 'faceon' && <FaceOnPanel />}
         {tab === 'scene' && <Strip items={BACKDROPS} value={scene.value} onPick={(id) => { scene.value = pickScene(scene.value, id); if (scene.value !== 'none') target.value = 'none'; }} label={t('tabs.scene')} />}

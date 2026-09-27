@@ -7,12 +7,13 @@ import type { Face } from '../tracking/faceTracker';
 const A = 4 / 3;
 // Points of a face in the frame of the head: x right, y up, z front, one unit is the distance between the sides of
 // the face. Depth as measured on a real face: the skin of the forehead is 0.58 in front of the sides.
-const POINTS: [number, number, number, number][] = [[234, -0.5, 0, 0], [454, 0.5, 0, 0], [10, 0, 0.56, 0.58], [152, 0, -0.7, 0.47], [4, 0, -0.09, 0.78], [168, 0, 0.2, 0.6], [151, 0, 0.45, 0.6]];
+const POINTS: [number, number, number, number][] = [[234, -0.5, 0, 0], [454, 0.5, 0, 0], [10, 0, 0.56, 0.58], [152, 0, -0.7, 0.47], [4, 0, -0.09, 0.78], [2, 0, -0.18, 0.62], [168, 0, 0.2, 0.6], [151, 0, 0.45, 0.6]];
 // A face around (cx, cy) of the picture, its sides 0.3 of the picture width apart, with a turn of the head.
-function face(cx = 0.5, cy = 0.5, w = 0.3, turn = new THREE.Quaternion()): Face {
+// points: other points than the ones above (a long face, an open mouth).
+function face(cx = 0.5, cy = 0.5, w = 0.3, turn = new THREE.Quaternion(), points = POINTS): Face {
   const lm = new Float32Array(478 * 3), W = w * 2;
   const middle = new THREE.Vector3(cx * 2 - 1, (1 - cy * 2) / A, -0.5 * W);
-  for (const [i, x, y, z] of POINTS) {
+  for (const [i, x, y, z] of points) {
     const p = new THREE.Vector3(x, y, z).multiplyScalar(W).applyQuaternion(turn).add(middle);
     lm[i * 3] = (p.x + 1) / 2; lm[i * 3 + 1] = (1 - p.y * A) / 2; lm[i * 3 + 2] = -p.z / 2;
   }
@@ -70,7 +71,8 @@ describe('stage space', () => {
     const h = headPose(face(0.5, 0.5, 0.3), A);
     expect(h.centre.x).toBeCloseTo(0); expect(h.centre.y).toBeCloseTo(0);
     expect(h.centre.z).toBeCloseTo(-0.3); // the middle of the head in depth: where the sides of the face are, half a face width behind the skin
-    expect(h.width).toBeCloseTo(0.6 * 0.867 * 1.26); // the face width of faceon.ts: cheek to cheek (0.6 stage units), or 0.867 of the height when that is more. It holds when the head turns.
+    expect(h.width).toBeCloseTo(0.6 * 1.457 * Math.hypot(0.74, 0.04)); // side to side (0.6 stage units), or 1.457 of the way from the forehead to the base of the nose when that is more
+    expect(h.width / 0.6).toBeGreaterThan(1.05); expect(h.width / 0.6).toBeLessThan(1.12); // as the width of faceon.ts on a real face: 1.08
     expect(h.quat.angleTo(new THREE.Quaternion())).toBeLessThan(0.1); // a real forehead stands a little before the chin
   });
   it('takes the turn of the head from the landmarks: the tracker gives no pose', () => {
@@ -81,10 +83,21 @@ describe('stage space', () => {
       expect(q.angleTo(turn.clone().multiply(still)), name).toBeLessThan(0.01);
     }
   });
-  it('keeps the width when the head turns to the side', () => {
-    const turned = headPose(face(0.5, 0.5, 0.3, new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.6)), A);
-    expect(turned.width / headPose(face(), A).width).toBeGreaterThan(0.95);
-    expect(turned.width / headPose(face(), A).width).toBeLessThan(1.05);
+  const axisTurn = (x: number, y: number, z: number, angle: number) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(x, y, z), angle);
+  // a round face: the way from the forehead to the nose is short, side to side gives the width
+  const ROUND = POINTS.map(([i, x, y, z]) => [i, x, i === 10 ? 0.45 : y, z] as [number, number, number, number]);
+  it('keeps the width when the head turns to the side, nods or tilts: a hat does not grow or shrink with the pose', () => {
+    for (const points of [POINTS, ROUND]) {
+      const still = headPose(face(0.5, 0.5, 0.3, undefined, points), A).width;
+      for (const turn of [axisTurn(0, 1, 0, 0.6), axisTurn(1, 0, 0, 0.5), axisTurn(1, 0, 0, -0.3), axisTurn(0, 0, 1, 0.4)]) {
+        expect(headPose(face(0.5, 0.5, 0.3, turn, points), A).width / still).toBeCloseTo(1, 3);
+      }
+    }
+    expect(headPose(face(0.5, 0.5, 0.3, undefined, ROUND), A).width).toBeCloseTo(0.6);
+  });
+  it('keeps the width when the mouth opens wide: the chin is not in the measure', () => {
+    const open = POINTS.map(([i, x, y, z]) => [i, x, i === 152 ? y - 0.25 : y, z] as [number, number, number, number]);
+    expect(headPose(face(0.5, 0.5, 0.3, undefined, open), A).width).toBeCloseTo(headPose(face(), A).width, 6);
   });
   it('a face with all points at one place gives no turn, and no numbers that are no numbers', () => {
     const h = headPose({ landmarks: new Float32Array(478 * 3).fill(0.5), matrix: new Float32Array(16), blend: new Float32Array(52) }, A);

@@ -52,7 +52,7 @@ export function App() {
     let raf = 0;
     const r = new FaceRenderer(canvas, video);
     // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
-    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }), masks: 0, mask: [0, 0], placed: [] as string[], face: () => (faces[0] ? { landmarks: Array.from(faces[0].landmarks), matrix: Array.from(faces[0].matrix) } : null), nose: () => (faces[0] ? [faces[0].landmarks[4 * 3], faces[0].landmarks[4 * 3 + 1]] : null), scene: (s: import('../filters/scenes').Scene | null) => { tryScene.value = s; scene.value = s ? s.id : 'none'; } });
+    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }), masks: 0, mask: [0, 0], placed: () => r.shown3d(), face: () => (faces[0] ? { landmarks: Array.from(faces[0].landmarks), matrix: Array.from(faces[0].matrix) } : null), nose: () => (faces[0] ? [faces[0].landmarks[4 * 3], faces[0].landmarks[4 * 3 + 1]] : null), scene: (s: import('../filters/scenes').Scene | null) => { tryScene.value = s; scene.value = s ? s.id : 'none'; } });
     const asked = preferFrom(location.search, (() => { try { return localStorage.getItem(PREFER_KEY); } catch { return null; } })());
     let fell: string | null = null;
     try {
@@ -90,9 +90,7 @@ export function App() {
       const parts = partsOf(makeup.value), worn = wornWith(props3d.value, makeup.value);
       const solid = worn.length + parts.length > 0;
       const heads = solid ? faces.map((f) => headPose(f, aspect)) : [];
-      const placed = [...placeProps(worn, faces, aspect, now, heads), ...placeParts(parts, heads)];
-      fm.placed = placed.map((p) => p.id);
-      r.setProps3d(placed, heads, now, solid);
+      r.setProps3d([...placeProps(worn, faces, aspect, now, heads), ...placeParts(parts, heads)], heads, now, solid);
       const place = screen.value === 'camera' && !tg && !document.hidden ? sceneById(scene.value, tryScene.value) : null; // a face-on picture has no camera view
       if (place && !seg.running) seg.start(); else if (!place && seg.running) seg.stop();
       if (place) seg.push(video, now);

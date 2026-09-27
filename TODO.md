@@ -447,12 +447,22 @@ Branch `release-witch` holds all four pull requests, merged and tested together:
 
 ### Review of #26 (the witch)
 
-One reviewer was started for #26 on 2026-09-27 in its own worktree (`scratchpad/wt-witch` of session 426aa98f). Its report was not in when the release branch was made.
+One fresh reviewer: ready after fixes, no critical finding, the math of the head turn is right. Fixed on `release-witch`:
 
-- [ ] Take the findings in (a follow-up branch from main after the release).
-- [ ] Remove the worktree: first the junction `node_modules` alone (PowerShell, check `LinkType -eq 'Junction'`), then `git worktree remove`.
+- [x] The width of the head followed the chin, the nod and the turn: hat and nose grew by 20 % with a wide open mouth. Now: side to side, or 1.457 of the way from the forehead to the base of the nose, both with depth.
+- [x] Stronger lights made bright parts of the plain props lose their form. The lights are as before. The colours of costume parts get a factor of 1.35 at load instead (every material one time).
+- [x] The back curls showed over the throat: a third hidden shape for the neck.
+- [x] The headless check of the costume read what was asked for, not what is drawn. It reads the 3D layer now, and the picture above the face must change.
+- [x] A tap on a hat while the witch is on takes the witch off (the chip lit and nothing changed).
 
-Not reviewed by a second reader: the last commit of #23 (geometry step off, faces with no size, kept GPU failure), and the merge of the four branches.
+Deferred:
+- [ ] A face that looks at the camera gives a nod of 5 degrees (the forehead stands before the chin). Four points replace the fit of MediaPipe over 478 points: look for shake and for a wrong turn at 45 to 70 degrees on the phone.
+- [ ] Import job `costumes`: the test of the shipped parts must use `inspectPart`, other files in the folder must be named, a costume id must not take the file of a painted look, a failure of ffmpeg leaves a half result.
+- [ ] The pool key of the 3D layer is the id without the file: a part with the id of a prop would show the wrong model. No such id today.
+- [ ] A costume is outside the limit of four props: up to 6 models per face, 22 600 triangles in the worst case. Frame rate check on the tablet with witch plus four props on two faces.
+- [ ] Paint, nose and hat appear one after the other while the files load.
+
+Not reviewed by a second reader: the last commit of #23 (geometry step off, faces with no size, kept GPU failure), the merge of the four branches, and the fixes above.
 
 ### The phone where the face was not tracked
 

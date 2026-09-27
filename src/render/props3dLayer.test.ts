@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { Props3dLayer, lights, type Model } from './props3dLayer';
+import { Props3dLayer, lights, likeTheCamera, COSTUME_GAIN, type Model } from './props3dLayer';
 import { headPose, placeProps, PROPS3D } from '../filters/props3d';
 import { partsOf, placeParts } from '../filters/costumes';
 import type { Face } from '../tracking/faceTracker';
@@ -10,7 +10,7 @@ function face(cx = 0.5): Face {
   const lm = new Float32Array(478 * 3);
   const set = (i: number, x: number, y: number, z = 0) => { lm[i * 3] = cx + x * 0.3; lm[i * 3 + 1] = 0.5 + y * 0.3 * A; lm[i * 3 + 2] = z * 0.3; };
   // depth as measured on a real face, in face widths: skin of the forehead +0.08, sides of the face -0.5
-  set(234, -0.5, 0, 0.5); set(454, 0.5, 0, 0.5); set(10, 0, -0.56, -0.08); set(152, 0, 0.7, 0.03); set(4, 0, 0.09, -0.28);
+  set(234, -0.5, 0, 0.5); set(454, 0.5, 0, 0.5); set(10, 0, -0.56, -0.08); set(152, 0, 0.7, 0.03); set(4, 0, 0.09, -0.28); set(2, 0, 0.18, -0.12);
   set(168, 0, -0.2, -0.1); set(151, 0, -0.45, -0.1);
   return { landmarks: lm, matrix: new Float32Array(16), blend: new Float32Array(52) }; // no matrix: the tracker gives none
 }
@@ -89,17 +89,28 @@ describe('Props3dLayer', () => {
     expect(body.position.x).toBeCloseTo(0);
   });
 
-  it('hides what is behind the head: two shapes per head (face, top of the head), in the depth buffer only', () => {
+  it('hides what is behind the head: three shapes per head (face, top of the head, neck), in the depth buffer only', () => {
     const s = setup();
     s.run(['bee'], [face(0.3), face(0.7)]); s.pending.get('/props3d/bee.glb')!.done(model());
     s.run(['bee'], [face(0.3), face(0.7)]);
     const heads = s.heads();
-    expect(heads).toHaveLength(4);
+    expect(heads).toHaveLength(6);
     for (const h of heads) { expect(h.material.colorWrite).toBe(false); expect(h.material.depthWrite).toBe(true); expect(h.renderOrder).toBeLessThan(0); }
-    expect(Math.min(...heads.slice(0, 2).map((h) => h.position.x))).toBeLessThan(Math.min(...heads.slice(2).map((h) => h.position.x)));
+    expect(Math.max(...heads.slice(0, 3).map((h) => h.position.x))).toBeLessThan(Math.min(...heads.slice(3).map((h) => h.position.x)));
     expect(heads[0].scale.y).toBeGreaterThan(heads[0].scale.x); // a head is higher than wide
     s.run(['bee'], [face(0.3)]);
-    expect(s.heads()).toHaveLength(2);
+    expect(s.heads()).toHaveLength(3);
+  });
+
+  it('the neck hides the hair that hangs behind it: under the chin no curl shows over the throat', () => {
+    const s = setup();
+    s.run(['bee'], [face()]); s.pending.get('/props3d/bee.glb')!.done(model());
+    s.run(['bee'], [face()]);
+    const h = headPose(face(), A);
+    // a curl behind the head, under the chin (in face widths from the middle of the head: 0.9 down, 0.5 back)
+    expect(front(s.heads(), h.centre.x, h.centre.y - 0.9 * h.width)).toBeGreaterThan(h.centre.z - 0.5 * h.width);
+    // and the neck is not as wide as the head: a curl beside the neck shows
+    expect(front(s.heads(), h.centre.x + 0.45 * h.width, h.centre.y - 0.9 * h.width)).toBe(-Infinity);
   });
 
   it('the head hides a pest that is behind it, not a pest in front of it', () => {
@@ -157,14 +168,42 @@ describe('Props3dLayer', () => {
     expect(THREE.ShaderChunk.colorspace_pars_fragment).toContain('sRGBTransferOETF');
   });
 
-  it('a surface that faces the viewer shows its own colour: the light on it sums up to one', () => {
+  // Light on a matt surface, as a factor of its colour (light over pi)
+  const lit = (n: THREE.Vector3) => {
     const [sky, sun] = lights() as [THREE.HemisphereLight, THREE.DirectionalLight];
-    const n = new THREE.Vector3(0, 0, 1);
-    const around = sky.color.clone().lerp(sky.groundColor, 0.5).multiplyScalar(sky.intensity); // a normal with no tilt: half sky, half ground
+    const around = sky.color.clone().lerp(sky.groundColor, 0.5 - 0.5 * n.y).multiplyScalar(sky.intensity);
     const direct = sun.color.clone().multiplyScalar(sun.intensity * Math.max(0, n.dot(sun.position.clone().normalize())));
-    const green = (around.g + direct.g) / Math.PI; // a matt surface gives back its colour times the light over pi
-    expect(green).toBeGreaterThan(0.96);
-    expect(green).toBeLessThan(1.06);
+    return (around.g + direct.g) / Math.PI;
+  };
+  it('no light makes a colour of a prop brighter than it is: bright parts keep their form', () => {
+    for (const n of [[0, 0, 1], [0, 1, 0], [0.18, 0.44, 0.88], [0, 0.7, 0.7], [1, 0, 0]]) expect(lit(new THREE.Vector3(...n).normalize())).toBeLessThanOrEqual(1);
+  });
+  it('a part of a costume that faces the viewer shows its own colour: the nose must match the paint around it', () => {
+    expect(lit(new THREE.Vector3(0, 0, 1)) * COSTUME_GAIN).toBeGreaterThan(0.96);
+    expect(lit(new THREE.Vector3(0, 0, 1)) * COSTUME_GAIN).toBeLessThan(1.06);
+    const mint = new THREE.MeshStandardMaterial({ color: new THREE.Color(0.188, 0.597, 0.468) });
+    const part = new THREE.Group().add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mint));
+    likeTheCamera(part, COSTUME_GAIN);
+    expect(mint.color.g).toBeCloseTo(0.597 * COSTUME_GAIN);
+    // nine curls share one material: its colour gets the factor one time, not nine times
+    const copper = new THREE.MeshStandardMaterial({ color: new THREE.Color(0.4, 0.08, 0.05) });
+    const hair = new THREE.Group();
+    for (let i = 0; i < 9; i++) hair.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), copper));
+    likeTheCamera(hair, COSTUME_GAIN);
+    expect(copper.color.r).toBeCloseTo(0.4 * COSTUME_GAIN);
+    const plain = new THREE.MeshStandardMaterial({ color: new THREE.Color(0.5, 0.5, 0.5) });
+    likeTheCamera(new THREE.Group().add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), plain)));
+    expect(plain.color.g).toBeCloseTo(0.5);
+  });
+  it('says what it draws: a prop that still loads is not in the list', () => {
+    const s = setup();
+    s.run(['crown', 'bee'], [face()]);
+    expect(s.layer.shown).toEqual([]);
+    s.pending.get('/props3d/crown.glb')!.done(model());
+    s.run(['crown', 'bee'], [face()]);
+    expect(s.layer.shown).toEqual(['crown']);
+    s.run([], [face()]);
+    expect(s.layer.shown).toEqual([]);
   });
 
   it('keeps the shape of the picture', () => {

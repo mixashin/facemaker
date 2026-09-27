@@ -419,7 +419,7 @@ Built on branch `tracker-health`:
 
 Open:
 - [x] The 3D props take the turn of the head from the landmarks (done in #26): with the geometry step off there is no pose matrix.
-- [ ] The app keeps the camera while it is in the background (seen on the phone: the hidden installed app had a live track, and a second page got no picture). Stop the camera when the page is hidden, start it again on return.
+- [x] The app keeps the camera while it is in the background (seen on the phone: the hidden installed app had a live track, and a second page got no picture). Stop the camera when the page is hidden, start it again on return. Fixed on branch `camera-background`, see "The camera in the background" below.
 - [ ] Report the GPU fault to MediaPipe? Facts for it are above. Operator's decision.
 - [ ] Known limit of the update button: with the app open in two places (installed app and a Chrome tab) the old service worker can stay, and its cache stays empty until the next release. The app works with a network. Close the other one first.
 - [ ] A reload from the computer (`phone-inspect.mjs reload`) with the phone locked leaves the app on the camera error screen: the camera cannot start on a locked phone. Unlock first.
@@ -432,7 +432,7 @@ Open:
 - [x] Live: the release (#27), the gear fix (#29), the pig (#30), the fixes after two reviews (#31). Version on the live site after #31: `2026-09-27 14:59 bf377c3` (a later merge of documents gives a new version with the same code). Full headless check on the live site with gallery and record: 72 verdicts OK, zero third-party requests.
 - [x] Only `main` is left, local and on GitHub, after the merge of this documents update. No worktree, no agent.
 - [x] Art: no request is open. Brief version 14.
-- [ ] Next work, in this order unless the operator says otherwise: the known defects below (the camera in the background first: privacy), then the open minor findings of the two reviews, then the plan for M5.
+- [ ] Next work, in this order unless the operator says otherwise: the known defects below (the camera in the background is fixed on branch `camera-background`), then the open minor findings of the two reviews, then the plan for M5.
 
 The sections below are the record of the day. Open items have an empty box.
 
@@ -552,8 +552,16 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [x] Merged on the operator's word on 2026-09-27 at 14:14 UTC (#29), deploy success, version `2026-09-27 14:15 2d4eb43`. The gear opens the settings on the live site on six screen shapes (headless, by finger).
 - [ ] Operator: tap the gear on the tablet on its side, and on the open fold phone on its side.
 
+### The camera in the background (2026-09-27): fixed on `camera-background`
+
+- [x] Proof of the defect on the live site (headless, page set to hidden): the track stayed `live`.
+- [x] The page is hidden: the app stops the tracks of the camera. The page is back: the camera starts again, also when it was on its way before (`startOnReturn`). The error screens stay as they are.
+- [x] A start of the camera gives nothing when the page is hidden or a newer start came (`startCamera`). It does not ask for the camera while the page is hidden. A stream that arrives too late is stopped, an error that arrives too late is dropped. So two fast starts (flip, flip) leave one live track, not two.
+- [x] Tests: 13 new unit tests, two new verdicts in `scripts/smoke.mjs` (they fail on the code before the fix).
+- [ ] Operator, on the phone: put the app in the background. The camera sign of Android (green dot) goes off. A second page with the app gets a picture. Back in the first app: the picture comes again in about a second.
+- Known: the buttons go away for the time of the new start (the same as after a flip of the camera).
+
 ### Known defects, not fixed yet
 
-- The app keeps the camera while it is in the background (a second page gets no picture). Stop the camera when the page is hidden.
 - The photo editor has no costume parts in its palette.
 - A two-finger hold of more than 0.3 s with no move clears the selection in the editor.

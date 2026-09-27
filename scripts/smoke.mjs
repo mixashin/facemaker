@@ -588,6 +588,23 @@ if (await shutter.count()) {
   const made = downloads.length - before;
   console.log('double tap: saved shots', shots, 'downloads', made, shots + made === 1 ? 'OK' : 'FAIL');
 }
+// A tap on the middle of the gear: which element takes it, and do the settings open. A box that is free of the
+// three buttons is not enough: the bar that holds them is a column as high as the screen, and it took the taps.
+// tap: how to tap at (x, y). A mouse click by default. With touch emulation on, a mouse click does not come back:
+// give a tap by finger then.
+const tapGear = async (tap = (x, y) => page.mouse.click(x, y)) => {
+  const at = await page.evaluate(() => {
+    const g = document.querySelector('[aria-label="settings"]');
+    if (!g) return null;
+    const r = g.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, hit = document.elementFromPoint(x, y);
+    return { x, y, hit: hit ? hit.tagName.toLowerCase() + '.' + hit.className : '-' };
+  });
+  if (!at) return { hit: '-', open: false };
+  await tap(at.x, at.y); await page.waitForTimeout(400);
+  const open = (await page.locator('.sheet').count()) > 0;
+  if (open) { const c = await page.locator('.close').first().boundingBox(); if (c) { await tap(c.x + c.width / 2, c.y + c.height / 2); await page.waitForTimeout(300); } }
+  return { hit: at.hit, open, closed: (await page.locator('.sheet').count()) === 0 };
+};
 // A phone on its side: the capture buttons stand at the right edge, one above the other
 {
   await page.setViewportSize({ width: 860, height: 380 });
@@ -601,6 +618,8 @@ if (await shutter.count()) {
   const stacked = three.every((b, i) => b && b.t >= 0 && b.b <= land.h && (i === 0 || b.t >= three[i - 1].b));
   const gearFree = !land.gear || three.every((b) => land.gear.r <= b.l || land.gear.b <= b.t);
   console.log('phone on its side: buttons at the right edge', right, '| one above the other, all on the screen', stacked, '| the gear is free', gearFree, right && stacked && gearFree ? 'OK' : 'FAIL');
+  const low = await tapGear();
+  console.log('phone on its side: a tap on the gear goes to', low.hit, '| the settings open', low.open, '| and close again', low.closed, low.open && low.closed ? 'OK' : 'FAIL');
   if (out) writeFileSync(`${out}/page-landscape.png`, await page.screenshot());
   // A tablet on its side: the buttons at the right edge too, and the gear in its corner (the column of buttons
   // does not reach the corner on a high screen). Touch is switched on, so the page sees a finger as its pointer.
@@ -620,6 +639,12 @@ if (await shutter.count()) {
     const free = !!tab.gear && col.every((b) => tab.gear.b <= b.t || tab.gear.r <= b.l);
     console.log('tablet on its side: finger as pointer', tab.finger, '| buttons at the right edge', atRight, '| the gear in its corner', corner, tab.gear ? Math.round(tab.w - tab.gear.r) : '-', '| the gear is free', free, tab.finger && atRight && corner && free ? 'OK' : 'FAIL');
     if (out) writeFileSync(`${out}/page-landscape-tablet.png`, await page.screenshot());
+    const finger = async (x, y) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 0 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    const high = await tapGear(finger);
+    console.log('tablet on its side: a tap on the gear goes to', high.hit, '| the settings open', high.open, '| and close again', high.closed, high.open && high.closed ? 'OK' : 'FAIL');
     await cdp.send('Emulation.setEmitTouchEventsForMouse', { enabled: false });
     await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
     await cdp.detach();

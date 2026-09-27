@@ -466,6 +466,7 @@ Solved in #23, tested on the phone over USB, the operator saw it work. Live sinc
 ### Art
 
 - [x] Request R7 (the witch) is delivered, accepted and built (#26). Brief version 12 has the result and the answers to Astra's two questions.
+- [ ] A pig for the face on a picture (operator, 2026-09-27). Asked from Astra: brief version 13, request R1, part "Open request: the pig", start prompt `astra/PROMPT-pig.md`. One file, `pig.png`, into `astra/out/R1-face-targets`. When it is there: check it (size, opaque, centre box, plain skin above and below the snout), `node scripts/import-art.mjs targets`, one line in `TARGETS` (`src/filters/faceon.ts`) with own places for eyes and mouth (`eyes`, `mouth`), because the snout stands between them. Tune with `FACE_FIT=crop`. Answer Astra's questions in the brief.
 - [ ] More costumes: the pattern is section R7 of the brief, the template is `astra/templates/head-standin.obj`, the import job takes one line per costume (`COSTUMES` in `scripts/import-art.mjs`).
 
 ### Owed by the operator: checks on devices
@@ -483,6 +484,15 @@ Lists are in the sections "3D props", "Costume: the witch", "M4a", "M4b", "M4c" 
 - Flat twins of the 3D props in the sticker strip (pirate hat, party hat, witch hat, fly, mosquito, spider): keep both or drop the flat ones.
 - Tag `m4` after the phone checks of M4.
 - Install size: precache 8.2 MB with the witch. Option: art in a runtime cache that fills in the background.
+
+### The gear took no tap on a high screen on its side (operator, 2026-09-27): fixed on `fix-gear-landscape`
+
+Found by the operator after the release: the settings button did nothing on a tablet on its side, and worked with the tablet upright.
+
+- Cause: on a screen on its side the bar of the capture buttons is a column as high as the screen (`top: 0; bottom: 0`). It comes after the gear in the page, so it lies over the corner and took the taps. Before the release the gear stood beside the column on every screen on its side. The release put it back into its corner on a high screen, under the column.
+- Fix: the column takes no taps itself, only its buttons do (`pointer-events` in `src/app/styles.css`). A tap between the buttons reaches the video now, as everywhere else on the video.
+- The headless check measured the boxes of the gear and of the three buttons and never tapped. It taps now, on a phone and on a tablet on its side, and says which element took the tap. Seen to fail with the defect in.
+- [ ] Operator: tap the gear on the tablet on its side, and on the open fold phone on its side.
 
 ### Known defects, not fixed yet
 

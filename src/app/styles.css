@@ -129,6 +129,9 @@ video.full { background: #000; height: calc(100% - (var(--tap) + 32px + env(safe
 @media (orientation: landscape) and (pointer: coarse), (orientation: landscape) and (max-height: 500px) {
   :root { --fly-x: calc(50vw - 58px - env(safe-area-inset-right)); --fly-y: calc(62px + var(--tap) / 2); }
   .bar { left: auto; right: calc(16px + env(safe-area-inset-right)); top: 0; bottom: 0; width: 84px; flex-direction: column; justify-content: center; gap: 20px; padding: 0; }
+  /* The column is as high as the screen and lies over the corner of the gear: only its buttons take taps */
+  .bar { pointer-events: none; }
+  .bar > * { pointer-events: auto; }
   .dock { bottom: calc(12px + env(safe-area-inset-bottom)); }
 }
 /* A low screen on its side (a phone): the column of buttons reaches the corner, so the gear stands beside it.

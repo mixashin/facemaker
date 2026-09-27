@@ -242,6 +242,15 @@ if (state.fm?.faces > 0) {
   await click('none'); await click('faceon'); await click('orange'); await page.waitForTimeout(500); // second tap: off
   const o3 = await tinted(ORANGE);
   console.log('second tap brings the camera back: orange pixels', o3, Math.abs(o3 - o0) < 500 ? 'OK' : 'FAIL');
+  // The pig has a snout between eyes and mouth, so both have own places (src/filters/faceon.ts). The plain
+  // picture has about 160 dark pixels in this view (leaves): more than that are the live eyes and the mouth.
+  {
+    const PINK = 'r > 225 && g > 150 && g < 215 && b > 130 && b < 200 && r - g > 35', DARK = 'r < 80 && g < 80 && b < 80';
+    await click('faceon'); await click('pig'); await page.waitForTimeout(1500);
+    const pink = await tinted(PINK), dark = await tinted(DARK), id = (await page.evaluate(() => globalThis.__fm?.target?.()))?.id;
+    console.log('the pig:', id, '| pink pixels', pink, '| dark pixels of eyes and mouth', dark, id === 'pig' && pink > 30000 && dark > 350 && dark < 5000 ? 'OK' : 'FAIL');
+    await click('pig'); await page.waitForTimeout(500); // second tap: off
+  }
   // A place behind the person. The check brings its own scene (a picture of the app), so it runs before the art is in.
   {
     const probe = (x, y) => page.evaluate(([x, y]) => {

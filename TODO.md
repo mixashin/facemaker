@@ -466,7 +466,8 @@ Solved in #23, tested on the phone over USB, the operator saw it work. Live sinc
 ### Art
 
 - [x] Request R7 (the witch) is delivered, accepted and built (#26). Brief version 12 has the result and the answers to Astra's two questions.
-- [ ] A pig for the face on a picture (operator, 2026-09-27). Asked from Astra: brief version 13, request R1, part "Open request: the pig", start prompt `astra/PROMPT-pig.md`. One file, `pig.png`, into `astra/out/R1-face-targets`. When it is there: check it (size, opaque, centre box, plain skin above and below the snout), `node scripts/import-art.mjs targets`, one line in `TARGETS` (`src/filters/faceon.ts`) with own places for eyes and mouth (`eyes`, `mouth`), because the snout stands between them. Tune with `FACE_FIT=crop`. Answer Astra's questions in the brief.
+- [x] A pig for the face on a picture (operator, 2026-09-27): built on branch `faceon-pig`. Astra delivered `pig.png` (brief version 13, request R1), accepted with no change. The snout is as high as the nose and the upper lip of a face together, so the pig has own places for eyes and mouth (`eyes`, `mouth` in `TARGETS`, `src/filters/faceon.ts`): eyes above the snout, mouth below it, low enough that a mouth that opens wide stays clear of the snout. A test holds the windows on the plain skin that Astra measured on the picture. Seen in the browser with true face proportions on three screen shapes, plain and with the filters big eyes and big mouth. Brief version 14 has the result and the answer to Astra's question.
+- [ ] Operator: the pig on a device, with a child that talks and opens the mouth wide.
 - [ ] More costumes: the pattern is section R7 of the brief, the template is `astra/templates/head-standin.obj`, the import job takes one line per costume (`COSTUMES` in `scripts/import-art.mjs`).
 
 ### Owed by the operator: checks on devices

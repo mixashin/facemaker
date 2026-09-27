@@ -5,6 +5,7 @@
 export type Prefer = 'auto' | 'GPU' | 'CPU';
 export type Action = 'none' | 'cpu' | 'again'; // cpu: a new start on the CPU. again: a new start on the same tracker
 export const PREFER_KEY = 'fm.tracker';
+export const FELL_KEY = 'fm.tracker.fell'; // the browser (user agent) on which the GPU failed
 export const ERRORS_TO_RESTART = 5; // errors in a row
 export const RESTART_GAP_MS = 5000; // between two starts
 export const MAX_RESTARTS = 6; // then the tracker rests, until it ran well for a while
@@ -20,6 +21,13 @@ export function preferFrom(search: string, stored: string | null): { prefer: Pre
   if (word === 'auto') return { prefer: 'auto', keep: null };
   if (word) return { prefer: word, keep: word };
   return { prefer: stored === 'CPU' || stored === 'GPU' ? stored : 'auto', keep: undefined };
+}
+
+// The tracker of the first start. The GPU failed on this browser before (seen: Adreno 830 with Chrome 154, the GPU
+// path gives numbers that are no numbers): the CPU at once, with no failed start first. A new version of the
+// browser has a new user agent, and the GPU gets a new try.
+export function firstStart(prefer: Prefer, fell: string | null, agent: string): Prefer {
+  return prefer === 'auto' && fell !== null && fell === agent ? 'CPU' : prefer;
 }
 
 const short = (m: string) => String(m).slice(0, 300);

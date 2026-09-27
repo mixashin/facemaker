@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Health, preferFrom, ERRORS_TO_RESTART, RESTART_GAP_MS, MAX_RESTARTS, GOOD_RESULTS } from './health';
+import { Health, preferFrom, firstStart, ERRORS_TO_RESTART, RESTART_GAP_MS, MAX_RESTARTS, GOOD_RESULTS } from './health';
 
 describe('preferFrom', () => {
   it('is auto with no word in the address and nothing kept', () => {
@@ -120,5 +120,23 @@ describe('Health', () => {
     h.result(1);
     h.error('another cause', 100);
     expect(h.firstError).toBe('another cause');
+  });
+});
+
+describe('firstStart', () => {
+  const chrome154 = 'Mozilla/5.0 (Linux; Android 10; K) Chrome/154.0.0.0 Mobile', chrome155 = 'Mozilla/5.0 (Linux; Android 10; K) Chrome/155.0.0.0 Mobile';
+  it('is what was asked for when nothing is kept', () => {
+    expect(firstStart('auto', null, chrome154)).toBe('auto');
+    expect(firstStart('GPU', null, chrome154)).toBe('GPU');
+  });
+  it('is the CPU at once when the GPU failed on this browser before', () => {
+    expect(firstStart('auto', chrome154, chrome154)).toBe('CPU');
+  });
+  it('gives the GPU a new try on a new version of the browser', () => {
+    expect(firstStart('auto', chrome154, chrome155)).toBe('auto');
+  });
+  it('a forced tracker stays', () => {
+    expect(firstStart('GPU', chrome154, chrome154)).toBe('GPU');
+    expect(firstStart('CPU', null, chrome154)).toBe('CPU');
   });
 });

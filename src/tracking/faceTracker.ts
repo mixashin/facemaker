@@ -1,6 +1,7 @@
 import { OneEuroArray } from './oneEuro';
 import type { WorkerIn, WorkerOut, FaceResult } from './types';
 import { Health, START_LIMIT_MS, type Action, type Prefer } from './health';
+import { usable } from './faces';
 
 export type Face = { landmarks: Float32Array; matrix: Float32Array; blend: Float32Array };
 
@@ -12,6 +13,8 @@ type Opts = {
   prefer?: Prefer; // auto: the GPU first. A forced tracker stays, whatever happens
   startLimitMs?: number;
   now?: () => number;
+  first?: Prefer; // the tracker of the first start, when it is not `prefer` (src/tracking/health.ts, firstStart)
+  onFall?: () => void; // the tracker left the GPU by itself
 };
 
 const LM = 478 * 3;
@@ -49,10 +52,11 @@ export class FaceTracker {
     this.stop();
     this.filters.forEach((f) => f.reset()); this.present.fill(false); this.last = []; this.misses = 0;
     this.opts.onFaces([]);
+    if (what === 'cpu') this.opts.onFall?.();
     this.start(what === 'cpu' ? 'CPU' : this.asked);
   }
 
-  start(prefer: Prefer = this.health.prefer): void {
+  start(prefer: Prefer = this.opts.first ?? this.health.prefer): void {
     const w = (this.worker = new Worker(new URL('./face.worker.ts', import.meta.url)));
     this.asked = prefer;
     const limit = this.opts.startLimitMs ?? START_LIMIT_MS;
@@ -62,13 +66,13 @@ export class FaceTracker {
       if (m.type === 'loaded') {
         this.health.loaded();
         this.timer = setTimeout(() => { if (this.worker === w && !this.ready) { const text = `no start in ${limit / 1000} s`; this.fail(text, this.health.failed(text, this.now())); } }, limit);
-      } else if (m.type === 'ready') { clearTimeout(this.timer); this.ready = true; this.health.ready(m.delegate, m.note); this.opts.onReady?.(m.delegate); }
+      } else if (m.type === 'ready') { clearTimeout(this.timer); this.ready = true; this.health.ready(m.delegate, m.note ?? (this.health.prefer === 'auto' && this.opts.first === 'CPU' ? 'the GPU failed on this browser before' : '')); this.opts.onReady?.(m.delegate); }
       else if (m.type === 'error') {
         this.open = Math.max(0, this.open - 1);
         if (!this.ready) clearTimeout(this.timer); // the error is the cause, the limit would write over it
         this.fail(m.message, this.ready ? this.health.error(m.message, this.now()) : this.health.failed(m.message, this.now()));
-      } else if (m.type === 'result') { this.open = Math.max(0, this.open - 1); this.health.result(m.result.count); this.opts.onFaces(this.smooth(m.result, m.ts)); }
-      else if (m.type === 'still') { this.stills.get(m.id)?.(m.landmarks); this.stills.delete(m.id); }
+      } else if (m.type === 'result') { this.open = Math.max(0, this.open - 1); this.health.result(this.sized(m.result).length); this.opts.onFaces(this.smooth(m.result, m.ts)); }
+      else if (m.type === 'still') { this.stills.get(m.id)?.(usable(m.landmarks) ? m.landmarks : null); this.stills.delete(m.id); }
     };
     w.onerror = (e) => {
       if (this.worker !== w) return;
@@ -117,8 +121,16 @@ export class FaceTracker {
     this.stills.clear();
   }
 
+  // The places of the faces with a size in a result (src/tracking/faces.ts), in the order of the tracker
+  private sized(r: FaceResult): number[] {
+    const which: number[] = [];
+    for (let f = 0; f < r.count && which.length < this.opts.numFaces; f++) if (usable(r.landmarks.subarray(f * LM, (f + 1) * LM))) which.push(f);
+    return which;
+  }
+
   smooth(r: FaceResult, tMs: number): Face[] {
-    if (r.count === 0) {
+    const which = this.sized(r);
+    if (which.length === 0) {
       this.misses++;
       if (this.misses >= MISS_LIMIT) { this.filters.forEach((f) => f.reset()); this.present.fill(false); this.last = []; return []; }
       return this.last; // hold the last faces through short dropouts
@@ -126,12 +138,12 @@ export class FaceTracker {
     this.misses = 0;
     const out: Face[] = [];
     for (let f = 0; f < this.opts.numFaces; f++) {
-      if (f >= r.count) { if (this.present[f]) { this.filters[f].reset(); this.present[f] = false; } continue; }
+      if (f >= which.length) { if (this.present[f]) { this.filters[f].reset(); this.present[f] = false; } continue; }
       if (!this.present[f]) { this.filters[f].reset(); this.present[f] = true; }
-      const src = r.landmarks.subarray(f * LM, (f + 1) * LM);
+      const from = which[f], src = r.landmarks.subarray(from * LM, (from + 1) * LM);
       const dst = new Float32Array(LM);
       this.filters[f].filter(src, dst, tMs);
-      out.push({ landmarks: dst, matrix: r.matrices.slice(f * 16, f * 16 + 16), blend: r.blend.slice(f * 52, f * 52 + 52) });
+      out.push({ landmarks: dst, matrix: r.matrices.slice(from * 16, from * 16 + 16), blend: r.blend.slice(from * 52, from * 52 + 52) });
     }
     this.last = out;
     return out;

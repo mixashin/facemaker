@@ -54,7 +54,9 @@ async function init(wasmPath: string, modelPath: string, faces: number, prefer: 
       runningMode: 'VIDEO',
       numFaces,
       outputFaceBlendshapes: true,
-      outputFacialTransformationMatrixes: true,
+      // Off on purpose. The step that makes these matrices (face geometry) stops the whole graph when one face
+      // has no size, and a graph with an error stays broken. Nothing in the app reads the matrices.
+      outputFacialTransformationMatrixes: false,
       canvas: delegate === 'GPU' ? new OffscreenCanvas(1, 1) : undefined,
     });
   if (prefer !== 'auto') {

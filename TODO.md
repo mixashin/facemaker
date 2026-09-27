@@ -336,10 +336,13 @@ Built on branch `tracker-health`:
 - [x] The tracker starts again with a new worker after five errors in a row, when the worker dies, or when it does not start. The first new start goes to the CPU. `?tracker=cpu` and the 🐢 button force the CPU.
 - [x] `scripts/phone-inspect.mjs` reads the state of the app on a phone over USB.
 
+- [x] Cause found 2026-09-27 on the phone over USB, with the test build (`adb reverse`, dev server): the GPU path of MediaPipe gives numbers that are no numbers on that phone (Adreno 830, Chrome 154). Full texts: `procrustes_solver.cc:206 design_matrix.norm() > kAbsoluteErrorEps (0 vs. 1e-09)`, and with the geometry step off `ImageToTensorCalculator failed: ROI contains NaN values`. The CPU path works: 30 results per second. The operator saw the face effects work on the phone with the test build.
+- [x] The geometry step is off. Faces with no size are left out. The app keeps the browser on which the GPU failed and starts on the CPU at once there.
+
 Open:
-- [ ] The cause of the first error on that phone. Two suspects: the GPU path gives bad numbers on that graphics chip (then the CPU cures it for good), or one face in the picture gives numbers that the geometry step refuses (then it comes back from time to time on every device, and the new start cures it each time). The report on the phone tells: `tracker: CPU`, `new starts: 1` and faces that work mean the first one.
-- [ ] If the geometry step fails often: leave it out (`outputFacialTransformationMatrixes: false`) and take the turn of the head from the landmarks. Then this error cannot happen.
-- [ ] The full text of the first error (the USB read cut it). It is in the report after the release: line `first error`.
+- [ ] Pull request #25 (3D props) takes the turn of the head from the pose matrix. With the geometry step off there is no matrix: take the turn from the landmarks (sides of the face, forehead, chin). Do this when #25 is rebased on main.
+- [ ] The app keeps the camera while it is in the background (seen on the phone: the hidden installed app had a live track, and a second page got no picture). Stop the camera when the page is hidden, start it again on return.
+- [ ] Report the GPU fault to MediaPipe? Facts for it are above. Operator's decision.
 - [ ] Known limit of the update button: with the app open in two places (installed app and a Chrome tab) the old service worker can stay, and its cache stays empty until the next release. The app works with a network. Close the other one first.
 - [ ] A reload from the computer (`phone-inspect.mjs reload`) with the phone locked leaves the app on the camera error screen: the camera cannot start on a locked phone. Unlock first.
 - [ ] Icons differ between devices: the rail and the buttons use the emoji font of the device (old art on an old Android). Option: own icon art for the rail and the buttons, as the chips have.
@@ -364,10 +367,9 @@ Open:
 
 Facts are in the section "A phone where the face is not tracked". Next steps, in this order:
 
-1. The phone must be unlocked, facemaker open and in front, a face in view. Then `node scripts/phone-inspect.mjs` (no reload). It prints the tracker state and the console, each message one time with its count. Wanted: the full text of the first error.
-2. Test the fix before its release: `adb reverse tcp:5173 tcp:5173`, open `http://localhost:5173` in Chrome on the phone (the dev server serves the project folder, branch `tracker-health`). Then `PHONE_MATCH=localhost:5173 node scripts/phone-inspect.mjs`, or About, 🩺 on the phone.
-3. Read the result: `tracker: CPU`, `new starts: 1`, faces that work: the new start cures it, and the GPU path is the suspect. `new starts` that rise: the error comes back, the geometry step is the suspect. Then leave the geometry step out and take the turn of the head from the landmarks.
-4. Compare with `http://localhost:5173/?tracker=gpu` and `?tracker=cpu`. End with `?tracker=auto`, so nothing stays forced on the phone.
+Done 2026-09-27: read over USB, fix tested on the phone with the test build, cause found (see the section above). The phone is back with its owner, in the state it had before. Its installed app gets the fix at the second start after the merge of #23.
+
+How it was done, for the next time: the phone unlocked and awake (`adb shell settings put global stay_on_while_plugged_in 3`, back to 0 at the end), the installed app closed (it holds the camera in the background), `adb reverse tcp:5173 tcp:5173`, the test build opened in Chrome on the phone, then `PHONE_MATCH=localhost:5173 PHONE_GO="/?tracker=gpu" node scripts/phone-inspect.mjs` (in Git Bash with `MSYS_NO_PATHCONV=1`). At the end: test tab closed, its storage cleared, reverse removed.
 
 Rules for a phone of the family: technical state of facemaker only. Never print or keep the addresses of other browser tabs. No picture of the camera. No name of a person in a file of the repo.
 

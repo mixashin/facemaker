@@ -2,10 +2,17 @@ import { describe, it, expect } from 'vitest';
 import { FaceTracker } from './faceTracker';
 import type { FaceResult } from './types';
 
+// A face with a size in a slot of the result: its first point is at `fill`, the others lie around it
+function put(landmarks: Float32Array, slot: number, fill: number) {
+  for (let i = 0; i < 478; i++) { const o = (slot * 478 + i) * 3; landmarks[o] = fill + 0.1 * (i % 2); landmarks[o + 1] = fill + 0.1 * ((i >> 1) % 2); landmarks[o + 2] = fill; }
+}
 function result(count: number, fill = 0.5): FaceResult {
-  const landmarks = new Float32Array(2 * 478 * 3).fill(fill);
+  const landmarks = new Float32Array(2 * 478 * 3);
+  put(landmarks, 0, fill); put(landmarks, 1, fill);
   return { landmarks, count, matrices: new Float32Array(count * 16), blend: new Float32Array(count * 52), width: 640, height: 480 };
 }
+// Faces with no size: every point at one place
+const flat = (count: number, fill = 0.5): FaceResult => ({ ...result(count), landmarks: new Float32Array(2 * 478 * 3).fill(fill) });
 
 describe('FaceTracker.smooth', () => {
   it('returns one Face per detected face', () => {
@@ -28,10 +35,47 @@ describe('FaceTracker.smooth', () => {
     t.smooth(result(2, 0.3), 0);
     t.smooth(result(1, 0.3), 33);
     const r = result(2, 0.3);
-    r.landmarks.fill(0.9, 478 * 3);
+    put(r.landmarks, 1, 0.9);
     const faces = t.smooth(r, 66);
     expect(faces[1].landmarks[0]).toBeCloseTo(0.9, 4);
     expect(faces[0].landmarks[0]).toBeCloseTo(0.3, 4);
+  });
+});
+
+describe('FaceTracker and faces that are no faces', () => {
+  // two faces in one result: the first one with a size, the second one with all points at one place
+  function mixed(): FaceResult {
+    const r = result(2);
+    for (let i = 0; i < 478; i++) { r.landmarks[i * 3] = 0.4 + 0.1 * Math.cos(i); r.landmarks[i * 3 + 1] = 0.5 + 0.1 * Math.sin(i); }
+    r.landmarks.fill(0.5, 478 * 3); // the second one: no size
+    r.blend[0] = 0.25; r.blend[52] = 0.75;
+    return r;
+  }
+  it('leaves out a face with no size, and keeps the other one', () => {
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {} });
+    const faces = t.smooth(mixed(), 0);
+    expect(faces).toHaveLength(1);
+    expect(faces[0].landmarks[0]).toBeCloseTo(0.5);
+    expect(faces[0].blend[0]).toBeCloseTo(0.25);
+  });
+  it('keeps the blend values of the face that stays, when the face before it goes', () => {
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {} });
+    const r = mixed();
+    const lm = r.landmarks.slice(0, 478 * 3);
+    r.landmarks.copyWithin(478 * 3, 0, 478 * 3); // the good face is the second one now
+    r.landmarks.fill(0.5, 0, 478 * 3); // the first one has no size
+    const faces = t.smooth(r, 0);
+    expect(faces).toHaveLength(1);
+    expect(Array.from(faces[0].landmarks.slice(0, 6))).toEqual(Array.from(lm.slice(0, 6)));
+    expect(faces[0].blend[0]).toBeCloseTo(0.75);
+  });
+  it('a result with no face of size counts as no face', () => {
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {} });
+    t.smooth(mixed(), 0);
+    let faces = t.smooth(flat(2), 33);
+    expect(faces).toHaveLength(1); // a short gap: the last face holds
+    for (let i = 0; i < 10; i++) faces = t.smooth(flat(2), 66 + i * 33);
+    expect(faces).toEqual([]);
   });
 });
 
@@ -122,10 +166,19 @@ describe('FaceTracker.detectStill', () => {
     const sent = w.posted.filter((m) => m.type === 'still');
     expect(sent).toHaveLength(2);
     expect(sent[0].id).not.toBe(sent[1].id);
-    const found = new Float32Array(478 * 3).fill(0.2);
+    const found = new Float32Array(478 * 3);
+    put(found, 0, 0.2);
     w.answer(sent[1].id!, found); // answers in the other order
     w.answer(sent[0].id!, null);
     expect(await b).toBe(found);
+    expect(await a).toBeNull();
+    t.stop();
+  });
+
+  it('a face with no size in a still picture is no face', async () => {
+    const { t, w } = await started();
+    const a = t.detectStill(picture());
+    w.answer(w.posted.find((m) => m.type === 'still')!.id!, new Float32Array(478 * 3).fill(0.2));
     expect(await a).toBeNull();
     t.stop();
   });
@@ -172,14 +225,15 @@ describe('FaceTracker health', () => {
   }
   const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const video = { readyState: 4 } as unknown as HTMLVideoElement;
-  function setup(prefer?: 'auto' | 'GPU' | 'CPU', startLimitMs?: number) {
+  function setup(prefer?: 'auto' | 'GPU' | 'CPU', startLimitMs?: number, first?: 'auto' | 'GPU' | 'CPU') {
     W.all = []; W.mode = 'ok';
     (globalThis as any).Worker = W;
     (globalThis as any).createImageBitmap = async () => ({ close() {} });
     const errors: string[] = [], ready: string[] = [], faces: number[] = [];
     let now = 0;
-    const t = new FaceTracker({ numFaces: 2, onFaces: (f) => faces.push(f.length), onError: (m) => errors.push(m), onReady: (d) => ready.push(d), prefer, startLimitMs, now: () => now });
-    return { t, errors, ready, faces, w: () => W.all.at(-1)!, alive: () => W.all.filter((w) => !w.ended), at: (ms: number) => { now = ms; } };
+    const fell: number[] = [];
+    const t = new FaceTracker({ numFaces: 2, onFaces: (f) => faces.push(f.length), onError: (m) => errors.push(m), onReady: (d) => ready.push(d), prefer, startLimitMs, now: () => now, first, onFall: () => fell.push(1) });
+    return { t, errors, ready, faces, fell, w: () => W.all.at(-1)!, alive: () => W.all.filter((w) => !w.ended), at: (ms: number) => { now = ms; } };
   }
   const graphDies = (w: W, n = 5) => { for (let i = 0; i < n; i++) w.say({ type: 'error', message: i ? 'Graph has errors' : 'RET_CHECK failure in the face geometry' }); };
 
@@ -223,6 +277,29 @@ describe('FaceTracker health', () => {
     expect(s.ready).toEqual(['GPU', 'CPU']);
     s.t.push(video, 100); await tick(2);
     expect(s.w().frames()).toHaveLength(1);
+    s.t.stop();
+  });
+
+  it('says so when it leaves the GPU, so the app can keep that for the next start', async () => {
+    const s = setup();
+    s.t.start(); await tick(8);
+    graphDies(s.w());
+    expect(s.fell).toHaveLength(1);
+    await tick(8); s.at(6000);
+    graphDies(s.w()); // a new start on the CPU again: nothing new to keep
+    expect(s.fell).toHaveLength(1);
+    s.t.stop();
+  });
+
+  it('starts on the CPU at once when the app says so, and the report still says that nobody forced it', async () => {
+    const s = setup('auto', undefined, 'CPU');
+    s.t.start();
+    expect(s.w().posted[0]).toMatchObject({ type: 'init', prefer: 'CPU' });
+    await tick(8);
+    expect(s.t.health).toMatchObject({ prefer: 'auto', delegate: 'CPU', note: 'the GPU failed on this browser before' });
+    graphDies(s.w());
+    expect(s.w().posted[0]).toMatchObject({ prefer: 'CPU' }); // a new start stays on the CPU
+    expect(s.fell).toEqual([]);
     s.t.stop();
   });
 

@@ -1,4 +1,4 @@
-import { preferFrom, PREFER_KEY } from '../tracking/health';
+import { preferFrom, firstStart, PREFER_KEY, FELL_KEY } from '../tracking/health';
 import { live } from './report';
 import { useEffect, useRef } from 'preact/hooks';
 import { startCamera, stopCamera, cameraLost } from '../camera/camera';
@@ -52,10 +52,17 @@ export function App() {
     // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
     const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }), masks: 0, mask: [0, 0], nose: () => (faces[0] ? [faces[0].landmarks[4 * 3], faces[0].landmarks[4 * 3 + 1]] : null), scene: (s: import('../filters/scenes').Scene | null) => { tryScene.value = s; scene.value = s ? s.id : 'none'; } });
     const asked = preferFrom(location.search, (() => { try { return localStorage.getItem(PREFER_KEY); } catch { return null; } })());
-    try { if (asked.keep) localStorage.setItem(PREFER_KEY, asked.keep); else if (asked.keep === null) localStorage.removeItem(PREFER_KEY); } catch { /* storage unavailable */ }
+    let fell: string | null = null;
+    try {
+      if (asked.keep) localStorage.setItem(PREFER_KEY, asked.keep);
+      else if (asked.keep === null) { localStorage.removeItem(PREFER_KEY); localStorage.removeItem(FELL_KEY); } // ?tracker=auto: the GPU gets a new try too
+      fell = localStorage.getItem(FELL_KEY);
+    } catch { /* storage unavailable */ }
     const t = new FaceTracker({
       numFaces: 2,
       prefer: asked.prefer,
+      first: firstStart(asked.prefer, fell, navigator.userAgent),
+      onFall: () => { try { localStorage.setItem(FELL_KEY, navigator.userAgent); } catch { /* storage unavailable */ } },
       onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
       onReady: (d) => { fm.delegate = d; },
       onError: (m) => console.error('tracker', m),

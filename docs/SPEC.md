@@ -30,7 +30,7 @@ A camera toy for children aged 6 to 12. It warps faces, adds masks and stickers,
 ### M1: Warp + snapshot + share
 
 - Camera: front and back switch, mirror front camera.
-- Face tracking: `@mediapipe/tasks-vision` FaceLandmarker in a Web Worker, `numFaces: 2`, One Euro smoothing per face, blendshapes and transformation matrix on.
+- Face tracking: `@mediapipe/tasks-vision` FaceLandmarker in a Web Worker, `numFaces: 2`, One Euro smoothing per face, blendshapes on. The transformation matrix is off since 2026-09-27 (the step that makes it stopped the tracker on a phone): the pose of the head comes from the landmarks.
 - Render: Three.js full-screen quad, video texture, fragment shader with radial warp handles.
 - Filters (each a preset of warp handles): Big Eyes, Big Mouth, Big Head, Small Face, Bulge, Swirl.
 - Snapshot: JPEG 0.92 of the rendered canvas.
@@ -132,7 +132,7 @@ public/
   stickers/ fonts/ backgrounds/ avatars/
 ```
 
-Data flow per frame: camera `<video>` → `createImageBitmap` → transfer to worker → landmarks + blendshapes + matrix back → One Euro → uniforms and sprite transforms → Three.js render to canvas → (capture) `captureStream` or `toBlob`.
+Data flow per frame: camera `<video>` → `createImageBitmap` → transfer to worker → landmarks + blendshapes back → One Euro → uniforms and sprite transforms → Three.js render to canvas → (capture) `captureStream` or `toBlob`.
 
 ## 6. Non-goals
 

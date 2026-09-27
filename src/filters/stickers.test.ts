@@ -75,6 +75,46 @@ describe('STICKER_PACKS', () => {
   });
 });
 
+describe('prop packs (art by Astra)', () => {
+  const names = JSON.parse(readFileSync('src/filters/props.json', 'utf8')) as string[];
+  const propPacks = STICKER_PACKS.filter((p) => p.id.startsWith('prop-'));
+
+  it('every prop of props.json has exactly one pack, and no pack is without a prop', () => {
+    expect(names.length).toBe(33);
+    for (const n of names) expect(STICKER_PACKS.filter((p) => p.id === `prop-${n}`), n).toHaveLength(1);
+    expect(propPacks).toHaveLength(names.length);
+  });
+
+  it('the chip shows the prop: img is the file of the first item, and the file is on disk', () => {
+    expect(propPacks).toHaveLength(names.length);
+    for (const p of propPacks) {
+      const first = p.items[0];
+      expect('src' in first, p.id).toBe(true);
+      if (!('src' in first)) continue;
+      expect(first.src, p.id).toBe(`/props/${p.id.slice('prop-'.length)}.webp`);
+      expect(p.img, p.id).toBe(first.src);
+      expect(existsSync('public' + first.src), p.id).toBe(true);
+    }
+  });
+
+  it('no prop is a mask', () => {
+    expect(propPacks).toHaveLength(names.length);
+    for (const p of propPacks) expect(isMask(p.id), p.id).toBe(false);
+  });
+
+  it('the props come right after none, before the emoji packs', () => {
+    const ids = STICKER_PACKS.map((p) => p.id);
+    expect(ids[0]).toBe('none');
+    expect(ids.slice(1, 1 + names.length).every((id) => id.startsWith('prop-'))).toBe(true);
+    expect(ids.slice(1 + names.length).some((id) => id.startsWith('prop-'))).toBe(false);
+  });
+
+  it('pack ids are unique', () => {
+    const ids = STICKER_PACKS.map((p) => p.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
 describe('sticker svgs are art, not code', () => {
   const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith('.svg') ? [`${dir}/${e.name}`] : []));
   it('no script, no event handler, no external reference in any shipped sticker', () => {

@@ -83,3 +83,69 @@ describe('FaceTracker.smooth miss handling', () => {
     expect(t.smooth(result(0), 10 * 33)).toEqual([]);
   });
 });
+
+describe('FaceTracker.detectStill', () => {
+  type Msg = { type: string; id?: number };
+  class StillWorker {
+    static last: StillWorker;
+    posted: Msg[] = [];
+    onmessage: ((e: { data: unknown }) => void) | null = null;
+    constructor() { StillWorker.last = this; }
+    postMessage(m: Msg) {
+      this.posted.push(m);
+      if (m.type === 'init') setTimeout(() => this.onmessage?.({ data: { type: 'ready', delegate: 'CPU' } }), 5);
+    }
+    answer(id: number, landmarks: Float32Array | null) { this.onmessage?.({ data: { type: 'still', id, landmarks } }); }
+    terminate() {}
+  }
+  const picture = () => { const b = { closed: false, close() { b.closed = true; } }; return b as unknown as ImageBitmap & { closed: boolean }; };
+  const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const started = async () => {
+    (globalThis as any).Worker = StillWorker;
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {} });
+    t.start();
+    await tick(15);
+    return { t, w: StillWorker.last };
+  };
+
+  it('gives null and closes the picture when the worker is not ready', async () => {
+    (globalThis as any).Worker = StillWorker;
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {} });
+    const p = picture();
+    expect(await t.detectStill(p)).toBeNull();
+    expect(p.closed).toBe(true);
+  });
+
+  it('sends the picture and gives each caller the answer with its own id', async () => {
+    const { t, w } = await started();
+    const a = t.detectStill(picture()), b = t.detectStill(picture());
+    const sent = w.posted.filter((m) => m.type === 'still');
+    expect(sent).toHaveLength(2);
+    expect(sent[0].id).not.toBe(sent[1].id);
+    const found = new Float32Array(478 * 3).fill(0.2);
+    w.answer(sent[1].id!, found); // answers in the other order
+    w.answer(sent[0].id!, null);
+    expect(await b).toBe(found);
+    expect(await a).toBeNull();
+    t.stop();
+  });
+
+  it('gives null for open requests when the tracker stops', async () => {
+    const { t } = await started();
+    const p = t.detectStill(picture());
+    t.stop();
+    expect(await p).toBeNull();
+  });
+
+  it('does not disturb the video frames', async () => {
+    const { t, w } = await started();
+    const p = t.detectStill(picture());
+    (globalThis as any).createImageBitmap = async () => ({ close() {} });
+    t.push({ readyState: 4 } as unknown as HTMLVideoElement, 33);
+    await tick(5);
+    expect(w.posted.filter((m) => m.type === 'frame')).toHaveLength(1);
+    w.answer(w.posted.find((m) => m.type === 'still')!.id!, null);
+    await p;
+    t.stop();
+  });
+});

@@ -52,12 +52,14 @@ export function coverScale(cw: number, ch: number, ew: number, eh: number, pw: n
 
 const art = (id: string, icon: string, nose: P, width: number): Target => ({ id, icon, img: `/targets/${id}.webp`, chip: `/targets/${id}-chip.webp`, nose, width, angle: 0 });
 // Art by Astra (CC0). The place of the face is set by hand: the face model finds human faces only.
+// Animals: the nose of the child lands on the nose of the animal, and the width leaves the mouth above the chin.
+// Tune with true face proportions (FACE_FIT=crop in scripts/smoke.mjs), not with the stretched test picture.
 export const TARGETS: Target[] = [
   art('orange', '🍊', [0.5, 0.53], 0.42),
   art('apple', '🍎', [0.5, 0.53], 0.42),
-  art('cat', '🐱', [0.497, 0.542], 0.4),
-  art('dog', '🐶', [0.5, 0.5], 0.4),
-  art('lion', '🦁', [0.497, 0.523], 0.4),
+  art('cat', '🐱', [0.497, 0.542], 0.31),
+  art('dog', '🐶', [0.5, 0.5], 0.33),
+  art('lion', '🦁', [0.497, 0.523], 0.31),
 ];
 export const FACEON: { id: string; icon: string; img?: string }[] = [{ id: 'none', icon: '🙂' }, ...TARGETS.map((t) => ({ id: t.id, icon: t.icon, img: t.chip })), { id: 'photo', icon: '📷' }];
 

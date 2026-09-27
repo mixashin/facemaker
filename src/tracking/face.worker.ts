@@ -31,12 +31,16 @@ const { FilesetResolver, FaceLandmarker } = Vision;
 
 let landmarker: import('@mediapipe/tasks-vision').FaceLandmarker | null = null;
 let numFaces = 2;
+let fileset: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>> | null = null;
+let model = '';
 
 const post = (m: WorkerOut, transfer: Transferable[] = []) => (self as unknown as Worker).postMessage(m, transfer);
 
 async function init(wasmPath: string, modelPath: string, faces: number) {
   numFaces = faces;
   const vision = await FilesetResolver.forVisionTasks(wasmPath);
+  fileset = vision;
+  model = modelPath;
   const make = (delegate: 'GPU' | 'CPU') =>
     FaceLandmarker.createFromOptions(vision, {
       baseOptions: { modelAssetPath: modelPath, delegate },
@@ -83,9 +87,33 @@ function frame(bitmap: ImageBitmap, ts: number) {
   post({ type: 'result', result, ts }, [landmarks.buffer, matrices.buffer, blend.buffer]);
 }
 
+// A still picture: a second landmarker in IMAGE mode, on the CPU, closed after use. The video one keeps its state.
+async function still(bitmap: ImageBitmap, id: number) {
+  let lm: Float32Array | null = null;
+  try {
+    if (!fileset) throw new Error('not ready');
+    const one = await FaceLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: model, delegate: 'CPU' }, runningMode: 'IMAGE', numFaces: 1 });
+    try {
+      const f = one.detect(bitmap).faceLandmarks[0];
+      if (f) {
+        lm = new Float32Array(478 * 3);
+        for (let i = 0; i < 478 && i < f.length; i++) { lm[i * 3] = f[i].x; lm[i * 3 + 1] = f[i].y; lm[i * 3 + 2] = f[i].z; }
+      }
+    } finally {
+      one.close();
+    }
+  } catch (err) {
+    console.warn('still picture', err);
+  } finally {
+    bitmap.close();
+  }
+  post({ type: 'still', id, landmarks: lm }, lm ? [lm.buffer] : []);
+}
+
 self.onmessage = (e: MessageEvent<WorkerIn>) => {
   const m = e.data;
   if (m.type === 'init') init(m.wasmPath, m.modelPath, m.numFaces).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));
+  else if (m.type === 'still') void still(m.bitmap, m.id);
   else if (m.type === 'frame') {
     try { frame(m.bitmap, m.ts); } catch (err) { post({ type: 'error', message: String((err as Error)?.message ?? err) }); }
   }

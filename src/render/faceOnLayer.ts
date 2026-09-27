@@ -50,7 +50,10 @@ export class FaceOnLayer {
   private texture(src: string): THREE.Texture | null {
     if (this.textures.has(src)) return this.textures.get(src)!;
     this.textures.set(src, null);
+    // One device photo at a time: a new one takes the place of the one before (each is a large texture).
+    if (src.startsWith('blob:')) for (const [old, tex] of this.textures) if (old !== src && old.startsWith('blob:')) { tex?.dispose(); this.textures.delete(old); }
     this.load(src, (img) => {
+      if (!this.textures.has(src)) return; // replaced while it loaded
       const t = new THREE.Texture(img as never);
       t.colorSpace = THREE.NoColorSpace; // values go through as they are
       t.generateMipmaps = false;

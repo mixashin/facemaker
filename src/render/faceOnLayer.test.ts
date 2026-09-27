@@ -74,6 +74,22 @@ describe('FaceOnLayer', () => {
     expect(s.picture.scale.y / s.picture.scale.x).toBeCloseTo(2, 5);
     expect(s.face.position.y).toBeCloseTo(-(0.25 - 0.5) * 2, 5); // y in units of the picture width
   });
+  it('keeps one device photo: the texture of the photo before goes away', () => {
+    const s = setup();
+    const photo = (img: string) => view({ target: { ...cat, id: 'photo', img } });
+    s.layer.update(photo('blob:a'), [640, 480], [640, 480]); s.arrive('blob:a');
+    s.layer.update(photo('blob:a'), [640, 480], [640, 480]);
+    const first = s.picture.material.uniforms.uTex.value as THREE.Texture;
+    let gone = false;
+    first.addEventListener('dispose', () => { gone = true; });
+    s.layer.update(view(), [640, 480], [640, 480]); s.arrive(cat.img); // a bundled picture in between: the photo stays
+    s.layer.update(view(), [640, 480], [640, 480]);
+    expect(gone).toBe(false);
+    s.layer.update(photo('blob:b'), [640, 480], [640, 480]); s.arrive('blob:b');
+    expect(gone).toBe(true);
+    expect(s.layer.update(photo('blob:b'), [640, 480], [640, 480])).toBe(true);
+    expect(s.layer.update(view(), [640, 480], [640, 480])).toBe(true); // bundled pictures stay loaded
+  });
   it('shares the filter uniforms with the warp shader', () => {
     const s = setup();
     expect(s.face.material.uniforms.uHandle).toBe(s.shared.uHandle);

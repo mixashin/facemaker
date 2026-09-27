@@ -25,7 +25,7 @@ import { RecordCanvas } from '../capture/recordCanvas';
 import { acquireVoice, currentEngine, type Lease } from '../audio/session';
 import { micState } from '../audio/mic';
 import { isRealClip, type HoldEvent } from './hold';
-import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup, target, photo } from './state';
+import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup, target, photo, still } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,13 +46,14 @@ export function App() {
     let raf = 0;
     const r = new FaceRenderer(canvas, video);
     // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
-    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value });
+    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }) });
     const t = new FaceTracker({
       numFaces: 2,
       onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
       onReady: (d) => { fm.delegate = d; },
       onError: (m) => console.error('tracker', m),
     });
+    still.detect = (picture) => t.detectStill(picture);
     const loop = (now: number) => {
       if (screen.value === 'camera') t.push(video, now);
       const aspect = video.videoWidth / video.videoHeight;
@@ -103,6 +104,7 @@ export function App() {
       document.removeEventListener('visibilitychange', syncShout);
       unsubShout.forEach((u) => u());
       shout?.then((l) => l.release());
+      still.detect = null;
       unsub(); cancelAnimationFrame(raf); t.stop(); r.dispose(); stopCamera(video);
     };
   }, []);

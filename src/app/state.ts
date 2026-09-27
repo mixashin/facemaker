@@ -48,4 +48,6 @@ export const recording = signal(false); // a video is being recorded
 export const voice = signal<VoiceId>('none');
 export const target = signal<string>('none'); // face-on mode: id of the picture that carries the live eyes and mouth
 export const photo = signal<Target | null>(null); // the picture from the device, this session only
+// Face search on a still picture. App.tsx sets it when the tracker runs (the tracker owns the worker).
+export const still: { detect: null | ((picture: ImageBitmap) => Promise<Float32Array | null>) } = { detect: null };
 export const makeup = signal<LookId>('none'); // one look at a time. It combines with filters, stickers, text and voice

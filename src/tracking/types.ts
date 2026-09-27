@@ -1,6 +1,7 @@
 export type WorkerIn =
   | { type: 'init'; wasmPath: string; modelPath: string; numFaces: number }
-  | { type: 'frame'; bitmap: ImageBitmap; ts: number };
+  | { type: 'frame'; bitmap: ImageBitmap; ts: number }
+  | { type: 'still'; bitmap: ImageBitmap; id: number }; // one picture, not a video frame (face-on mode, device photo)
 
 export type FaceResult = {
   landmarks: Float32Array; // numFaces * 478 * 3, x y z normalized, faces packed in order
@@ -14,4 +15,5 @@ export type FaceResult = {
 export type WorkerOut =
   | { type: 'ready'; delegate: 'GPU' | 'CPU' }
   | { type: 'result'; result: FaceResult; ts: number }
+  | { type: 'still'; id: number; landmarks: Float32Array | null } // 478 * 3 of the first face, null without a face
   | { type: 'error'; message: string };

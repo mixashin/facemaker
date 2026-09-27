@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync } from 'node:fs';
 import * as THREE from 'three';
-import { COSTUMES, partsOf, wornWith, placeParts, lookAfterPick } from './costumes';
+import { COSTUMES, partsOf, wornWith, placeParts, lookAfterPick, afterPick } from './costumes';
 import { LOOKS, MAKEUP } from './makeup';
 import type { Head } from './props3d';
 
@@ -71,5 +71,24 @@ describe('lookAfterPick', () => {
   it('a look with no parts stays', () => {
     expect(lookAfterPick('paint-tiger', 'crown')).toBe('paint-tiger');
     expect(lookAfterPick('none', 'crown')).toBe('none');
+  });
+});
+
+describe('afterPick: a tap on a chip of the 3D tab', () => {
+  it('the hat was chosen before the costume hid it: the tap takes the costume off and the hat shows', () => {
+    expect(afterPick('paint-witch', ['crown'], 'crown')).toEqual({ look: 'none', active: ['crown'] });
+    expect(afterPick('paint-witch', ['bee', 'crown'], 'crown')).toEqual({ look: 'none', active: ['bee', 'crown'] });
+  });
+  it('another hat than the chosen one: the costume goes, the new hat takes the place of the old one', () => {
+    expect(afterPick('paint-witch', ['crown'], 'pirate-hat')).toEqual({ look: 'none', active: ['pirate-hat'] });
+    expect(afterPick('paint-witch', [], 'crown')).toEqual({ look: 'none', active: ['crown'] });
+  });
+  it('with no costume a second tap takes the hat off, as before', () => {
+    expect(afterPick('none', ['crown'], 'crown')).toEqual({ look: 'none', active: [] });
+    expect(afterPick('paint-tiger', ['crown'], 'crown')).toEqual({ look: 'paint-tiger', active: [] });
+  });
+  it('glasses and pests toggle under the costume', () => {
+    expect(afterPick('paint-witch', ['bee'], 'bee')).toEqual({ look: 'paint-witch', active: [] });
+    expect(afterPick('paint-witch', [], 'sunglasses')).toEqual({ look: 'paint-witch', active: ['sunglasses'] });
   });
 });

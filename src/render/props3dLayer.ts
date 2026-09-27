@@ -108,7 +108,7 @@ export class Props3dLayer {
       const key = `prop:${p.id}#${p.face}`;
       const inst = this.instance(key, m);
       on.add(key);
-      this.shown.push(p.id);
+      if (!this.shown.includes(p.id)) this.shown.push(p.id);
       inst.root.visible = true;
       inst.root.position.fromArray(p.pos);
       inst.root.quaternion.fromArray(p.quat);

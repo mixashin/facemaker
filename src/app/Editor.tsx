@@ -14,7 +14,7 @@ function load(src: string): Promise<HTMLImageElement> {
 }
 
 // Three dots: "more". The button opens save and clear. An empty button looked like the camera shutter (operator, 2026-09-27).
-const DOTS = <svg class="dots" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.3" /><circle cx="12" cy="12" r="2.3" /><circle cx="19" cy="12" r="2.3" /></svg>;
+const DOTS = <svg class="more" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.3" /><circle cx="12" cy="12" r="2.3" /><circle cx="19" cy="12" r="2.3" /></svg>;
 
 export function Editor() {
   const name = current.value!;

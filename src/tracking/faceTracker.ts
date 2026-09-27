@@ -48,12 +48,33 @@ export class FaceTracker {
   // a graph of MediaPipe that had an error stays broken. The faces go, so no effect stays at an old place.
   private fail(message: string, what: Action): void {
     this.opts.onError?.(message);
-    if (what === 'none') return;
+    if (what === 'none') this.later(); else this.renew(what);
+  }
+
+  private renew(what: 'cpu' | 'again'): void {
     this.stop();
     this.filters.forEach((f) => f.reset()); this.present.fill(false); this.last = []; this.misses = 0;
     this.opts.onFaces([]);
-    if (what === 'cpu') this.opts.onFall?.();
+    // Only a tracker that had its files and ran on the GPU can say something about the GPU: a download that
+    // failed says nothing, and a start on the CPU that failed says nothing
+    if (what === 'cpu' && this.health.files && this.asked !== 'CPU') this.opts.onFall?.();
     this.start(what === 'cpu' ? 'CPU' : this.asked);
+  }
+
+  // The worker failed and the new start has to wait (two starts are 5 s apart). A tracker that is not ready
+  // gets no frame, so no error comes that starts it again: it starts by itself when the wait is over.
+  private later(): void {
+    const w = this.worker, now = this.now(), wait = this.ready ? null : this.health.wait(now);
+    if (!w || wait === null) return;
+    clearTimeout(this.timer);
+    // One millisecond more than the wait: a timer can come a little too soon, and the sum of the times can be
+    // a little less than the wait by rounding. Then the health would say "not now" and nothing would follow.
+    const due = now + wait + 1;
+    this.timer = setTimeout(() => {
+      if (this.worker !== w || this.ready) return;
+      const what = this.health.retry(Math.max(this.now(), due));
+      if (what === 'none') this.later(); else this.renew(what); // none: no start is left, and later() ends there
+    }, wait + 1);
   }
 
   start(prefer: Prefer = this.opts.first ?? this.health.prefer): void {
@@ -77,6 +98,9 @@ export class FaceTracker {
     w.onerror = (e) => {
       if (this.worker !== w) return;
       clearTimeout(this.timer);
+      // No frame goes to a worker that died. With no start left the worker stays: it can be alive after an
+      // error, and then the frames go on.
+      if (this.health.wait(this.now()) !== null) this.ready = false;
       const text = 'worker: ' + (e.message || 'did not load');
       this.fail(text, this.health.failed(text, this.now()));
     };

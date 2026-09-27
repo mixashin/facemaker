@@ -60,6 +60,12 @@ const closeSheet = async () => { const c = page.locator('.close'); if (await c.c
 // First launch: the tutorial covers the screen. Record it, then dismiss it.
 const tutorial = page.locator('[role="dialog"][aria-label="tutorial"]');
 const tutorialShown = (await tutorial.count()) > 0;
+// The progress dots of the tutorial are round and 10 px wide. Seen: another rule for the same class name made
+// their row 44 px high and the dots 2.4 px wide.
+if (tutorialShown) {
+  const dot = await page.evaluate(() => [...document.querySelectorAll('.tutorial .dot, [aria-label="tutorial"] .dot')].map((d) => { const r = d.getBoundingClientRect(); return [Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]; }));
+  console.log('the progress dots of the tutorial are round:', dot.length, JSON.stringify(dot[0] ?? null), dot.length >= 2 && dot.every(([w, h]) => w === 10 && h === 10) ? 'OK' : 'FAIL');
+}
 if (tutorialShown && out) writeFileSync(`${out}/page-tutorial.png`, await page.screenshot());
 if (tutorialShown) await closeSheet();
 console.log('tutorial on first launch:', tutorialShown ? 'shown' : 'not shown');
@@ -192,6 +198,15 @@ if (state.fm?.faces > 0) {
     await click('paint-witch'); await page.waitForTimeout(800); // a second tap takes the costume off
     const after = await placed();
     console.log('the costume goes, the chosen hat comes back:', after, after === 'bee+crown' ? 'OK' : 'FAIL');
+    // The chip of the crown is lit while the costume hides the crown. A tap on it takes the costume off and
+    // keeps the crown (a plain toggle took both off).
+    await click('paint-witch'); await page.waitForTimeout(1500);
+    const under = await placed();
+    await click('props3d'); await click('crown'); await page.waitForTimeout(800);
+    const kept = await placed();
+    await click('makeup');
+    const look = await page.locator('[aria-label="paint-witch"]').first().getAttribute('aria-pressed');
+    console.log('a tap on the lit hat chip under the costume: before', under, '| after', kept, '| the costume chip is lit', look, under === 'bee+witch-hat-hair+witch-nose' && kept === 'bee+crown' && look === 'false' ? 'OK' : 'FAIL');
     await click('props3d'); await click('none'); await click('warp');
   }
   // Makeup: a look paints the face, follows the warp, and works together with a filter and a sticker.
@@ -373,6 +388,23 @@ if (process.env.SMOKE_GALLERY) {
   console.log('gallery thumbs after the shutter:', before);
   if (out) writeFileSync(`${out}/page-gallery.png`, await page.screenshot());
   await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
+  // The viewer on a phone on its side: every button takes its own taps, at its middle and near its corners.
+  // Seen: the buttons of the viewer stood in a column as the capture buttons do, and the close button lay over
+  // the first one.
+  {
+    await page.setViewportSize({ width: 860, height: 380 }); await page.waitForTimeout(500);
+    const lost = await page.evaluate(() => [...document.querySelectorAll('.viewer button')].flatMap((b) => {
+      const r = b.getBoundingClientRect();
+      return [[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]].flatMap(([u, v]) => {
+        const hit = document.elementFromPoint(r.left + r.width * u, r.top + r.height * v);
+        return hit && (hit === b || b.contains(hit)) ? [] : [(b.getAttribute('aria-label') || b.className) + ' at ' + u + ',' + v + ' goes to ' + (hit ? hit.tagName.toLowerCase() + '.' + hit.className : 'nothing')];
+      });
+    }));
+    const n = await page.locator('.viewer button').count();
+    console.log('viewer on a phone on its side: buttons', n, '| taps that go to another element', lost.length, lost.slice(0, 3).join(' | '), n >= 4 && lost.length === 0 ? 'OK' : 'FAIL');
+    if (out) writeFileSync(`${out}/page-viewer-landscape.png`, await page.screenshot());
+    await page.setViewportSize({ width: vw, height: vh }); await page.waitForTimeout(500);
+  }
   const dl0 = downloads.length;
   await click('Save'); await page.waitForTimeout(1500);
   console.log('viewer save downloads a file:', downloads.length === dl0 + 1 ? 'OK' : 'FAIL');
@@ -387,8 +419,9 @@ if (process.env.SMOKE_GALLERY) {
   await page.waitForTimeout(800);
   await click('moustache-handlebar'); await page.waitForTimeout(400);
   if (out) writeFileSync(`${out}/page-editor.png`, await page.screenshot());
-  const dots = await page.locator('.fab .shutter.save svg.dots circle').count();
-  console.log('the action button of the editor shows three dots:', dots === 3 ? 'OK' : 'FAIL');
+  const dots = await page.locator('.fab .shutter.save svg.more circle').count();
+  const icon = await page.locator('.fab .shutter.save svg.more').first().boundingBox();
+  console.log('the action button of the editor shows three dots:', dots, '| size of the icon', icon ? Math.round(icon.width) + 'x' + Math.round(icon.height) : '-', dots === 3 && !!icon && Math.round(icon.width) === 44 && Math.round(icon.height) === 44 ? 'OK' : 'FAIL');
   // Unsaved work: the close button asks first
   await closeSheet();
   const asked = await page.locator('[role=alertdialog]').count();
@@ -606,11 +639,11 @@ const tapGear = async (tap = (x, y) => page.mouse.click(x, y)) => {
     const g = document.querySelector('[aria-label="settings"]');
     if (!g) return null;
     const r = g.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, hit = document.elementFromPoint(x, y);
-    return { x, y, hit: hit ? hit.tagName.toLowerCase() + '.' + hit.className : '-' };
+    return { x, y, hit: hit ? hit.tagName.toLowerCase() + '.' + hit.className : '-', own: !!hit && (hit === g || g.contains(hit)), free: !document.querySelector('.sheet') };
   });
   if (!at) return { hit: '-', open: false };
   await tap(at.x, at.y); await page.waitForTimeout(400);
-  const open = (await page.locator('.sheet').count()) > 0;
+  const open = at.free && at.own && (await page.locator('.sheet').count()) > 0; // a sheet that was open before the tap proves nothing
   if (open) { const c = await page.locator('.close').first().boundingBox(); if (c) { await tap(c.x + c.width / 2, c.y + c.height / 2); await page.waitForTimeout(300); } }
   return { hit: at.hit, open, closed: (await page.locator('.sheet').count()) === 0 };
 };

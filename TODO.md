@@ -453,8 +453,7 @@ Deferred:
 - [ ] A costume is outside the limit of four props: up to 6 models per face, 22 600 triangles in the worst case. Frame rate check on the tablet with witch plus four props on two faces.
 - [ ] Paint, nose and hat appear one after the other while the files load.
 
-Not reviewed by a second reader, and live: the last commit of #23 (geometry step off, faces with no size, kept GPU failure), the merge of the four branches, and the fixes above.
-- [ ] One fresh reviewer for these three parts, on main (range `daee59e..928bcd2`, files `src/tracking`, `src/filters/props3d.ts`, `src/filters/costumes.ts`, `src/render/props3dLayer.ts`, `src/app/App.tsx`).
+- [x] One fresh reviewer for the three parts that went live with no second reader (the last commit of #23, the merge of the four branches, the fixes above). Result: section "Review after the release" below.
 
 ### The phone where the face was not tracked
 
@@ -486,13 +485,57 @@ Lists are in the sections "3D props", "Costume: the witch", "M4a", "M4b", "M4c" 
 - Tag `m4` after the phone checks of M4.
 - Install size: precache 8.2 MB with the witch. Option: art in a runtime cache that fills in the background.
 
-### The gear took no tap on a high screen on its side (operator, 2026-09-27): fixed on `fix-gear-landscape`
+### Review after the release (2026-09-27): fixed on `review-after-release`
+
+One fresh reviewer read the three parts on main. The merge lost nothing (every file is the blob of one side, the key lists of both languages are the same, 66 verdicts are 47 + 12 + 7). Four important findings, all fixed with a test that failed first:
+
+- [x] `scripts/phone-inspect.mjs` took every page with the name of the app anywhere in its address (a web search for the app, a mail link to it). It compares the host now (`scripts/phone-pages.mjs`, with a test). Privacy rule for a family phone: the tool reads the page of the app only.
+- [x] Every failure that led to the first new start wrote the mark "the GPU failed here", also a download that failed, and nothing took the mark away. Now: only a failure after the files were on the device writes it, the mark holds for 7 days (`FELL_DAYS`), and the 🐢 button going off clears it. A mark of the first version (no date) is no mark: a device with it gets one GPU try.
+- [x] A start that failed less than 5 s after the last start left a dead tracker: no frame goes to a tracker that is not ready, so no error came that started it again. Now a timer starts it when the 5 s are over (`later` in `faceTracker.ts`, `wait` and `retry` in `health.ts`). A worker that dies (`onerror`) gets no more frames.
+- [x] A tap on a lit hat chip under the costume took the costume off and the hat too. Now the costume goes and the hat shows (`afterPick` in `costumes.ts`), with a headless check.
+
+Minor, fixed: `usable` asks for 478 points and refuses a face wider than four pictures. `shown` names a prop one time with two faces. The phone tool removes its port forward on more ways to end (Ctrl+Break, closed window). One sentence of `CLAUDE.md` said that the turn of the head comes from the pose matrix.
+
+Minor, open:
+
+- [ ] A worker that hangs (no answer, no error) gives one error and no new start: after the second frame with no answer for 5 s, treat the worker as failed. Change the test "a frame with no answer does not block the tracker for ever" with it. Not seen on a device.
+- [ ] When a face before the last one is left out (`usable`), the next face moves into its place and takes its filter: reset the filter when the source of a place changes. MediaPipe packs its list the same way when a face leaves.
+- [ ] A new start of the tracker during the search in a device photo answers "no face" (`FaceOnPanel.tsx`): try one more time when the tracker is not ready.
+- [ ] The field `matrix` of a face is always zero now and still goes through the whole chain (`types.ts`, `faceTracker.ts`, `face.worker.ts`): remove it.
+- [ ] `headPose`: the chin is out of the width and still in the turn of the head. A mouth that opens wide tilts the head frame by about 4 degrees (made face). Take `up` from the forehead and the base of the nose, and check the fit of the witch again after that.
+- [ ] `headPose`: the width holds in every pose only when the depth of the tracker has the scale of x. With a depth of 0.7 the width changes by 7 % at most in a nod. Measure on the phone with a nod.
+- [ ] The neck shape turns with the head, the real neck does not: with a tilt of the head the curls beside the shape lie over the throat. No simple cure.
+- [ ] `likeTheCamera`: the list "one time per material" lives for one call. A second call on the same model would give the factor two times (today: one call per load). Two colours of the witch pass 1.0 after the factor and clip by 2.5 % on a surface that faces the sun. No test covers the `/costumes/` branch of the layer.
+- [ ] Headless check "above the face" of the witch compares with a picture that holds the crown and the bee: take the picture before with the bee only.
+- [ ] The phone tool: a process that is killed leaves its port forward in adb. Remove old forwards of the tool at its start (not the forwards of other tools).
+- [ ] The update button can clear the GPU mark too, so a release that repairs the GPU path reaches a marked device at once (now: after 7 days at most).
+
+### Second review, of the gear fix and of the fixes above (2026-09-27): fixed on `review-after-release`
+
+One fresh reviewer: no important finding in the two commits, ready to merge. One important defect that is older than the commits and live, and minor points. All fixed here, each with a test or a check that failed first:
+
+- [x] The viewer on a phone on its side: the buttons of the viewer stood in a column as the capture buttons do (same class `bar`), and the close button lay over the share button. A tap on share closed the viewer. Now the column is for the capture buttons only (`.bar:not(.viewbar)`), the viewer keeps its row at the bottom. Seen on the live site with the defect, headless check in the gallery part of `scripts/smoke.mjs`.
+- [x] The later start missed its time by rounding in 2 of 10 000 cases (a timer can come too soon, a sum of times can be a little less than the wait). The timer takes one millisecond more, and it sets itself again when the answer is "not now".
+- [x] A start on the CPU that failed wrote the GPU mark again. Only a tracker that ran on the GPU writes it.
+- [x] With no start left, an error of a worker that still runs stopped the frames for good. The frames go on then.
+- [x] The phone tool: an empty `PHONE_MATCH` took every page with no host (a file, a blob, an empty tab). No host, no page. The page script checks the host again at the read: when the person went to another address in the same tab, nothing of that page is printed.
+- [x] The gear check counted any open sheet. It asks for no sheet before the tap and for the gear as the element that took the tap.
+- [x] The class `dots` had two rules (progress dots of the tutorial, icon of the photo editor): the row of the tutorial was 44 px high and its dots 2.4 px wide. The icon has the class `more` now.
+
+Open:
+
+- [ ] `video.full` keeps a band of 96 px at the bottom for the row of buttons: check the video controls in the viewer on a low screen on a device.
+- [ ] The phone tool compares the host, not the scheme (`http:`, `content:` with the host of the app pass). No real page of another owner with that host is known.
+- [ ] The phone tool: Ctrl+Break and a closed console window are handled in the code and not tried by hand on Windows.
+
+### The gear took no tap on a high screen on its side (operator, 2026-09-27): live with #29
 
 Found by the operator after the release: the settings button did nothing on a tablet on its side, and worked with the tablet upright.
 
 - Cause: on a screen on its side the bar of the capture buttons is a column as high as the screen (`top: 0; bottom: 0`). It comes after the gear in the page, so it lies over the corner and took the taps. Before the release the gear stood beside the column on every screen on its side. The release put it back into its corner on a high screen, under the column.
 - Fix: the column takes no taps itself, only its buttons do (`pointer-events` in `src/app/styles.css`). A tap between the buttons reaches the video now, as everywhere else on the video.
 - The headless check measured the boxes of the gear and of the three buttons and never tapped. It taps now, on a phone and on a tablet on its side, and says which element took the tap. Seen to fail with the defect in.
+- [x] Merged on the operator's word on 2026-09-27 at 14:14 UTC (#29), deploy success, version `2026-09-27 14:15 2d4eb43`. The gear opens the settings on the live site on six screen shapes (headless, by finger).
 - [ ] Operator: tap the gear on the tablet on its side, and on the open fold phone on its side.
 
 ### Known defects, not fixed yet

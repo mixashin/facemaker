@@ -92,9 +92,10 @@ export class FaceRenderer {
 
   setFaceOn(view: FaceOnView | null): void { this.view = view; }
 
-  // 3D props on the heads (src/filters/props3d.ts gives the places)
   // The 3D props that the last frame drew (for scripts/smoke.mjs)
   shown3d(): string[] { return this.props.shown; }
+
+  // 3D props on the heads (src/filters/props3d.ts gives the places)
   // on: a prop is chosen. With no face in the picture there is nothing to place, and the choice is still on.
   setProps3d(placed: Placed[], heads: Head[], tMs: number, on = placed.length > 0): void { this.placed = placed; this.heads = heads; this.time3d = tMs; this.propsOn = on; }
 

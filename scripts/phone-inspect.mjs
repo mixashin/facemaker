@@ -6,15 +6,16 @@
 //
 //   node scripts/phone-inspect.mjs            # state of the open page
 //   node scripts/phone-inspect.mjs reload     # loads the page again first, so the console holds the start of the tracker
-//   PHONE_WAIT_MS=20000 PHONE_MATCH=localhost:5173 node scripts/phone-inspect.mjs reload
+//   PHONE_WAIT_MS=20000 PHONE_MATCH=localhost:5173 node scripts/phone-inspect.mjs reload   # PHONE_MATCH: the host of the app, with its port
 //   PHONE_TAP="retry camera" node scripts/phone-inspect.mjs   # taps a button of the app first (aria-label)
 //   PHONE_GO="/?tracker=gpu" node scripts/phone-inspect.mjs   # goes to an address inside the app first
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:net';
+import { ownPages } from './phone-pages.mjs';
 
 // A free port of this computer. A fixed one can belong to another program, and then the tool reads a wrong browser.
 const PORT = await new Promise((ok) => { const s = createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); }); });
-const match = process.env.PHONE_MATCH ?? 'face.mxa.sh';
+const match = process.env.PHONE_MATCH || 'face.mxa.sh';
 const wait = Number(process.env.PHONE_WAIT_MS ?? 12000);
 const adb = (...a) => execFileSync('adb', a, { encoding: 'utf8' }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -26,10 +27,15 @@ const screen = adb('shell', 'dumpsys', 'deviceidle');
 if (/mScreenLocked=true/.test(screen) || /mScreenOn=false/.test(screen)) { console.error('The phone is locked or its screen is off. Unlock it and open facemaker: the camera cannot start on a locked phone.'); process.exit(1); }
 adb('forward', `tcp:${PORT}`, 'localabstract:chrome_devtools_remote');
 const unforward = () => { try { adb('forward', '--remove', `tcp:${PORT}`); } catch { /* the forward is gone with the cable */ } };
-process.on('SIGINT', () => { unforward(); process.exit(130); }); // Ctrl+C during the wait: the forward must go too
+// Ctrl+C, Ctrl+Break, a closed console window, an end from outside: the forward must go too. While it is there,
+// every program on this computer can reach the browser of the phone.
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) process.on(sig, () => { unforward(); process.exit(130); });
 
 // What the page tells about itself. Runs in the page.
+// The person at the phone can go to another address in the same tab while the tool waits: then the page says
+// only that it left, and the tool prints nothing of it.
 const READ = `(async () => {
+  if (location.host !== ${JSON.stringify(match)}) return { left: true };
   const fm = globalThis.__fm, v = document.querySelector('video');
   const gl = document.createElement('canvas').getContext('webgl2');
   const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
@@ -63,9 +69,9 @@ try {
   if (!who['Android-Package']) throw new Error('the other end is not a browser on a phone: ' + (who.Browser ?? 'not known'));
   const targets = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
   const pages = targets.filter((t) => t.type === 'page');
-  const mine = pages.filter((t) => t.url.includes(match));
+  const mine = ownPages(targets, match);
   console.log('pages of the app:', mine.length, '| other pages (not read):', pages.length - mine.length);
-  if (!mine.length) { console.error(`No open page with "${match}" in its address. Open facemaker on the phone and keep it in front.`); process.exitCode = 1; }
+  if (!mine.length) { console.error(`No open page of the host "${match}". Open facemaker on the phone and keep it in front.`); process.exitCode = 1; }
   else {
     // One link, to the page of the app only. Its workers come over the same link (flat sessions).
     ws = new WebSocket(mine[0].webSocketDebuggerUrl);
@@ -104,7 +110,8 @@ try {
     const a = await read();
     await sleep(wait);
     const b = await read();
-    console.log(JSON.stringify(b, null, 2));
+    if (a.left || b.left) { logs.length = 0; process.exitCode = 1; console.log('VERDICT: the page left the app during the read. Nothing of that page is printed. Open facemaker on the phone and run again.'); }
+    else console.log(JSON.stringify(b, null, 2));
     if (typeof a.tracker === 'object' && typeof b.tracker === 'object') {
       const n = b.tracker.results - a.tracker.results;
       console.log(`in ${wait / 1000} s: tracker results ${n}, faces in the last result ${b.tracker.faces}`);

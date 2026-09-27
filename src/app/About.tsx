@@ -2,7 +2,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { createConfirm } from './confirm';
 import { showAbout } from './state';
 import { gather, report } from './report';
-import { PREFER_KEY } from '../tracking/health';
+import { PREFER_KEY, FELL_KEY } from '../tracking/health';
 import { t } from '../i18n/i18n';
 import list from '../about/attributions.json';
 
@@ -14,7 +14,8 @@ export function About() {
   const slow = (() => { try { return localStorage.getItem(PREFER_KEY) === 'CPU'; } catch { return false; } })();
   // The slow tracker (CPU) for a device where the fast one finds no face. The app starts again with it.
   const sure = useMemo(() => createConfirm(3000), []); // two taps: the app starts again
-  const swap = () => { try { if (slow) localStorage.removeItem(PREFER_KEY); else localStorage.setItem(PREFER_KEY, 'CPU'); } catch { /* storage unavailable */ } location.replace('/'); };
+  // Off: as ?tracker=auto, the GPU gets a new try too
+  const swap = () => { try { if (slow) { localStorage.removeItem(PREFER_KEY); localStorage.removeItem(FELL_KEY); } else localStorage.setItem(PREFER_KEY, 'CPU'); } catch { /* storage unavailable */ } location.replace('/'); };
   return (
     <div class="sheet about" role="dialog" aria-label={t('about.title')}>
       <button class="close" aria-label={t('settings.close')} onClick={() => (showAbout.value = false)}>✖</button>

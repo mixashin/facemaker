@@ -195,6 +195,12 @@ describe('Props3dLayer', () => {
     likeTheCamera(new THREE.Group().add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), plain)));
     expect(plain.color.g).toBeCloseTo(0.5);
   });
+  it('says what it draws one time per prop, also with two faces', () => {
+    const s = setup();
+    s.run(['crown'], [face(0.3), face(0.7)]); s.pending.get('/props3d/crown.glb')!.done(model());
+    s.run(['crown'], [face(0.3), face(0.7)]);
+    expect(s.layer.shown).toEqual(['crown']);
+  });
   it('says what it draws: a prop that still loads is not in the list', () => {
     const s = setup();
     s.run(['crown', 'bee'], [face()]);

@@ -5,7 +5,8 @@
 export type Prefer = 'auto' | 'GPU' | 'CPU';
 export type Action = 'none' | 'cpu' | 'again'; // cpu: a new start on the CPU. again: a new start on the same tracker
 export const PREFER_KEY = 'fm.tracker';
-export const FELL_KEY = 'fm.tracker.fell'; // the browser (user agent) on which the GPU failed
+export const FELL_KEY = 'fm.tracker.fell'; // when the GPU failed, and on which browser (fellMark)
+export const FELL_DAYS = 7; // then the GPU gets a new try
 export const ERRORS_TO_RESTART = 5; // errors in a row
 export const RESTART_GAP_MS = 5000; // between two starts
 export const MAX_RESTARTS = 6; // then the tracker rests, until it ran well for a while
@@ -23,11 +24,18 @@ export function preferFrom(search: string, stored: string | null): { prefer: Pre
   return { prefer: stored === 'CPU' || stored === 'GPU' ? stored : 'auto', keep: undefined };
 }
 
+// What the app keeps when the tracker left the GPU by itself: the time and the browser (user agent)
+export const fellMark = (agent: string, nowMs: number): string => `${Math.round(nowMs)} ${agent}`;
+
 // The tracker of the first start. The GPU failed on this browser before (seen: Adreno 830 with Chrome 154, the GPU
 // path gives numbers that are no numbers): the CPU at once, with no failed start first. A new version of the
-// browser has a new user agent, and the GPU gets a new try.
-export function firstStart(prefer: Prefer, fell: string | null, agent: string): Prefer {
-  return prefer === 'auto' && fell !== null && fell === agent ? 'CPU' : prefer;
+// browser has a new user agent, and the GPU gets a new try. It gets one after FELL_DAYS too: the app cannot
+// tell a GPU that is broken from one that failed one time (a lost graphics context), and a device with a
+// broken GPU pays one slow start in that time. A mark with no date (first version) is no mark.
+export function firstStart(prefer: Prefer, fell: string | null, agent: string, nowMs: number): Prefer {
+  if (prefer !== 'auto' || !fell) return prefer;
+  const cut = fell.indexOf(' '), at = cut > 0 ? Number(fell.slice(0, cut)) : NaN, age = nowMs - at;
+  return fell.slice(cut + 1) === agent && age >= 0 && age <= FELL_DAYS * 24 * 3600 * 1000 ? 'CPU' : prefer;
 }
 
 const short = (m: string) => String(m).slice(0, 300);
@@ -79,6 +87,14 @@ export class Health {
     if (this.prefer === 'auto' && this.delegate !== 'CPU' && !this.onCpu) { this.onCpu = true; return 'cpu'; }
     return 'again';
   }
+
+  // How long until a new start can be: the rest of the wait between two starts. null: no start is left.
+  wait(nowMs: number): number | null {
+    return this.budget <= 0 ? null : Math.max(0, RESTART_GAP_MS - (nowMs - this.lastStart));
+  }
+
+  // The start that had to wait: a new start with no new error
+  retry(nowMs: number): Action { return this.start(nowMs); }
 
   // An error for a frame. The answer says what the tracker does now.
   error(message: string, nowMs: number): Action {

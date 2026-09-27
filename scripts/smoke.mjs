@@ -232,9 +232,26 @@ if (state.fm?.faces > 0) {
     console.log('ten times on and off: masks', c1[0] - c0[0], 'tracker frames', c1[1] - c0[1], c1[0] > c0[0] && c1[1] > c0[1] ? 'OK' : 'FAIL');
     await page.evaluate(() => globalThis.__fm.scene(null));
     await page.waitForTimeout(500);
+    // The places tab: chips from the art delivery, one tap on, a second tap off, bits float in front
+    const places = await page.evaluate(() => !!document.querySelector('[role=tab][aria-label="scene"]'));
+    if (places) {
+      await click('scene'); await click('none');
+      const chips = await page.evaluate(() => [...document.querySelectorAll('.dock .chip')].map((b) => b.getAttribute('aria-label')));
+      const before = await edges();
+      await click('underwater'); await page.waitForTimeout(4000);
+      const under = await edges();
+      const frameA = await page.locator('canvas').screenshot(); await page.waitForTimeout(1200);
+      const frameB = await page.locator('canvas').screenshot();
+      let moving = 0; for (let i = 0; i < Math.min(frameA.length, frameB.length); i++) if (frameA[i] !== frameB[i]) moving++;
+      console.log('places tab:', chips.length - 1, 'places | underwater changes the edges', moved(before, under), 'of 4 | bits move', moving > 0, chips.length > 4 && moved(before, under) >= 3 && moving > 0 ? 'OK' : 'FAIL');
+      await click('underwater'); await page.waitForTimeout(800); // second tap: off
+      const back = await edges();
+      console.log('second tap on the place brings the room back:', most(before, back) < 12 ? 'OK' : 'FAIL');
+    }
   }
   // A photo from the device as the picture. The face in it is found on the device.
   if (face) {
+    await click('faceon'); // the file input lives in this tab
     const camera = await tinted('r + g + b > 600');
     await page.locator('input[type=file][aria-label="photo file"]').setInputFiles(face);
     await page.waitForTimeout(6000); // second face model on the CPU, then the picture loads

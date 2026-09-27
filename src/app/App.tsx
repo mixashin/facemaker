@@ -18,7 +18,7 @@ import { Editor } from './Editor';
 import { openStore, safePut } from '../storage/gallery';
 import { sliderHandles } from '../filters/sliders';
 import { TARGETS, faceFrame, windows } from '../filters/faceon';
-import { sceneById } from '../filters/scenes';
+import { sceneById, bitSprites } from '../filters/scenes';
 import { SegTracker } from '../tracking/segTracker';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
@@ -68,12 +68,12 @@ export function App() {
       const tg = target.value === 'photo' ? photo.value : TARGETS.find((x) => x.id === target.value);
       const lm = faces[0]?.landmarks;
       r.setFaceOn(tg ? { target: tg, frame: lm ? faceFrame(lm, aspect) : null, wins: lm ? windows(lm, handles, aspect, tg) : [] } : null);
-      r.setSprites(spritesForAll(stickers.value, faces, aspect));
       r.setMakeup(makeup.value, faces);
       const place = screen.value === 'camera' && !tg && !document.hidden ? sceneById(scene.value, tryScene.value) : null; // a face-on picture has no camera view
       if (place && !seg.running) seg.start(); else if (!place && seg.running) seg.stop();
       if (place) seg.push(video, now);
-      r.setScene(place, now);
+      const inPlace = r.setScene(place, now); // true when the scene was on the screen in the last frame
+      r.setSprites([...spritesForAll(stickers.value, faces, aspect), ...(inPlace ? bitSprites(place, now, aspect, r.visible()) : [])]);
       r.setText(text.value);
       r.render();
       recCanvas.current?.draw(canvas); // while recording: copy the visible crop for the recorder

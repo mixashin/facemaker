@@ -306,3 +306,18 @@ For the art import (request R2):
 Known limits:
 - Stickers and makeup draw over the near layer of a scene (a hat is in front of the seaweed that is in front of the face).
 - The scene bends with the face near the head under a filter, as the room does today. A straight horizon shows it.
+
+## Operator phone check of M4 (2026-09-27): first round
+
+All four pull requests (#17 to #20) went live on the operator's word. Verdict: "super fun". Requests from that check, all done on branch `faceon-pin`:
+
+- [x] Face on a picture: eyes and mouth were not centred and left the orange or the animal at times. Now they are cut out and glued to fixed places on the target, with a small swing to the side when the head turns.
+- [x] Phone on its side: the buttons for recording, gallery and camera flip stand at the right edge.
+- [x] Photo editor: a dragged sticker can be dropped on a trash can (the floating button turns into it).
+- [x] Photo editor: the close button asks before it throws unsaved work away.
+
+Phone checks owed for these:
+- [ ] Eyes and mouth stay on the orange and on each animal while the head turns, nods and moves.
+- [ ] Buttons on the right in landscape, on the phone and on the tablet. The gallery fly animation ends at the gallery button.
+- [ ] Drag a sticker to the trash can with a finger. The can must be easy to hit.
+- [ ] The question on close: all three answers.

@@ -71,5 +71,9 @@
   "voice.denied": "Mikrofon je isključen. Dozvoli ga u podešavanjima pregledača.",
   "tabs.makeup": "Šminka",
   "tabs.faceon": "Smešna lica",
-  "tabs.scene": "Mesta"
+  "tabs.scene": "Mesta",
+  "editor.trash": "Pusti ovde za brisanje",
+  "editor.unsaved": "Nije sačuvano. Izlaz?",
+  "editor.leave": "Izađi bez čuvanja",
+  "editor.stay": "Nastavi uređivanje"
 }

@@ -27,6 +27,11 @@ export const EDITOR_STICKERS: { id: string; src: string }[] = [
 
 const MIN_SCALE = 16;
 
+// Is the finger on a button (screen pixels), or within pad of it? For the trash can under a dragged sticker.
+export function inside(r: { left: number; top: number; right: number; bottom: number }, x: number, y: number, pad = 0): boolean {
+  return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+}
+
 // object-fit: contain. The image is centred in the element with letterboxing.
 export function elementToImage(ex: number, ey: number, imgW: number, imgH: number, elW: number, elH: number): P {
   const k = Math.min(elW / imgW, elH / imgH);

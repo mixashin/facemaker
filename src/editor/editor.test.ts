@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker } from './editor';
+import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker, inside } from './editor';
 import { existsSync } from 'node:fs';
 
 const st = (id: number, x: number, y: number, scale = 100, rot = 0): EditorSticker => ({ id, src: '/editor/pimple.svg', x, y, scale, rot });
@@ -108,5 +108,19 @@ describe('mirror', () => {
     const images = new Map<string, CanvasImageSource>([['/editor/pimple.svg', { width: 100, height: 100 } as unknown as CanvasImageSource]]);
     renderEditor(ctx as never, { width: 500, height: 500 }, [{ ...st(1, 100, 100), flip: true }, st(2, 200, 200)], images);
     expect(calls.filter((c) => c === 'scale:-1,1')).toHaveLength(1);
+  });
+});
+
+describe('inside', () => {
+  const box = { left: 300, top: 700, right: 372, bottom: 772 };
+  it('is true on the button and in the room around it', () => {
+    expect(inside(box, 336, 736)).toBe(true);
+    expect(inside(box, 290, 690, 24)).toBe(true); // a finger covers the button: near is enough
+    expect(inside(box, 396, 796, 24)).toBe(true);
+  });
+  it('is false away from the button', () => {
+    expect(inside(box, 200, 736)).toBe(false);
+    expect(inside(box, 336, 600, 24)).toBe(false);
+    expect(inside(box, 290, 690)).toBe(false);
   });
 });

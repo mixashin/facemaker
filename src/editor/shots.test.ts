@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { turn, shotSize, cardSize, Shots, type ShotRenderer } from './shots';
-import type { Model } from '../render/props3dLayer';
+import { COSTUME_GAIN, type Model } from '../render/props3dLayer';
 import type { EditorSticker } from './editor';
 
 const front = (yaw: number, pitch: number) => new THREE.Vector3(0, 0, 1).applyQuaternion(turn(yaw, pitch));
@@ -114,6 +114,43 @@ describe('Shots', () => {
     const q = m.scene.parent!.quaternion.clone();
     s.shots.draw(sticker(100, { yaw: 0.5, flip: true }));
     expect(m.scene.parent!.quaternion.angleTo(q)).toBeCloseTo(1, 5); // from 0.5 to -0.5
+  });
+  // A part of a costume is made around a head: one unit is the face width, the origin is the middle of the head
+  const part = (): Model => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 1.8), new THREE.MeshStandardMaterial({ color: new THREE.Color(0.4, 0.2, 0.1) }));
+    mesh.position.set(0, 0.44, -0.2);
+    const twin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mesh.material); // two meshes, one material
+    return { scene: new THREE.Group().add(mesh, twin), clips: [] };
+  };
+  const hat = '/costumes/witch/witch-hat-hair.glb';
+  it('a part of a costume: its long side is one unit, it turns around its middle, and it has the colours of the live camera', async () => {
+    const s = setup();
+    const a = s.shots.model('witch-hat-hair');
+    expect(s.asked).toEqual([hat]);
+    const m = part();
+    s.pending.get(hat)!.done(m);
+    expect(await a).toBe(true);
+    const sticker3d = sticker(100, { src: '/costumes/witch/witch-hat-hair-chip.webp', model: 'witch-hat-hair', yaw: 0.3 });
+    expect(s.shots.draw(sticker3d)).not.toBeNull();
+    m.scene.parent!.quaternion.identity(); m.scene.parent!.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(m.scene.parent!), size = box.getSize(new THREE.Vector3());
+    expect(Math.max(size.x, size.y, size.z)).toBeCloseTo(1, 5);
+    expect(size.x / size.y).toBeCloseTo(2 / 3, 5); // the form stays
+    expect(box.getCenter(new THREE.Vector3()).length()).toBeCloseTo(0, 5);
+    const c = ((m.scene.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).color;
+    expect(c.r).toBeCloseTo(0.4 * COSTUME_GAIN, 5); expect(c.b).toBeCloseTo(0.1 * COSTUME_GAIN, 5); // one time, for a material that two meshes share
+  });
+  it('a 3D prop keeps its size and its colours', async () => {
+    const s = setup();
+    const a = s.shots.model('crown');
+    const m = model();
+    ((m.scene.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).color.setRGB(0.4, 0.2, 0.1);
+    (m.scene.children[0] as THREE.Mesh).scale.setScalar(0.8); // a prop with a long side of 0.8 stays that small
+    s.pending.get('/props3d/crown.glb')!.done(m);
+    await a;
+    const size = new THREE.Box3().setFromObject(m.scene.parent!).getSize(new THREE.Vector3());
+    expect(size.x).toBeCloseTo(0.8, 5);
+    expect(((m.scene.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).color.r).toBeCloseTo(0.4, 5);
   });
   it('gives the context back at the end', async () => {
     const s = setup();

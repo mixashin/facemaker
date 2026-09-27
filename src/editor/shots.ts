@@ -2,8 +2,9 @@
 // flat sticker that tilts like a card. One small WebGL renderer of its own draws the sticker, the editor puts
 // that picture on the photo with the 2D canvas. The turn in the plane and the mirror stay with the 2D canvas.
 import * as THREE from 'three';
-import { loadGlb, lights, type LoadModel } from '../render/props3dLayer';
+import { loadGlb, lights, brighten, COSTUME_GAIN, type LoadModel } from '../render/props3dLayer';
 import { prop3dById } from '../filters/props3d';
+import { partById } from '../filters/costumes';
 import { FRAME, type EditorSticker } from './editor';
 
 const FOV = 30; // degrees. A mild perspective: the near side of a tilted card is larger, so the tilt shows.
@@ -66,15 +67,23 @@ export class Shots {
   // Resolves to true when the prop is ready to draw. False with no 3D renderer: a sticker that nobody can
   // see must not come onto the photo.
   model(id: string): Promise<boolean> {
-    const key = 'model:' + id, def = prop3dById(id);
+    const key = 'model:' + id, part = partById(id), def = prop3dById(id) ?? part;
     if (!def || !this.gl()) return Promise.resolve(false);
     if (this.things.has(key)) return Promise.resolve(true);
     let p = this.waiting.get(key);
     if (!p) {
       p = new Promise<boolean>((res) => this.load(def.file, (m) => {
         // The origin of a prop is the point that touches the head. In the editor the prop turns around its middle.
-        const mid = new THREE.Box3().setFromObject(m.scene).getCenter(new THREE.Vector3());
+        const box = new THREE.Box3().setFromObject(m.scene), mid = box.getCenter(new THREE.Vector3());
         m.scene.position.sub(mid);
+        // A part of a costume is made around a head, and one unit is the face width there: the hat of the witch
+        // is three units high. Its long side becomes one unit, as the long side of a prop is. Its colours are
+        // those that it has on the live camera.
+        if (part) {
+          const size = box.getSize(new THREE.Vector3()), k = 1 / (Math.max(size.x, size.y, size.z) || 1);
+          m.scene.position.multiplyScalar(k); m.scene.scale.multiplyScalar(k);
+          brighten(m.scene, COSTUME_GAIN);
+        }
         this.keep(key, m.scene);
         this.waiting.delete(key);
         res(true);

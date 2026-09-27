@@ -542,6 +542,27 @@ if (process.env.SMOKE_GALLERY) {
     const after = await numbers();
     const still = after[4] === before[4] && after[5] === before[5];
     console.log('the last finger of three does not drag the sticker: place', before[4], before[5], 'then', after[4], after[5], '| yaw', before[2], 'then', after[2], '| trash can', canShown, '| stickers', await stickers(), still && after[2] !== before[2] && canShown === 0 && (await stickers()) === 2 ? 'OK' : 'FAIL');
+    // Two fingers that rest on empty space and do not move: the selection stays. Seen: a hold of more than
+    // 0.3 s was taken as a tap on empty space, and the selection went away. The tap of one finger at the same
+    // place shows that the place is empty space.
+    const corner = [[photo.x + 15, photo.y + photo.height - 15], [photo.x + 95, photo.y + photo.height - 15]];
+    const chosen = () => page.evaluate(() => document.querySelector('.editor')?.getAttribute('data-selected') ?? '');
+    const held0 = await chosen();
+    await touch('touchStart', corner); await page.waitForTimeout(600);
+    await touch('touchEnd', []); await page.waitForTimeout(700);
+    const held1 = await chosen();
+    await touch('touchStart', [corner[0]]); await page.waitForTimeout(60);
+    await touch('touchEnd', []); await page.waitForTimeout(400);
+    const tapped = await chosen();
+    console.log('a two-finger hold keeps the selection:', JSON.stringify(held0), 'then', JSON.stringify(held1), '| a tap of one finger there ends it:', tapped === '', held0 !== '' && held1 === held0 && tapped === '' ? 'OK' : 'FAIL');
+    // The 3D parts of a costume are stickers too
+    await page.locator('.pull').first().click(); await page.waitForTimeout(400);
+    const bare = await pixels(), had = await stickers();
+    await click('3d-witch-hat-hair'); await page.waitForTimeout(2500); // the model loads
+    const hat = await pixels();
+    if (out) writeFileSync(`${out}/page-editor-part.png`, await page.screenshot());
+    const part = (await chosen()).split(' ').map(Number);
+    console.log('a part of a costume lands on the photo: stickers', had, 'then', await stickers(), '| size', part[0], '| pixels that changed', differ(bare, hat), (await stickers()) === had + 1 && part[0] > 0 && differ(bare, hat) > 100 ? 'OK' : 'FAIL');
     await cdp.detach();
   }
   await closeSheet();

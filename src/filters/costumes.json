@@ -6,6 +6,7 @@
       {
         "id": "witch-hat-hair",
         "file": "/costumes/witch/witch-hat-hair.glb",
+        "chip": "/costumes/witch/witch-hat-hair-chip.webp",
         "triangles": 7728,
         "size": [
           2.058,
@@ -22,6 +23,7 @@
       {
         "id": "witch-nose",
         "file": "/costumes/witch/witch-nose.glb",
+        "chip": "/costumes/witch/witch-nose-chip.webp",
         "triangles": 1740,
         "size": [
           0.403,

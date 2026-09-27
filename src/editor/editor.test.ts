@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker, inside, tilt, centre, MAX_TILT, FRAME } from './editor';
 import { existsSync } from 'node:fs';
+import { prop3dById } from '../filters/props3d';
+import { partById } from '../filters/costumes';
 
 const st = (id: number, x: number, y: number, scale = 100, rot = 0): EditorSticker => ({ id, src: '/editor/pimple.svg', x, y, scale, rot });
 
@@ -10,10 +12,12 @@ describe('editor assets', () => {
     for (const s of EDITOR_STICKERS) expect(existsSync('public' + s.src), s.id).toBe(true);
     expect(new Set(EDITOR_STICKERS.map((s) => s.id)).size).toBe(EDITOR_STICKERS.length);
     const solid = EDITOR_STICKERS.filter((s) => s.model);
-    expect(solid).toHaveLength(11); // the 3D props come first, then the flat props by Astra, then the emoji art
-    expect(EDITOR_STICKERS.slice(0, 11)).toEqual(solid);
-    for (const s of solid) { expect(s.id).toBe('3d-' + s.model); expect(existsSync(`public/props3d/${s.model}.glb`), s.id).toBe(true); }
-    expect(EDITOR_STICKERS.slice(11, 14).every((s) => s.src.startsWith('/props/'))).toBe(true);
+    expect(solid).toHaveLength(13); // the 3D props come first, then the parts of the costumes, then the flat props by Astra, then the emoji art
+    expect(EDITOR_STICKERS.slice(0, 13)).toEqual(solid);
+    for (const s of solid) { expect(s.id).toBe('3d-' + s.model); expect(existsSync('public' + (prop3dById(s.model!) ?? partById(s.model!))!.file), s.id).toBe(true); }
+    expect(solid.slice(11).map((s) => s.id)).toEqual(['3d-witch-hat-hair', '3d-witch-nose']);
+    expect(solid.slice(11).map((s) => s.src)).toEqual(['/costumes/witch/witch-hat-hair-chip.webp', '/costumes/witch/witch-nose-chip.webp']);
+    expect(EDITOR_STICKERS.slice(13, 16).every((s) => s.src.startsWith('/props/'))).toBe(true);
   });
 });
 

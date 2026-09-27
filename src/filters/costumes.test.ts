@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync } from 'node:fs';
 import * as THREE from 'three';
-import { COSTUMES, partsOf, wornWith, placeParts, lookAfterPick, afterPick } from './costumes';
+import { COSTUMES, partsOf, partById, wornWith, placeParts, lookAfterPick, afterPick } from './costumes';
+import { prop3dById } from './props3d';
 import { LOOKS, MAKEUP } from './makeup';
 import type { Head } from './props3d';
 
@@ -13,11 +14,18 @@ describe('costumes', () => {
     expect(witch.look).toBe('paint-witch');
     expect(witch.parts.map((p) => p.id)).toEqual(['witch-hat-hair', 'witch-nose']);
     for (const p of witch.parts) expect(existsSync('public' + p.file), p.file).toBe(true);
+    for (const p of witch.parts) { expect(p.chip).toBe(`/costumes/witch/${p.id}-chip.webp`); expect(existsSync('public' + p.chip), p.chip).toBe(true); }
     const look = LOOKS.find((l) => l.id === 'paint-witch')!;
     expect(existsSync('public' + look.img), look.img).toBe(true);
     expect(MAKEUP.map((m) => m.id)).toContain('paint-witch'); // one chip in the makeup list
     expect(look.flat).toBeGreaterThan(0.5); // the paint keeps its colour: it must match the nose
     expect(LOOKS.find((l) => l.id === 'paint-tiger')!.flat).toBeUndefined(); // paint with no parts takes the light of the face
+  });
+  it('finds a part by its name, and no part has the name of a 3D prop', () => {
+    expect(partById('witch-nose')?.file).toBe('/costumes/witch/witch-nose.glb');
+    expect(partById('crown')).toBeUndefined();
+    expect(partById('no-such-part')).toBeUndefined();
+    for (const c of COSTUMES) for (const p of c.parts) expect(prop3dById(p.id), p.id).toBeUndefined();
   });
   it('every costume belongs to a look of the makeup list', () => {
     for (const c of COSTUMES) expect(LOOKS.map((l) => l.id), c.id).toContain(c.look);

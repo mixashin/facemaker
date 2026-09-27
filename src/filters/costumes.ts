@@ -9,15 +9,18 @@
 import list from './costumes.json';
 import { prop3dById, toggleProp, type Head, type Kind, type Placed } from './props3d';
 
-export type Part = { id: string; file: string; takes?: Kind };
+export type Part = { id: string; file: string; chip: string; takes?: Kind }; // chip: the picture of the part in the photo editor
 export type Costume = { id: string; look: string; parts: Part[] };
 
 // What a part takes the place of: with the hat of the witch on, a hat of the child's choice has no room
 const TAKES: Record<string, Kind> = { 'witch-hat-hair': 'hat' };
 
-export const COSTUMES: Costume[] = (list as { id: string; look: string; parts: { id: string; file: string }[] }[])
-  .map((c) => ({ id: c.id, look: c.look, parts: c.parts.map((p) => ({ id: p.id, file: p.file, takes: TAKES[p.id] })) }));
+export const COSTUMES: Costume[] = (list as { id: string; look: string; parts: { id: string; file: string; chip: string }[] }[])
+  .map((c) => ({ id: c.id, look: c.look, parts: c.parts.map((p) => ({ id: p.id, file: p.file, chip: p.chip, takes: TAKES[p.id] })) }));
 const BY_LOOK = new Map(COSTUMES.map((c) => [c.look, c.parts]));
+const BY_ID = new Map(COSTUMES.flatMap((c) => c.parts.map((p) => [p.id, p] as const)));
+
+export const partById = (id: string): Part | undefined => BY_ID.get(id);
 
 export const partsOf = (look: string): Part[] => BY_LOOK.get(look) ?? [];
 

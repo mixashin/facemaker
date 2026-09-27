@@ -1,6 +1,6 @@
 export type P = { x: number; y: number };
 // rot: the turn in the plane of the photo. yaw and pitch: the turn in depth (three fingers). model: a 3D prop
-// (id in src/filters/props3d.ts), src is its chip picture then.
+// (id in src/filters/props3d.ts) or a part of a costume (id in src/filters/costumes.ts), src is its chip picture then.
 export type EditorSticker = { id: number; src: string; x: number; y: number; scale: number; rot: number; flip?: boolean; yaw?: number; pitch?: number; model?: string };
 // The picture of a sticker that is turned in depth (src/editor/shots.ts), or null when there is none
 export type Shot = (s: EditorSticker) => CanvasImageSource | null;
@@ -9,10 +9,13 @@ export type Ctx = Pick<CanvasRenderingContext2D, 'drawImage' | 'save' | 'restore
 
 import props from '../filters/props.json';
 import { PROPS3D } from '../filters/props3d';
+import { COSTUMES } from '../filters/costumes';
 
-// 3D props by Astra first (CC0, brief R5), then her flat props (brief R3), then emoji art.
+// 3D props by Astra first (CC0, brief R5), then the 3D parts of her costumes (brief R7), then her flat props
+// (brief R3), then emoji art.
 export const EDITOR_STICKERS: PaletteItem[] = [
   ...PROPS3D.map((p) => ({ id: '3d-' + p.id, src: p.chip, model: p.id })),
+  ...COSTUMES.flatMap((c) => c.parts.map((p) => ({ id: '3d-' + p.id, src: p.chip, model: p.id }))),
   ...(props as string[]).map((id) => ({ id, src: `/props/${id}.webp` })),
   { id: 'sunglasses', src: '/stickers/1f576.svg' },
   { id: 'cap', src: '/stickers/1f9e2.svg' },

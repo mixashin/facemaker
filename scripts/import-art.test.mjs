@@ -112,10 +112,11 @@ describe('inspectPart (a part of a costume, in the head frame)', () => {
     const looks = JSON.parse(readFileSync('src/filters/paintLooks.json', 'utf8')).map((l) => l.id);
     for (const c of list) {
       expect(looks, c.id).toContain(c.look);
-      expect(readdirSync(`public/costumes/${c.id}`).sort()).toEqual(c.parts.map((p) => `${p.id}.glb`).sort());
+      expect(readdirSync(`public/costumes/${c.id}`).sort()).toEqual(c.parts.flatMap((p) => [`${p.id}.glb`, `${p.id}-chip.webp`]).sort());
       for (const p of c.parts) {
-        const { id, file, ...facts } = p;
+        const { id, file, chip, ...facts } = p;
         expect(file).toBe(`/costumes/${c.id}/${id}.glb`);
+        expect(chip).toBe(`/costumes/${c.id}/${id}-chip.webp`); // the picture of the part for the photo editor
         expect(inspectGlb(readFileSync('public' + file)), id).toEqual(facts);
       }
     }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync } from 'node:fs';
-import { faceFrame, toFace, windows, coverScale, coverOffset, pickTarget, photoTarget, fitSize, TARGETS, FACEON, SPAN, type Frame } from './faceon';
+import { faceFrame, toFace, windows, coverScale, coverOffset, pickTarget, photoTarget, fitSize, TARGETS, FACEON, SPAN, SLOTS, SWING, type Frame } from './faceon';
 import { handlesForAll } from './presets';
 import { coverCrop } from '../capture/snapshot';
 import { EYE_R, EYE_L, LIPS } from './makeup';
@@ -33,6 +33,15 @@ describe('face frame', () => {
     expect(f.roll).toBeCloseTo(0.2, 3);
     expect(f.nose[0]).toBeGreaterThan(0.35); expect(f.nose[0]).toBeLessThan(0.45);
   });
+  it('keeps its size when the head turns or nods: the larger of width and height counts', () => {
+    const front = faceFrame(face(), A).width;
+    const turned = face();
+    for (let i = 0; i < 468; i++) turned[i * 3] = 0.5 + (turned[i * 3] - 0.5) * 0.6; // seen from the side, the face is narrow
+    const nodded = face();
+    for (let i = 0; i < 468; i++) nodded[i * 3 + 1] = 0.5 + (nodded[i * 3 + 1] - 0.5) * 0.6; // seen from above, it is short
+    expect(faceFrame(turned, A).width).toBeGreaterThan(front * 0.72);
+    expect(faceFrame(nodded, A).width).toBeCloseTo(front, 6);
+  });
   it('face units do not change with roll, place or size', () => {
     const a = face(0.5, 0.5, 0.3, 0), b = face(0.3, 0.7, 0.18, -0.4);
     const fa = faceFrame(a, A), fb = faceFrame(b, A);
@@ -50,11 +59,47 @@ describe('windows', () => {
     expect(w).toHaveLength(3);
     expect(w[0][0]).toBeLessThan(0); expect(w[1][0]).toBeGreaterThan(0);
     expect(w[0][1]).toBeLessThan(0); expect(w[1][1]).toBeLessThan(0); expect(w[2][1]).toBeGreaterThan(0);
-    for (const [cx, cy, rx, ry, ox, oy] of w) {
+    for (const [cx, cy, rx, ry] of w) {
       expect(rx).toBeGreaterThan(0); expect(ry).toBeGreaterThan(0);
       expect(Math.abs(cx) + rx).toBeLessThan(SPAN / 2); expect(Math.abs(cy) + ry).toBeLessThan(SPAN / 2);
-      expect(ox).toBeCloseTo(0, 9); expect(oy).toBeCloseTo(0, 9); // no filter: the window shows what is under it
     }
+  });
+  it('pins eyes and mouth to fixed places: the same for every face, place, size and roll', () => {
+    const faces = [face(), face(0.3, 0.7, 0.18, -0.4), face(0.6, 0.4, 0.45, 0.3)];
+    const squeezed = face(); // another child: eyes nearer to each other, mouth lower
+    for (const i of [...EYE_R, ...EYE_L]) squeezed[i * 3] = 0.5 + (squeezed[i * 3] - 0.5) * 0.7;
+    for (const i of LIPS) squeezed[i * 3 + 1] += 0.03;
+    for (const lm of [...faces, squeezed]) {
+      const w = windows(lm, [], A);
+      w.forEach((win, n) => { expect(win[0]).toBeCloseTo(SLOTS[n][0], 3); expect(win[1]).toBeCloseTo(SLOTS[n][1], 6); }); // 3 digits: the test face is not exactly even
+    }
+  });
+  it('shows the live eye in its window, wherever the eye is in the camera picture', () => {
+    const lm = face(0.3, 0.7, 0.18, -0.4);
+    const f = faceFrame(lm, A);
+    windows(lm, [], A).forEach(([cx, cy, , , ox, oy], n) => {
+      const ring = [EYE_R, EYE_L, LIPS][n];
+      const q = ring.map((i) => toFace([lm[i * 3], lm[i * 3 + 1]], f, A));
+      const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
+      expect(cx + ox).toBeCloseTo((Math.min(...xs) + Math.max(...xs)) / 2, 9);
+      expect(cy + oy).toBeCloseTo((Math.min(...ys) + Math.max(...ys)) / 2, 9);
+    });
+  });
+  it('a turned head moves eyes and mouth a little to the side, all three together, never far', () => {
+    const turned = (by: number) => { const lm = face(); lm[4 * 3] += by * 0.3 * 0.984; return windows(lm, [], A); }; // the nose tip moves, as in a head that turns
+    const a = turned(0.1);
+    const swing = a[0][0] - SLOTS[0][0];
+    expect(swing).toBeGreaterThan(0.01);
+    expect(swing).toBeLessThan(SWING);
+    a.forEach((w, n) => { expect(w[0] - SLOTS[n][0]).toBeCloseTo(swing, 9); expect(w[1]).toBeCloseTo(SLOTS[n][1], 9); });
+    expect(turned(0.6)[2][0] - SLOTS[2][0]).toBeCloseTo(SWING, 9);
+    expect(turned(-0.6)[2][0] - SLOTS[2][0]).toBeCloseTo(-SWING, 9);
+    expect(turned(0)[0][0]).toBeCloseTo(SLOTS[0][0], 3);
+  });
+  it('takes the places of a target that has its own', () => {
+    const w = windows(face(), [], A, { eyes: [0.3, 0.26], mouth: 0.33 });
+    expect(w[0][0]).toBeCloseTo(-0.3, 3); expect(w[1][0]).toBeCloseTo(0.3, 3);
+    expect(w[0][1]).toBeCloseTo(-0.26, 6); expect(w[2][1]).toBeCloseTo(0.33, 6);
   });
   it('a filter on the whole head makes eyes and mouth bigger, at their place on the picture', () => {
     const lm = face();
@@ -66,9 +111,9 @@ describe('windows', () => {
       expect(bigHead[i][1]).toBeCloseTo(plain[i][1], 9);
       expect(bigHead[i][2]).toBeGreaterThan(plain[i][2]); // bigger
     }
-    expect(bigHead[0][4]).toBeLessThan(0);    // the filter shows the right eye farther out: the window reads there
-    expect(bigHead[1][4]).toBeGreaterThan(0);
-    expect(bigHead[2][5]).toBeGreaterThan(0); // and the mouth farther down
+    expect(bigHead[0][4]).toBeLessThan(plain[0][4]);    // the filter shows the right eye farther out: the window reads there
+    expect(bigHead[1][4]).toBeGreaterThan(plain[1][4]);
+    expect(bigHead[2][5]).toBeGreaterThan(plain[2][5]); // and the mouth farther down
   });
   it('the window reads where the filters show the eye', () => {
     const lm = face();

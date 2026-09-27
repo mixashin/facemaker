@@ -482,6 +482,28 @@ if (await shutter.count()) {
   const gearFree = !land.gear || three.every((b) => land.gear.r <= b.l || land.gear.b <= b.t);
   console.log('phone on its side: buttons at the right edge', right, '| one above the other, all on the screen', stacked, '| the gear is free', gearFree, right && stacked && gearFree ? 'OK' : 'FAIL');
   if (out) writeFileSync(`${out}/page-landscape.png`, await page.screenshot());
+  // A tablet on its side: the buttons at the right edge too, and the gear in its corner (the column of buttons
+  // does not reach the corner on a high screen). Touch is switched on, so the page sees a finger as its pointer.
+  {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    await cdp.send('Emulation.setEmitTouchEventsForMouse', { enabled: true, configuration: 'mobile' });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.waitForTimeout(500);
+    const tab = await page.evaluate(() => {
+      const box = (s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r ? { l: r.left, r: r.right, t: r.top, b: r.bottom } : null; };
+      return { finger: matchMedia('(pointer: coarse)').matches, flip: box('[aria-label="flip camera"]'), shutter: box('[aria-label="take photo"]'), gallery: box('[aria-label="gallery"]'), gear: box('[aria-label="settings"]'), w: innerWidth, h: innerHeight };
+    });
+    const col = [tab.flip, tab.shutter, tab.gallery];
+    const atRight = col.every((b) => b && b.l > tab.w - 120 && b.r <= tab.w);
+    const corner = !!tab.gear && tab.w - tab.gear.r <= 24 && tab.gear.t <= 24;
+    const free = !!tab.gear && col.every((b) => tab.gear.b <= b.t || tab.gear.r <= b.l);
+    console.log('tablet on its side: finger as pointer', tab.finger, '| buttons at the right edge', atRight, '| the gear in its corner', corner, tab.gear ? Math.round(tab.w - tab.gear.r) : '-', '| the gear is free', free, tab.finger && atRight && corner && free ? 'OK' : 'FAIL');
+    if (out) writeFileSync(`${out}/page-landscape-tablet.png`, await page.screenshot());
+    await cdp.send('Emulation.setEmitTouchEventsForMouse', { enabled: false });
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    await cdp.detach();
+  }
   await page.setViewportSize({ width: vw, height: vh });
   await page.waitForTimeout(300);
   const back = await page.evaluate(() => { const r = document.querySelector('[aria-label="take photo"]').getBoundingClientRect(); return { y: r.bottom, x: (r.left + r.right) / 2, w: innerWidth, h: innerHeight }; });

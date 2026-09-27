@@ -453,8 +453,7 @@ Deferred:
 - [ ] A costume is outside the limit of four props: up to 6 models per face, 22 600 triangles in the worst case. Frame rate check on the tablet with witch plus four props on two faces.
 - [ ] Paint, nose and hat appear one after the other while the files load.
 
-Not reviewed by a second reader, and live: the last commit of #23 (geometry step off, faces with no size, kept GPU failure), the merge of the four branches, and the fixes above.
-- [ ] One fresh reviewer for these three parts, on main (range `daee59e..928bcd2`, files `src/tracking`, `src/filters/props3d.ts`, `src/filters/costumes.ts`, `src/render/props3dLayer.ts`, `src/app/App.tsx`).
+- [x] One fresh reviewer for the three parts that went live with no second reader (the last commit of #23, the merge of the four branches, the fixes above). Result: section "Review after the release" below.
 
 ### The phone where the face was not tracked
 
@@ -484,6 +483,31 @@ Lists are in the sections "3D props", "Costume: the witch", "M4a", "M4b", "M4c" 
 - Flat twins of the 3D props in the sticker strip (pirate hat, party hat, witch hat, fly, mosquito, spider): keep both or drop the flat ones.
 - Tag `m4` after the phone checks of M4.
 - Install size: precache 8.2 MB with the witch. Option: art in a runtime cache that fills in the background.
+
+### Review after the release (2026-09-27): fixed on `review-after-release`
+
+One fresh reviewer read the three parts on main. The merge lost nothing (every file is the blob of one side, the key lists of both languages are the same, 66 verdicts are 47 + 12 + 7). Four important findings, all fixed with a test that failed first:
+
+- [x] `scripts/phone-inspect.mjs` took every page with the name of the app anywhere in its address (a web search for the app, a mail link to it). It compares the host now (`scripts/phone-pages.mjs`, with a test). Privacy rule for a family phone: the tool reads the page of the app only.
+- [x] Every failure that led to the first new start wrote the mark "the GPU failed here", also a download that failed, and nothing took the mark away. Now: only a failure after the files were on the device writes it, the mark holds for 7 days (`FELL_DAYS`), and the 🐢 button going off clears it. A mark of the first version (no date) is no mark: a device with it gets one GPU try.
+- [x] A start that failed less than 5 s after the last start left a dead tracker: no frame goes to a tracker that is not ready, so no error came that started it again. Now a timer starts it when the 5 s are over (`later` in `faceTracker.ts`, `wait` and `retry` in `health.ts`). A worker that dies (`onerror`) gets no more frames.
+- [x] A tap on a lit hat chip under the costume took the costume off and the hat too. Now the costume goes and the hat shows (`afterPick` in `costumes.ts`), with a headless check.
+
+Minor, fixed: `usable` asks for 478 points and refuses a face wider than four pictures. `shown` names a prop one time with two faces. The phone tool removes its port forward on more ways to end (Ctrl+Break, closed window). One sentence of `CLAUDE.md` said that the turn of the head comes from the pose matrix.
+
+Minor, open:
+
+- [ ] A worker that hangs (no answer, no error) gives one error and no new start: after the second frame with no answer for 5 s, treat the worker as failed. Change the test "a frame with no answer does not block the tracker for ever" with it. Not seen on a device.
+- [ ] When a face before the last one is left out (`usable`), the next face moves into its place and takes its filter: reset the filter when the source of a place changes. MediaPipe packs its list the same way when a face leaves.
+- [ ] A new start of the tracker during the search in a device photo answers "no face" (`FaceOnPanel.tsx`): try one more time when the tracker is not ready.
+- [ ] The field `matrix` of a face is always zero now and still goes through the whole chain (`types.ts`, `faceTracker.ts`, `face.worker.ts`): remove it.
+- [ ] `headPose`: the chin is out of the width and still in the turn of the head. A mouth that opens wide tilts the head frame by about 4 degrees (made face). Take `up` from the forehead and the base of the nose, and check the fit of the witch again after that.
+- [ ] `headPose`: the width holds in every pose only when the depth of the tracker has the scale of x. With a depth of 0.7 the width changes by 7 % at most in a nod. Measure on the phone with a nod.
+- [ ] The neck shape turns with the head, the real neck does not: with a tilt of the head the curls beside the shape lie over the throat. No simple cure.
+- [ ] `likeTheCamera`: the list "one time per material" lives for one call. A second call on the same model would give the factor two times (today: one call per load). Two colours of the witch pass 1.0 after the factor and clip by 2.5 % on a surface that faces the sun. No test covers the `/costumes/` branch of the layer.
+- [ ] Headless check "above the face" of the witch compares with a picture that holds the crown and the bee: take the picture before with the bee only.
+- [ ] The phone tool: a process that is killed leaves its port forward in adb. Remove old forwards of the tool at its start (not the forwards of other tools).
+- [ ] The update button can clear the GPU mark too, so a release that repairs the GPU path reaches a marked device at once (now: after 7 days at most).
 
 ### The gear took no tap on a high screen on its side (operator, 2026-09-27): fixed on `fix-gear-landscape`
 

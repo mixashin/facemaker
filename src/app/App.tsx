@@ -1,4 +1,4 @@
-import { preferFrom, firstStart, PREFER_KEY, FELL_KEY } from '../tracking/health';
+import { preferFrom, firstStart, fellMark, PREFER_KEY, FELL_KEY } from '../tracking/health';
 import { live } from './report';
 import { useEffect, useRef } from 'preact/hooks';
 import { startCamera, stopCamera, cameraLost } from '../camera/camera';
@@ -63,8 +63,8 @@ export function App() {
     const t = new FaceTracker({
       numFaces: 2,
       prefer: asked.prefer,
-      first: firstStart(asked.prefer, fell, navigator.userAgent),
-      onFall: () => { try { localStorage.setItem(FELL_KEY, navigator.userAgent); } catch { /* storage unavailable */ } },
+      first: firstStart(asked.prefer, fell, navigator.userAgent, Date.now()),
+      onFall: () => { try { localStorage.setItem(FELL_KEY, fellMark(navigator.userAgent, Date.now())); } catch { /* storage unavailable */ } },
       onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
       onReady: (d) => { fm.delegate = d; },
       onError: (m) => console.error('tracker', m),

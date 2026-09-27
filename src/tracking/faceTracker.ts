@@ -48,12 +48,29 @@ export class FaceTracker {
   // a graph of MediaPipe that had an error stays broken. The faces go, so no effect stays at an old place.
   private fail(message: string, what: Action): void {
     this.opts.onError?.(message);
-    if (what === 'none') return;
+    if (what === 'none') this.later(); else this.renew(what);
+  }
+
+  private renew(what: 'cpu' | 'again'): void {
     this.stop();
     this.filters.forEach((f) => f.reset()); this.present.fill(false); this.last = []; this.misses = 0;
     this.opts.onFaces([]);
-    if (what === 'cpu') this.opts.onFall?.();
+    // Only a tracker that had its files can say something about the GPU: a download that failed says nothing
+    if (what === 'cpu' && this.health.files) this.opts.onFall?.();
     this.start(what === 'cpu' ? 'CPU' : this.asked);
+  }
+
+  // The worker failed and the new start has to wait (two starts are 5 s apart). A tracker that is not ready
+  // gets no frame, so no error comes that starts it again: it starts by itself when the wait is over.
+  private later(): void {
+    const w = this.worker, now = this.now(), wait = this.ready ? null : this.health.wait(now);
+    if (!w || wait === null) return;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      if (this.worker !== w || this.ready) return;
+      const what = this.health.retry(Math.max(this.now(), now + wait)); // a timer can come a little too soon
+      if (what !== 'none') this.renew(what);
+    }, wait);
   }
 
   start(prefer: Prefer = this.opts.first ?? this.health.prefer): void {
@@ -77,6 +94,7 @@ export class FaceTracker {
     w.onerror = (e) => {
       if (this.worker !== w) return;
       clearTimeout(this.timer);
+      this.ready = false; // no frame goes to a worker that died
       const text = 'worker: ' + (e.message || 'did not load');
       this.fail(text, this.health.failed(text, this.now()));
     };

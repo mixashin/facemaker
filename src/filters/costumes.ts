@@ -7,7 +7,7 @@
 // the face. So a part needs no rule for its place: it goes where the head is, with the turn and the size of
 // the head.
 import list from './costumes.json';
-import { prop3dById, type Head, type Kind, type Placed } from './props3d';
+import { prop3dById, toggleProp, type Head, type Kind, type Placed } from './props3d';
 
 export type Part = { id: string; file: string; takes?: Kind };
 export type Costume = { id: string; look: string; parts: Part[] };
@@ -32,6 +32,14 @@ export function wornWith(active: string[], look: string): string[] {
 export function lookAfterPick(look: string, prop: string): string {
   const kind = prop3dById(prop)?.kind;
   return kind && partsOf(look).some((p) => p.takes === kind) ? 'none' : look;
+}
+
+// A tap on a chip of the 3D tab: the look and the chosen props after it. A hat that was chosen before the
+// costume hid it has a lit chip. A tap on that chip takes the costume off and keeps the hat: a plain toggle
+// took both off, and the child saw no hat and no costume.
+export function afterPick(look: string, active: string[], prop: string): { look: string; active: string[] } {
+  const next = lookAfterPick(look, prop);
+  return { look: next, active: next !== look && active.includes(prop) ? active : toggleProp(active, prop) };
 }
 
 export function placeParts(parts: Part[], heads: Head[]): Placed[] {

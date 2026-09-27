@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Health, preferFrom, firstStart, ERRORS_TO_RESTART, RESTART_GAP_MS, MAX_RESTARTS, GOOD_RESULTS } from './health';
+import { Health, preferFrom, firstStart, fellMark, ERRORS_TO_RESTART, RESTART_GAP_MS, MAX_RESTARTS, GOOD_RESULTS, FELL_DAYS } from './health';
 
 describe('preferFrom', () => {
   it('is auto with no word in the address and nothing kept', () => {
@@ -125,18 +125,56 @@ describe('Health', () => {
 
 describe('firstStart', () => {
   const chrome154 = 'Mozilla/5.0 (Linux; Android 10; K) Chrome/154.0.0.0 Mobile', chrome155 = 'Mozilla/5.0 (Linux; Android 10; K) Chrome/155.0.0.0 Mobile';
+  const DAY = 24 * 3600 * 1000, then = 1790000000000, mark = fellMark(chrome154, then);
   it('is what was asked for when nothing is kept', () => {
-    expect(firstStart('auto', null, chrome154)).toBe('auto');
-    expect(firstStart('GPU', null, chrome154)).toBe('GPU');
+    expect(firstStart('auto', null, chrome154, then)).toBe('auto');
+    expect(firstStart('GPU', null, chrome154, then)).toBe('GPU');
   });
   it('is the CPU at once when the GPU failed on this browser before', () => {
-    expect(firstStart('auto', chrome154, chrome154)).toBe('CPU');
+    expect(firstStart('auto', mark, chrome154, then + 1000)).toBe('CPU');
+    expect(firstStart('auto', mark, chrome154, then + (FELL_DAYS - 1) * DAY)).toBe('CPU');
   });
   it('gives the GPU a new try on a new version of the browser', () => {
-    expect(firstStart('auto', chrome154, chrome155)).toBe('auto');
+    expect(firstStart('auto', mark, chrome155, then + 1000)).toBe('auto');
+  });
+  it('gives the GPU a new try after some days: a failure that was not the fault of the GPU must not hold for ever', () => {
+    expect(firstStart('auto', mark, chrome154, then + FELL_DAYS * DAY + 1)).toBe('auto');
+  });
+  it('a mark with no date, or with a date that is no number or lies ahead, is no mark', () => {
+    expect(firstStart('auto', chrome154, chrome154, then)).toBe('auto'); // as the first version wrote it
+    expect(firstStart('auto', 'soon ' + chrome154, chrome154, then)).toBe('auto');
+    expect(firstStart('auto', '', chrome154, then)).toBe('auto');
+    expect(firstStart('auto', fellMark(chrome154, then + 2 * DAY), chrome154, then)).toBe('auto'); // the clock of the device went back
   });
   it('a forced tracker stays', () => {
-    expect(firstStart('GPU', chrome154, chrome154)).toBe('GPU');
-    expect(firstStart('CPU', null, chrome154)).toBe('CPU');
+    expect(firstStart('GPU', mark, chrome154, then + 1000)).toBe('GPU');
+    expect(firstStart('CPU', null, chrome154, then)).toBe('CPU');
+  });
+});
+
+describe('Health: a start that has to wait', () => {
+  it('says how long: the rest of the wait between two starts', () => {
+    const h = new Health('auto');
+    expect(h.wait(0)).toBe(0); // no start before: at once
+    expect(h.failed('no model', 1000)).toBe('cpu');
+    expect(h.wait(1000)).toBe(RESTART_GAP_MS);
+    expect(h.wait(4000)).toBe(RESTART_GAP_MS - 3000);
+    expect(h.wait(1000 + RESTART_GAP_MS + 50)).toBe(0);
+  });
+  it('the start after the wait is a start with no new error', () => {
+    const h = new Health('auto');
+    h.failed('no model', 0);
+    expect(h.failed('no model', 1000)).toBe('none'); // too soon
+    const errors = h.errors;
+    expect(h.retry(1000)).toBe('none'); // still too soon
+    expect(h.retry(RESTART_GAP_MS)).toBe('again');
+    expect(h.errors).toBe(errors);
+    expect(h.restarts).toBe(2);
+  });
+  it('says null when no start is left', () => {
+    const h = new Health('auto');
+    for (let i = 0; i < MAX_RESTARTS; i++) expect(h.failed('dead', i * RESTART_GAP_MS)).not.toBe('none');
+    expect(h.failed('dead', MAX_RESTARTS * RESTART_GAP_MS)).toBe('none');
+    expect(h.wait(MAX_RESTARTS * RESTART_GAP_MS)).toBeNull();
   });
 });

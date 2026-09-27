@@ -192,6 +192,15 @@ if (state.fm?.faces > 0) {
     await click('paint-witch'); await page.waitForTimeout(800); // a second tap takes the costume off
     const after = await placed();
     console.log('the costume goes, the chosen hat comes back:', after, after === 'bee+crown' ? 'OK' : 'FAIL');
+    // The chip of the crown is lit while the costume hides the crown. A tap on it takes the costume off and
+    // keeps the crown (a plain toggle took both off).
+    await click('paint-witch'); await page.waitForTimeout(1500);
+    const under = await placed();
+    await click('props3d'); await click('crown'); await page.waitForTimeout(800);
+    const kept = await placed();
+    await click('makeup');
+    const look = await page.locator('[aria-label="paint-witch"]').first().getAttribute('aria-pressed');
+    console.log('a tap on the lit hat chip under the costume: before', under, '| after', kept, '| the costume chip is lit', look, under === 'bee+witch-hat-hair+witch-nose' && kept === 'bee+crown' && look === 'false' ? 'OK' : 'FAIL');
     await click('props3d'); await click('none'); await click('warp');
   }
   // Makeup: a look paints the face, follows the warp, and works together with a filter and a sticker.

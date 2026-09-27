@@ -21,7 +21,20 @@ describe('usable', () => {
   });
   it('refuses a face with too few points, and no face', () => {
     expect(usable(spread(10, 0.2))).toBe(false);
+    expect(usable(spread(468, 0.2))).toBe(false); // the app reads 478 points (with the irises)
+    expect(usable(spread(477, 0.2))).toBe(false);
     expect(usable(new Float32Array(0))).toBe(false);
     expect(usable(null)).toBe(false);
+  });
+});
+
+describe('usable: upper limit', () => {
+  it('refuses a face that is larger than any picture', () => {
+    const wild = spread(478, 0); wild[0] = 1e20;
+    expect(usable(wild)).toBe(false);
+    expect(usable(spread(478, 5))).toBe(false);
+  });
+  it('takes a face that is close and partly outside the picture', () => {
+    expect(usable(spread(478, 0.8, 0.1, 0.9))).toBe(true);
   });
 });

@@ -600,12 +600,83 @@ if (await shutter.count()) {
   const gearFree = !land.gear || three.every((b) => land.gear.r <= b.l || land.gear.b <= b.t);
   console.log('phone on its side: buttons at the right edge', right, '| one above the other, all on the screen', stacked, '| the gear is free', gearFree, right && stacked && gearFree ? 'OK' : 'FAIL');
   if (out) writeFileSync(`${out}/page-landscape.png`, await page.screenshot());
+  // A tablet on its side: the buttons at the right edge too, and the gear in its corner (the column of buttons
+  // does not reach the corner on a high screen). Touch is switched on, so the page sees a finger as its pointer.
+  {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    await cdp.send('Emulation.setEmitTouchEventsForMouse', { enabled: true, configuration: 'mobile' });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.waitForTimeout(500);
+    const tab = await page.evaluate(() => {
+      const box = (s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r ? { l: r.left, r: r.right, t: r.top, b: r.bottom } : null; };
+      return { finger: matchMedia('(pointer: coarse)').matches, flip: box('[aria-label="flip camera"]'), shutter: box('[aria-label="take photo"]'), gallery: box('[aria-label="gallery"]'), gear: box('[aria-label="settings"]'), w: innerWidth, h: innerHeight };
+    });
+    const col = [tab.flip, tab.shutter, tab.gallery];
+    const atRight = col.every((b) => b && b.l > tab.w - 120 && b.r <= tab.w);
+    const corner = !!tab.gear && tab.w - tab.gear.r <= 24 && tab.gear.t <= 24;
+    const free = !!tab.gear && col.every((b) => tab.gear.b <= b.t || tab.gear.r <= b.l);
+    console.log('tablet on its side: finger as pointer', tab.finger, '| buttons at the right edge', atRight, '| the gear in its corner', corner, tab.gear ? Math.round(tab.w - tab.gear.r) : '-', '| the gear is free', free, tab.finger && atRight && corner && free ? 'OK' : 'FAIL');
+    if (out) writeFileSync(`${out}/page-landscape-tablet.png`, await page.screenshot());
+    await cdp.send('Emulation.setEmitTouchEventsForMouse', { enabled: false });
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    await cdp.detach();
+  }
   await page.setViewportSize({ width: vw, height: vh });
   await page.waitForTimeout(300);
   const back = await page.evaluate(() => { const r = document.querySelector('[aria-label="take photo"]').getBoundingClientRect(); return { y: r.bottom, x: (r.left + r.right) / 2, w: innerWidth, h: innerHeight }; });
   console.log('upright again: the shutter is at the bottom in the middle', back.y > back.h - 140 && Math.abs(back.x - back.w / 2) < 8 ? 'OK' : 'FAIL');
 }
 if (out) writeFileSync(`${out}/page-end.png`, await page.screenshot()); // final state: gallery button shows the newest photo
+// Version, device report, the slow tracker, the update button. Last: the update button loads the app again.
+{
+  await click('settings'); await page.waitForTimeout(400);
+  const version = (await page.locator('.version span').textContent()) ?? '';
+  console.log('the settings show the version:', version, /^v \d{4}-\d\d-\d\d \d\d:\d\d \S+$/.test(version) ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/page-version.png`, await page.screenshot());
+  await click('about'); await page.waitForTimeout(400);
+  await click('Device report'); await page.waitForTimeout(800);
+  const turtle = await page.locator('[aria-label="Slow and safe face tracker"]').count();
+  const text = (await page.locator('.report').textContent()) ?? '';
+  if (out) { await page.locator('.report').scrollIntoViewIfNeeded(); writeFileSync(`${out}/page-report.png`, await page.screenshot()); }
+  // GPU and no new start: a tracker that went to the CPU for no reason must not pass here
+  const face = /tracker: GPU \(asked: auto\)/.test(text) && /with a face: [1-9]/.test(text) && /new starts: 0/.test(text) && !/error: /.test(text) && text.includes(version.slice(2)) && /graphics: \S/.test(text) && /camera: \d+x\d+/.test(text);
+  console.log('the device report names version, camera, graphics and a tracker on the GPU that finds the face:', face && turtle === 1 ? 'OK' : 'FAIL');
+  if (!face) console.log(text);
+  await closeSheet();
+  // The slow tracker by the address: the CPU finds the face too, and the choice stays for the next start
+  const state = () => page.evaluate(() => ({ d: globalThis.__fm.delegate, faces: globalThis.__fm.faces, frames: globalThis.__fm.frames, kept: localStorage.getItem('fm.tracker') }));
+  await page.goto(url + '/?tracker=cpu', { waitUntil: 'load' }); await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+  const cpu = await state();
+  console.log('?tracker=cpu: tracker', cpu.d, 'faces', cpu.faces, 'kept', cpu.kept, cpu.d === 'CPU' && cpu.faces === 1 && cpu.kept === 'CPU' ? 'OK' : 'FAIL');
+  await page.goto(url + '/?tracker=auto', { waitUntil: 'load' }); await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+  const auto = await state();
+  console.log('?tracker=auto: tracker', auto.d, 'faces', auto.faces, 'kept', auto.kept, auto.d !== '' && auto.faces === 1 && auto.kept === null ? 'OK' : 'FAIL');
+  // The update button with no network: nothing is dropped, the app stays (with a service worker the page itself
+  // comes from the cache, so the check of the network must pass the service worker)
+  {
+    const cacheCount = () => page.evaluate(async () => { let n = 0; for (const k of await caches.keys()) n += (await (await caches.open(k)).keys()).length; return n; });
+    const had = await cacheCount(), was = page.url();
+    await page.context().setOffline(true);
+    await click('settings'); await page.waitForTimeout(400);
+    await click('Get the newest version'); await click('Get the newest version');
+    await page.waitForTimeout(3000);
+    const sign = (await page.locator('.version button').textContent())?.trim();
+    const has = await cacheCount().catch(() => -1);
+    console.log('the update button with no network: address stays', page.url() === was, '| sign', sign, '| files in the caches', had, 'then', has, page.url() === was && sign === '📴' && has === had ? 'OK' : 'FAIL');
+    await page.context().setOffline(false);
+    await page.waitForTimeout(4500); // the sign goes
+    await closeSheet();
+  }
+  // The update button: the app loads again from the network and runs
+  await click('settings'); await page.waitForTimeout(400);
+  await click('Get the newest version'); await click('Get the newest version'); // two taps
+  await page.waitForURL(/\?u=\d+/, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+  const again = await state().catch(() => null);
+  const caches = await page.evaluate(async () => (await caches.keys()).length).catch(() => -1);
+  console.log('the update button loads the app again:', page.url().replace(/\d{6,}/, 'N'), '| tracker frames', again?.frames, '| faces', again?.faces, '| caches', caches, /\?u=\d+/.test(page.url()) && again && again.frames > 0 && again.faces === 1 ? 'OK' : 'FAIL');
+}
 console.log('--- third-party requests:', egress.length ? '' : 'none');
 for (const e of egress) console.log(e);
 console.log('--- console:');

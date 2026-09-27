@@ -32,30 +32,44 @@ const { FilesetResolver, FaceLandmarker } = Vision;
 let landmarker: import('@mediapipe/tasks-vision').FaceLandmarker | null = null;
 let numFaces = 2;
 let fileset: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>> | null = null;
-let model = '';
+let model: Uint8Array | null = null; // the bytes of the face model
 
 const post = (m: WorkerOut, transfer: Transferable[] = []) => (self as unknown as Worker).postMessage(m, transfer);
 
-async function init(wasmPath: string, modelPath: string, faces: number) {
+async function init(wasmPath: string, modelPath: string, faces: number, prefer: 'auto' | 'GPU' | 'CPU' = 'auto') {
   numFaces = faces;
   const vision = await FilesetResolver.forVisionTasks(wasmPath);
   fileset = vision;
-  model = modelPath;
+  // The files first. The model is kept as bytes: MediaPipe takes them, and no second download follows. The
+  // runtime is read to its end and dropped: it is in the cache then, and MediaPipe loads it from there.
+  const [bytes] = await Promise.all([
+    fetch(modelPath).then((r) => { if (!r.ok) throw new Error(`model: HTTP ${r.status}`); return r.arrayBuffer(); }),
+    fetch(vision.wasmBinaryPath).then(async (r) => { if (!r.ok) throw new Error(`runtime: HTTP ${r.status}`); const body = r.body?.getReader(); while (body && !(await body.read()).done); }),
+  ]);
+  model = new Uint8Array(bytes);
+  post({ type: 'loaded' });
   const make = (delegate: 'GPU' | 'CPU') =>
     FaceLandmarker.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: modelPath, delegate },
+      baseOptions: { modelAssetBuffer: model!, delegate },
       runningMode: 'VIDEO',
       numFaces,
       outputFaceBlendshapes: true,
-      outputFacialTransformationMatrixes: true,
+      // Off on purpose. The step that makes these matrices (face geometry) stops the whole graph when one face
+      // has no size, and a graph with an error stays broken. Nothing in the app reads the matrices.
+      outputFacialTransformationMatrixes: false,
       canvas: delegate === 'GPU' ? new OffscreenCanvas(1, 1) : undefined,
     });
+  if (prefer !== 'auto') {
+    landmarker = await make(prefer);
+    post({ type: 'ready', delegate: prefer });
+    return;
+  }
   try {
     landmarker = await make('GPU');
     post({ type: 'ready', delegate: 'GPU' });
   } catch (e) {
     landmarker = await make('CPU');
-    post({ type: 'ready', delegate: 'CPU' });
+    post({ type: 'ready', delegate: 'CPU', note: 'GPU failed: ' + String((e as Error)?.message ?? e) });
   }
 }
 
@@ -95,7 +109,8 @@ async function still(bitmap: ImageBitmap, id: number) {
   let lm: Float32Array | null = null;
   try {
     if (!fileset) throw new Error('not ready');
-    stillOne ??= FaceLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: model, delegate: 'CPU' }, runningMode: 'IMAGE', numFaces: 1 });
+    if (!model) throw new Error('not ready');
+    stillOne ??= FaceLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetBuffer: model, delegate: 'CPU' }, runningMode: 'IMAGE', numFaces: 1 });
     const one = await stillOne.catch((err) => { stillOne = null; throw err; });
     const f = one.detect(bitmap).faceLandmarks[0];
     if (f) {
@@ -112,7 +127,7 @@ async function still(bitmap: ImageBitmap, id: number) {
 
 self.onmessage = (e: MessageEvent<WorkerIn>) => {
   const m = e.data;
-  if (m.type === 'init') init(m.wasmPath, m.modelPath, m.numFaces).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));
+  if (m.type === 'init') init(m.wasmPath, m.modelPath, m.numFaces, m.prefer).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));
   else if (m.type === 'still') void still(m.bitmap, m.id);
   else if (m.type === 'frame') {
     try { frame(m.bitmap, m.ts); } catch (err) { post({ type: 'error', message: String((err as Error)?.message ?? err) }); }

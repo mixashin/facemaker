@@ -1,3 +1,5 @@
+import { preferFrom, firstStart, PREFER_KEY, FELL_KEY } from '../tracking/health';
+import { live } from './report';
 import { useEffect, useRef } from 'preact/hooks';
 import { startCamera, stopCamera, cameraLost } from '../camera/camera';
 import { FaceTracker, type Face } from '../tracking/faceTracker';
@@ -51,12 +53,25 @@ export function App() {
     const r = new FaceRenderer(canvas, video);
     // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
     const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }), masks: 0, mask: [0, 0], placed: [] as string[], face: () => (faces[0] ? { landmarks: Array.from(faces[0].landmarks), matrix: Array.from(faces[0].matrix) } : null), nose: () => (faces[0] ? [faces[0].landmarks[4 * 3], faces[0].landmarks[4 * 3 + 1]] : null), scene: (s: import('../filters/scenes').Scene | null) => { tryScene.value = s; scene.value = s ? s.id : 'none'; } });
+    const asked = preferFrom(location.search, (() => { try { return localStorage.getItem(PREFER_KEY); } catch { return null; } })());
+    let fell: string | null = null;
+    try {
+      if (asked.keep) localStorage.setItem(PREFER_KEY, asked.keep);
+      else if (asked.keep === null) { localStorage.removeItem(PREFER_KEY); localStorage.removeItem(FELL_KEY); } // ?tracker=auto: the GPU gets a new try too
+      fell = localStorage.getItem(FELL_KEY);
+    } catch { /* storage unavailable */ }
     const t = new FaceTracker({
       numFaces: 2,
+      prefer: asked.prefer,
+      first: firstStart(asked.prefer, fell, navigator.userAgent),
+      onFall: () => { try { localStorage.setItem(FELL_KEY, navigator.userAgent); } catch { /* storage unavailable */ } },
       onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
       onReady: (d) => { fm.delegate = d; },
       onError: (m) => console.error('tracker', m),
     });
+    live.health = t.health;
+    (fm as any).health = t.health; // for scripts/smoke.mjs and scripts/phone-inspect.mjs
+    live.video = () => (video.videoWidth ? `${video.videoWidth}x${video.videoHeight}` : '');
     still.detect = (picture) => t.detectStill(picture);
     // The person mask for a place (made before the camera starts: start() resets it). The segmenter runs only while a place is on and the camera view shows.
     const seg = new SegTracker({ onMask: (m, w, h) => { fm.masks++; fm.mask = [w, h]; r.setMask(m, w, h); }, onError: (m) => console.warn('segmenter', m) });

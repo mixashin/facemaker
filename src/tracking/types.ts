@@ -1,5 +1,5 @@
 export type WorkerIn =
-  | { type: 'init'; wasmPath: string; modelPath: string; numFaces: number }
+  | { type: 'init'; wasmPath: string; modelPath: string; numFaces: number; prefer?: 'auto' | 'GPU' | 'CPU' } // auto: the GPU first, then the CPU
   | { type: 'frame'; bitmap: ImageBitmap; ts: number }
   | { type: 'still'; bitmap: ImageBitmap; id: number }; // one picture, not a video frame (face-on mode, device photo)
 
@@ -13,7 +13,8 @@ export type FaceResult = {
 };
 
 export type WorkerOut =
-  | { type: 'ready'; delegate: 'GPU' | 'CPU' }
+  | { type: 'loaded' } // model and runtime are on the device. The start limit counts from here, not from the download
+  | { type: 'ready'; delegate: 'GPU' | 'CPU'; note?: string } // note: why the CPU took over
   | { type: 'result'; result: FaceResult; ts: number }
   | { type: 'still'; id: number; landmarks: Float32Array | null } // 478 * 3 of the first face, null without a face
   | { type: 'error'; message: string };

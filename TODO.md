@@ -401,3 +401,89 @@ Open:
 - [ ] The photo editor has no costume parts in its palette.
 - [ ] More costumes: the way is ready (template, brief section R7 as the pattern, import job, one line per costume in `COSTUMES` of the import script).
 - [ ] Install size with the witch: precache 198 entries, 8.2 MB.
+## A phone where the face is not tracked (operator, 2026-09-27)
+
+Report: on one Fold 7 (Chrome, installed app) the place behind the person works, the face effects do not (no eyes and mouth on the orange). The same app version runs on the operator's devices with no fault. The live site passes the headless check.
+
+What is known: the segmenter runs on the CPU, the face tracker on the GPU first. The app showed nothing when the tracker failed. Cause on that phone: not known yet.
+
+Built on branch `tracker-health`:
+- [x] Version under the title of the settings, with a button that gets the newest version now (two taps).
+- [x] Device report in the About sheet, with a copy button.
+- [x] Read over USB on that phone (Fold 7, Android 16, Snapdragon 8 Elite, Adreno 830, Chrome 154, app installed, current version): the tracker starts on the GPU, gives 7 results, then the face geometry step of MediaPipe fails and every next frame fails. The app never started the tracker again.
+- [x] The tracker starts again with a new worker after five errors in a row, when the worker dies, or when it does not start. The first new start goes to the CPU. `?tracker=cpu` and the 🐢 button force the CPU.
+- [x] `scripts/phone-inspect.mjs` reads the state of the app on a phone over USB.
+
+- [x] Cause found 2026-09-27 on the phone over USB, with the test build (`adb reverse`, dev server): the GPU path of MediaPipe gives numbers that are no numbers on that phone (Adreno 830, Chrome 154). Full texts: `procrustes_solver.cc:206 design_matrix.norm() > kAbsoluteErrorEps (0 vs. 1e-09)`, and with the geometry step off `ImageToTensorCalculator failed: ROI contains NaN values`. The CPU path works: 30 results per second. The operator saw the face effects work on the phone with the test build.
+- [x] The geometry step is off. Faces with no size are left out. The app keeps the browser on which the GPU failed and starts on the CPU at once there.
+
+Open:
+- [x] The 3D props take the turn of the head from the landmarks (done in #26): with the geometry step off there is no pose matrix.
+- [ ] The app keeps the camera while it is in the background (seen on the phone: the hidden installed app had a live track, and a second page got no picture). Stop the camera when the page is hidden, start it again on return.
+- [ ] Report the GPU fault to MediaPipe? Facts for it are above. Operator's decision.
+- [ ] Known limit of the update button: with the app open in two places (installed app and a Chrome tab) the old service worker can stay, and its cache stays empty until the next release. The app works with a network. Close the other one first.
+- [ ] A reload from the computer (`phone-inspect.mjs reload`) with the phone locked leaves the app on the camera error screen: the camera cannot start on a locked phone. Unlock first.
+- [ ] Icons differ between devices: the rail and the buttons use the emoji font of the device (old art on an old Android). Option: own icon art for the rail and the buttons, as the chips have.
+
+## Handoff 2026-09-27 evening (next session starts here)
+
+### The release
+
+The operator asked for the release on 2026-09-27 ("push live please we all test on devices"). The merge to main was stopped by the permission system of the session (auto mode). Nothing is live yet.
+
+Branch `release-witch` holds all four pull requests, merged and tested together:
+
+| Number | Branch | Content |
+|---|---|---|
+| #23 | `tracker-health` | Face tracker that starts again after errors, geometry step off, version label, update button, device report, gear in its corner |
+| #24 | `art-r1-r3` | More face-on pictures, 33 props as stickers, more painted looks |
+| #25 | `props3d` | 3D props, three fingers turn a sticker in depth |
+| #26 | `costume-witch` | The witch costume, the turn of the head from the landmarks |
+
+- [ ] The operator merges the release pull request (its number is in the last message of the session and on GitHub, head `release-witch`, base main). In the terminal of Claude Code: `! gh pr merge <number> --merge`. GitHub then shows #23 to #26 as merged too, because main holds their commits.
+- [ ] After the merge: watch the deploy (`gh run list --branch main --limit 1`), then run the headless check on the live site: `FACE=test/face.jpg SMOKE_WAIT_MS=25000 SMOKE_GALLERY=1 SMOKE_RECORD=1 node scripts/smoke.mjs https://face.mxa.sh`. Expect every verdict OK and zero third-party requests.
+- [ ] Devices get a release at their second start after it. From this release on the settings show the version and have the update button.
+- [ ] Delete the merged branches after the release (local and on GitHub): `tracker-health`, `art-r1-r3`, `props3d`, `costume-witch`, `release-witch`.
+
+### Review of #26 (the witch)
+
+One reviewer was started for #26 on 2026-09-27 in its own worktree (`scratchpad/wt-witch` of session 426aa98f). Its report was not in when the release branch was made.
+
+- [ ] Take the findings in (a follow-up branch from main after the release).
+- [ ] Remove the worktree: first the junction `node_modules` alone (PowerShell, check `LinkType -eq 'Junction'`), then `git worktree remove`.
+
+Not reviewed by a second reader: the last commit of #23 (geometry step off, faces with no size, kept GPU failure), and the merge of the four branches.
+
+### The phone where the face was not tracked
+
+Solved in #23, tested on the phone over USB, the operator saw it work. Facts: section "A phone where the face is not tracked". The phone is back with its owner. Her installed app gets the fix at its second start after the release.
+
+- [ ] Ask the owner after the release whether the face effects work. If not: About, 🩺, 📋 gives the report.
+- [ ] USB debugging on that phone: off, and the authorizations revoked (the operator was told).
+
+### Art
+
+- [x] Request R7 (the witch) is delivered, accepted and built (#26). Brief version 12 has the result and the answers to Astra's two questions.
+- [ ] More costumes: the pattern is section R7 of the brief, the template is `astra/templates/head-standin.obj`, the import job takes one line per costume (`COSTUMES` in `scripts/import-art.mjs`).
+
+### Owed by the operator: checks on devices
+
+Lists are in the sections "3D props", "Costume: the witch", "M4a", "M4b", "M4c" and "Operator phone check of M4". The most useful ones first:
+
+- [ ] The witch on a child: hat, curls, nose, with the head turned to the side.
+- [ ] 3D hats and bugs: fit and frame rate on the tablet.
+- [ ] Three fingers in the photo editor on a phone.
+- [ ] The update button and the version label in the settings.
+
+### Open, for the operator to decide
+
+- Own icon art for the rail and the buttons, so every device shows the same icons (now: the emoji font of the device).
+- Flat twins of the 3D props in the sticker strip (pirate hat, party hat, witch hat, fly, mosquito, spider): keep both or drop the flat ones.
+- Tag `m4` after the phone checks of M4.
+- Install size: precache 8.2 MB with the witch. Option: art in a runtime cache that fills in the background.
+
+### Known defects, not fixed yet
+
+- The app keeps the camera while it is in the background (a second page gets no picture). Stop the camera when the page is hidden.
+- The photo editor has no costume parts in its palette.
+- A two-finger hold of more than 0.3 s with no move clears the selection in the editor.

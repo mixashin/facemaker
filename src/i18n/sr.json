@@ -76,5 +76,11 @@
   "editor.unsaved": "Nije sačuvano. Izlaz?",
   "editor.leave": "Izađi bez čuvanja",
   "editor.stay": "Nastavi uređivanje",
-  "tabs.props3d": "3D šeširi i bube"
+  "tabs.props3d": "3D šeširi i bube",
+  "settings.version": "Verzija",
+  "settings.update": "Preuzmi najnoviju verziju",
+  "settings.offline": "Nema mreže. Probaj kasnije.",
+  "about.report": "Izveštaj o uređaju",
+  "about.copy": "Kopiraj izveštaj",
+  "about.slow": "Spor i siguran pratilac lica"
 }

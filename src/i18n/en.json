@@ -76,5 +76,11 @@
   "editor.unsaved": "Not saved yet. Leave?",
   "editor.leave": "Leave without saving",
   "editor.stay": "Keep editing",
-  "tabs.props3d": "3D hats and bugs"
+  "tabs.props3d": "3D hats and bugs",
+  "settings.version": "Version",
+  "settings.update": "Get the newest version",
+  "settings.offline": "No network. Try again later.",
+  "about.report": "Device report",
+  "about.copy": "Copy the report",
+  "about.slow": "Slow and safe face tracker"
 }

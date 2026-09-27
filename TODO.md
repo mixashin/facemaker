@@ -211,7 +211,7 @@ Process rules that cost time when forgotten:
 
 Astra is OpenAI Codex with image generation and Blender, run by the operator. Astra makes art. Claude writes code. One file holds what the app needs: `astra/BRIEF.md` (requests R1 to R6, formats, folders, rules). The start prompt for Astra is `astra/PROMPT.md`. The folder `astra/` is not in git.
 
-- [ ] R1 face-on targets (for M4b): open.
+- [x] R1 face-on targets (for M4b): the required five arrived 2026-09-27 (orange, apple, cat, dog, lion; 2048 px, opaque, no eyes, no mouth) and passed the check. Import into `public/` comes with M4b. Extras: open, the operator picks the subjects.
 - [ ] R2 background scenes (for M4c): open.
 - [ ] R3 sticker props (33): open.
 - [ ] R4 face paint on the flat face layout (experiment): open. When the first two files arrive: add image looks to the makeup engine (load a PNG into the look canvas, then erase the openings) and check the fit on the face.

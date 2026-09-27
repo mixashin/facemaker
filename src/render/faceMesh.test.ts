@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { UV, TRI, VERTS, meshPositions } from './faceMesh';
+import { UV, TRI, VERTS, meshPositions, trianglesOutside } from './faceMesh';
+import { MOUTH, EYE_R, EYE_L } from '../filters/makeup';
 // @ts-expect-error plain node script, no types
 import { parseObj } from '../../scripts/fetch-facemesh.mjs';
 
@@ -62,5 +63,36 @@ describe('parseObj', () => {
     expect(() => parseObj(obj + '\nf 1/1 2/3 3/1')).toThrow(/two UVs/);
     expect(() => parseObj(obj + '\nf 1/2 2/3 3/1 1/2')).toThrow(/not a triangle/);
     expect(() => parseObj('v 0 0 0\n' + obj)).toThrow();
+  });
+});
+
+describe('trianglesOutside', () => {
+  // even-odd test of a point against a ring, in the flat layout
+  const inside = (x: number, y: number, ring: number[]) => {
+    let hit = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = UV[ring[i] * 2], yi = UV[ring[i] * 2 + 1], xj = UV[ring[j] * 2], yj = UV[ring[j] * 2 + 1];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+    }
+    return hit;
+  };
+  const centres = (tri: Uint16Array) => Array.from({ length: tri.length / 3 }, (_, t) => {
+    const [a, b, c] = [tri[t * 3], tri[t * 3 + 1], tri[t * 3 + 2]];
+    return [(UV[a * 2] + UV[b * 2] + UV[c * 2]) / 3, (UV[a * 2 + 1] + UV[b * 2 + 1] + UV[c * 2 + 1]) / 3];
+  });
+
+  it('cuts the mouth and the eyes out of the mesh: no triangle is left in an opening', () => {
+    const open = trianglesOutside([MOUTH, EYE_R, EYE_L]);
+    expect(open.length).toBe((898 - 18 - 14 - 14) * 3);
+    for (const [x, y] of centres(open)) for (const ring of [MOUTH, EYE_R, EYE_L]) expect(inside(x, y, ring)).toBe(false);
+  });
+  it('takes away only what lies in an opening', () => {
+    const gone = (898 * 3 - trianglesOutside([EYE_R]).length) / 3;
+    expect(gone).toBe(14);
+    const all = centres(TRI).filter(([x, y]) => inside(x, y, EYE_R)).length;
+    expect(all).toBe(14);
+  });
+  it('keeps the whole mesh without rings', () => {
+    expect([...trianglesOutside([])]).toEqual([...TRI]);
   });
 });

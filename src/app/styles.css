@@ -96,7 +96,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action
 .dock .lab-icon { font-size: 22px; }
 .dock .chip.small { width: 38px; height: 38px; font-size: 16px; }
 .dock .row { flex-wrap: wrap; gap: 6px; }
-.dock .rail .tab { width: 40px; height: 40px; font-size: 18px; }
+.dock .rail .tab { width: 40px; height: 40px; font-size: 18px; flex: none; }
 .dock .rowbtn { width: 100%; }
 .dock.single { grid-template-columns: 1fr; }
 .dock .palette .chip { background: rgba(255, 255, 255, .18); }

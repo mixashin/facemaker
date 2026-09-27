@@ -77,6 +77,37 @@ describe('MakeupLayer', () => {
       expect(m.frustumCulled).toBe(false);
     }
   });
+  it('has holes for the mouth and the eyes, so no paint lands on teeth or eyeballs', () => {
+    const s = setup();
+    s.layer.update('glam', [face(0.5)], 640, 480);
+    expect(s.meshes[0].geometry.getIndex()!.count).toBe((898 - 18 - 14 - 14) * 3);
+    s.layer.update('cucumber', [face(0.5)], 640, 480); // the slices cover the eyes on purpose
+    expect(s.meshes[0].geometry.getIndex()!.count).toBe((898 - 18) * 3);
+    s.layer.update('tiger', [face(0.5)], 640, 480);
+    expect(s.meshes[0].geometry.getIndex()!.count).toBe((898 - 18 - 14 - 14) * 3);
+  });
+  it('keeps the smoothing on a head that leans to the side', () => {
+    const s = setup();
+    const f = face(0.5);
+    f.landmarks[234 * 3] = 0.5; f.landmarks[454 * 3] = 0.5;         // cheeks one above the other
+    f.landmarks[234 * 3 + 1] = 0.3; f.landmarks[454 * 3 + 1] = 0.7; // 0.4 of the height apart
+    s.layer.update('glam', [f], 640, 480);
+    expect(s.meshes[0].material.uniforms.uRadius.value).toBeCloseTo(0.4 * 480 * 0.02);
+  });
+  it('gives the shader flat paint for a look that asks for it', () => {
+    const s = setup();
+    s.layer.update('glam', [face(0.5)], 640, 480);
+    expect(s.meshes[0].material.uniforms.uFlat.value).toBe(0);
+    s.layer.update('cucumber', [face(0.5)], 640, 480);
+    expect(s.meshes[0].material.uniforms.uFlat.value).toBeGreaterThan(0.5);
+  });
+  it('uploads the paint upright and premultiplied (no dark rim at hard edges)', () => {
+    const s = setup();
+    const look = s.meshes[0].material.uniforms.uLook.value as THREE.Texture;
+    expect(look.flipY).toBe(true);
+    expect(look.premultiplyAlpha).toBe(true);
+    expect(look.colorSpace).toBe(THREE.NoColorSpace);
+  });
   it('leaves the scene on dispose', () => {
     const s = setup();
     s.layer.dispose();

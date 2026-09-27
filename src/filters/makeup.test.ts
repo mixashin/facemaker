@@ -23,7 +23,6 @@ function events(calls: Call[]): string[] {
   }
   return out;
 }
-const lastErases = (ev: string[]) => { let n = 0; while (n < ev.length && ev[ev.length - 1 - n] === 'erase') n++; return n; };
 const pts = (l: Layer): Pt[] => (l.kind === 'blob' ? l.at : l.kind === 'stroke' ? l.path : l.ring);
 
 describe('rings', () => {
@@ -72,6 +71,7 @@ describe('looks', () => {
   it('use valid points, colours and amounts', () => {
     for (const look of LOOKS) {
       expect(look.smooth).toBeGreaterThanOrEqual(0); expect(look.smooth).toBeLessThanOrEqual(1);
+      expect(look.flat ?? 0).toBeGreaterThanOrEqual(0); expect(look.flat ?? 0).toBeLessThanOrEqual(1);
       for (const l of look.layers) {
         if (l.kind !== 'erase') { expect(l.color, look.id).toMatch(/^#[0-9a-f]{6}$/); expect(l.alpha).toBeGreaterThan(0); expect(l.alpha).toBeLessThanOrEqual(1); }
         expect(pts(l).length, look.id).toBeGreaterThan(0);
@@ -85,6 +85,7 @@ describe('looks', () => {
   it('has all eleven looks', () => {
     expect(LOOKS.map((l) => l.id)).toEqual(['none', 'glam', 'soft', 'rainbow', 'clown', 'zombie', 'vampire', 'tiger', 'butterfly', 'hero', 'cucumber']);
     expect(lookById('cucumber').eyes).toBe('covered');
+    expect(lookById('cucumber').flat).toBeGreaterThan(0.5); // the slices hide the eyes: paint that ignores the light of the face
     expect(LOOKS.filter((l) => l.eyes === 'covered').length).toBe(1);
   });
   it('a second tap turns the look off', () => {
@@ -125,13 +126,12 @@ describe('painter', () => {
     expect(ops.filter((o) => o === 'save').length).toBe(ops.filter((o) => o === 'restore').length);
     expect(ops.filter((o) => o === 'save').length).toBeGreaterThan(3);
   });
-  it('keeps the openings free: erases the mouth and the eyes after the paint', () => {
+  it('paints the layers of the look and nothing else (the mesh has holes for eyes and mouth)', () => {
     for (const look of LOOKS.slice(1)) {
       const r = recorder();
       paintLook(r.g, look, 256);
-      const ev = events(r.calls);
-      expect(ev.includes('paint'), look.id).toBe(true);
-      expect(lastErases(ev), look.id).toBe(look.eyes === 'covered' ? 1 : 3);
+      const sides = look.layers.reduce((n, l) => n + (l.kind !== 'erase' && l.mirror ? 2 : 1), 0);
+      expect(events(r.calls).length, look.id).toBe(sides);
     }
   });
   it('paints the skin mask: the face without eyes, brows and lips', () => {

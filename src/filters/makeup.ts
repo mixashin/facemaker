@@ -26,7 +26,9 @@ type Stroke = Paint & { kind: 'stroke'; path: Pt[]; width: number };
 type Erase = { kind: 'erase'; ring: Pt[]; grow?: Grow; blur?: number };
 export type Layer = Fill | Blob | Stroke | Erase;
 // Lengths in a layer (r, blur, width, dx, dy) are fractions of the layout size.
-export type Look = { id: LookId; icon: string; smooth: number; layers: Layer[]; eyes?: 'covered' };
+// eyes 'covered': the look paints over the eyes on purpose (the mesh keeps its eye triangles).
+// flat 0..1: how much the paint ignores the light of the face. 0 keeps light and shadow, 1 is flat colour.
+export type Look = { id: LookId; icon: string; smooth: number; layers: Layer[]; eyes?: 'covered'; flat?: number };
 
 export function toLayout(p: Pt): [number, number] {
   return typeof p === 'number' ? [UV[p * 2], 1 - UV[p * 2 + 1]] : p;
@@ -105,15 +107,11 @@ function paint(g: G, layers: Layer[], size: number): void {
   }
 }
 
-// The mesh has no hole: triangles cover the eyeballs and the inside of the mouth. Paint there would sit on
-// teeth and eyes, so these go last and erase. The closed mouth is a thin line in the layout.
-const OPEN_MOUTH: Erase = { kind: 'erase', ring: MOUTH, grow: [1.02, 3], blur: 0.003 };
-const OPEN_EYES: Erase[] = [EYE_R, EYE_L].map((ring): Erase => ({ kind: 'erase', ring, grow: 1.12, blur: 0.004 }));
-
+// Eyes and mouth need no care here: the mesh has holes there (makeupLayer.ts), so paint on those places
+// of the layout is never drawn. The closed mouth is a line of 1.5 px in the layout: an erase could not hit it.
 export function paintLook(g: G, look: Look, size: number): void {
   g.clearRect(0, 0, size, size);
-  if (look.layers.length === 0) return;
-  paint(g, [...look.layers, OPEN_MOUTH, ...(look.eyes === 'covered' ? [] : OPEN_EYES)], size);
+  paint(g, look.layers, size);
 }
 
 // Where the skin is smoothed: the face, without eyes, brows and lips. The alpha channel is the mask.
@@ -207,7 +205,7 @@ export const LOOKS: Look[] = [
     { kind: 'fill', round: true, color: '#d4121f', alpha: 0.96, ring: [[0.05, 0.37], [0.1, 0.27], [0.3, 0.235], [0.44, 0.275], [0.5, 0.305], [0.56, 0.275], [0.7, 0.235], [0.9, 0.27], [0.95, 0.37], [0.9, 0.455], [0.72, 0.49], [0.57, 0.455], [0.5, 0.42], [0.43, 0.455], [0.28, 0.49], [0.1, 0.455]] },
     ...shadow('#8a0a12', 0.9, [1.35, 1.9], 0),
   ] },
-  { id: 'cucumber', icon: '🥒', smooth: 0.5, eyes: 'covered', layers: [
+  { id: 'cucumber', icon: '🥒', smooth: 0.5, eyes: 'covered', flat: 0.85, layers: [
     skin('#b5dd95', 0.85), { kind: 'erase', ring: LIPS, grow: 1.12, blur: 0.006 }, ...slice(EYE_R), ...slice(EYE_L),
   ] },
 ];

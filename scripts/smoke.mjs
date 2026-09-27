@@ -160,15 +160,14 @@ if (state.fm?.faces > 0) {
   const lip2 = await tinted(RED);
   console.log('makeup follows the warp: red pixels', lip1, 'with big mouth', lip2, 'ratio', (lip2 / Math.max(1, lip1)).toFixed(2), lip2 > lip1 * 1.3 ? 'OK' : 'FAIL');
   await click('sticker'); await click('crown'); await page.waitForTimeout(600);
-  const all = await page.locator('canvas').screenshot();
+  const lip3 = await tinted(RED); // the look, the filter and the sticker together. tinted reads the stage, not the page
+  if (out) writeFileSync(`${out}/glam-combo.png`, await page.locator('canvas').screenshot());
   await click('makeup');
   const on = await pressed();
-  await click('glam'); await page.waitForTimeout(500); // second tap: off
+  await click('glam'); await page.waitForTimeout(500); // second tap: off. The filter and the sticker stay on
   const off = await pressed();
-  const noLook = await page.locator('canvas').screenshot();
-  let d4 = 0; for (let i = 0; i < Math.min(all.length, noLook.length); i++) if (all[i] !== noLook[i]) d4++;
-  console.log('look with filter and sticker:', on.join('+'), '| second tap:', off.join('+'), '| picture differs:', d4 > 0, on[0] === 'glam' && off[0] === 'none' && d4 > 0 ? 'OK' : 'FAIL');
-  if (out) writeFileSync(`${out}/glam-combo.png`, all);
+  const lip4 = await tinted(RED);
+  console.log('look with filter and sticker:', on.join('+'), 'red pixels', lip3, '| second tap:', off.join('+'), 'red pixels', lip4, on[0] === 'glam' && off[0] === 'none' && lip3 - lip4 > lip1 * 0.8 ? 'OK' : 'FAIL'); // the sticker has red of its own: the look must add its share
   await click('sticker'); await click('none'); await click('warp'); await click('none'); await page.waitForTimeout(500);
   const red3 = await tinted(RED);
   console.log('no look, no trace: red pixels as before', lip0, red3, Math.abs(red3 - lip0) <= Math.max(20, lip0 * 0.1) ? 'OK' : 'FAIL');
@@ -248,7 +247,7 @@ if (process.env.SMOKE_RECORD) {
   await click('none'); await closeDock(); await page.waitForTimeout(4000);
   const micNone = await micNow();
   console.log('mic with the shout preset:', micShout, '| a few seconds after it is off:', micNone, micShout === 'live' && micNone === 'idle' ? 'OK' : 'FAIL');
-  await click('makeup'); await click('glam'); // the clip is recorded with a look on
+  await click('makeup'); await click('none'); await click('glam'); // the clip is recorded with a look on
   await click('voice'); await click('robot');
   await page.waitForTimeout(800); // mic prompt (auto-accepted) and the audio graph
   const mic = await page.evaluate(() => document.querySelector('[aria-label="voice mirror"]') ? 'mirror button' : document.querySelector('.voice [role=status]') ? 'denied hint' : 'nothing');

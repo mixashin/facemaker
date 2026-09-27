@@ -225,3 +225,15 @@ Astra is OpenAI Codex with image generation and Blender, run by the operator. As
 - [ ] A recording with a look on.
 - [ ] Frame rate with a look, filters and stickers together.
 - [ ] Head turned far to the side: note artefacts at the edge of the face (no depth buffer yet).
+
+## Deferred from the M4a review (2026-09-27)
+
+Fixed in the branch: paint on teeth with the mouth open (mesh holes), eyeliner erased, dark rim at hard edges (premultiplied paint), blur radius on a head that leans, rail tabs that shrink in landscape, two smoke checks that could not fail, stale faces while the camera restarts.
+
+- [ ] Decision for the operator: makeup, stickers and warps stay for about half a second after a face leaves the picture (the tracker holds the last faces through 9 empty results, so nothing flickers in a short dropout). Shorter hold for all three, or keep.
+- [ ] The zombie look has a seam with three stitches (charcoal, no red). Remove the seam entries in `LOOKS` if stitches are not wanted.
+- [ ] The smoke check of the lips counts red pixels in the whole picture and needs a bright selfie. Count in the mouth region, with a limit that follows the brightness.
+- [ ] `scripts/fetch-facemesh.mjs` and `scripts/fetch-fluent.mjs` need Node 24.2 or later (`import.meta.main`). On an older Node they do nothing and say nothing. The download has no hash check: the commit in the URL and the vertex and triangle counts are the guards.
+- [ ] Blobs have no rotation (`sx` stretches along x only). Add it when a look needs it.
+- [ ] The mesh ends at mid forehead. Shapes that must join the hair are not possible.
+- [ ] Depth buffer for the makeup mesh, when overlap artefacts show on a head turned far to the side.

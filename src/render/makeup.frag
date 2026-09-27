@@ -5,6 +5,7 @@ uniform sampler2D uSkin;  // alpha: where skin is smoothed
 uniform vec2 uSize;       // size of the render target in pixels
 uniform float uRadius;    // blur radius in pixels, follows the size of the face
 uniform float uSmooth;    // 0..1
+uniform float uFlat;      // 0: the paint takes the light of the face. 1: flat colour
 varying vec2 vUv;
 
 // Drawn on the face mesh, over the camera picture, before the stickers and before the warp.
@@ -26,8 +27,8 @@ void main() {
     float edge = smoothstep(0.04, 0.14, length(detail));
     col = blur + detail * mix(1.0 - k, 1.0, edge);
   }
-  vec4 m = texture2D(uLook, vUv);
+  vec4 m = texture2D(uLook, vUv);                         // premultiplied alpha
   float light = dot(col, vec3(0.299, 0.587, 0.114));
-  vec3 paint = m.rgb * clamp(0.45 + light, 0.0, 1.25); // the paint keeps the light and the shadow of the face
-  gl_FragColor = vec4(mix(col, paint, m.a), 1.0);
+  float shade = mix(clamp(0.45 + light, 0.0, 1.25), 1.0, uFlat); // the paint keeps the light and the shadow of the face
+  gl_FragColor = vec4(col * (1.0 - m.a) + m.rgb * shade, 1.0);
 }

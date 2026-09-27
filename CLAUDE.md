@@ -9,15 +9,17 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 3. `TODO.md`: backlog and every decision from grill-me. Add operator requests here as they arrive.
 4. `research/01-tech-stack-2026-09-26.md`, `02-filters-2026-09-26.md`, `03-mediapipe-telemetry-audit-2026-09-26.md`, `04-sticker-art-alternatives-2026-09-26.md`, `06-asset-sources-2026-09-27.md` (Etsy and paid packs fail: no free redistribution; use Kenney CC0, FreeSVG, Quaternius, Piranesi set in `docs/piranesi-props.json`): verified research with sources.
 
-## State (2026-09-27, late)
+## State (2026-09-27, night)
 
-Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b, m3). Only branch is `main`, tree clean.
+Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b, m3).
 
-Shipped: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations (effects dock, shutter saves to gallery, cropped photos, editor gestures, floating save button); Fluent Emoji Color packs (PR #11); M3 video + voice (PR #12, #13: hold to record, 7 voices, voice mirror, shout preset, videos in the gallery, media pauses in the background); after M3, on operator request: several face filters at once (PR #14), several sticker packs at once (PR #15), stickers follow the warp (PR #16, two render passes).
+Shipped and live: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations; Fluent Emoji Color packs (PR #11); M3 video + voice (PR #12, #13); several face filters at once (PR #14), several sticker packs at once (PR #15), stickers follow the warp (PR #16).
 
-Operator phone check of M3 passed on the Fold (record, playback, voices, shout, share). Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored), every verdict OK at the end of 2026-09-27.
+In progress: M4, as three pull requests (grill 2026-09-27). M4a makeup is built and reviewed on branch `m4a-makeup` (plan: `docs/superpowers/plans/2026-09-27-m4a-makeup.md`). It waits for the operator's phone check, then merge. M4b face on a picture has its plan (`docs/superpowers/plans/2026-09-27-m4b-face-on-picture.md`) and its five pictures from Astra. M4c backgrounds waits for its art (request R2).
 
-Next session: read `TODO.md` section "Handoff 2026-09-27 late" first. Then M4 (makeup, face-onto-image, backgrounds): grill only new questions, plan with superpowers:writing-plans, execute Native + Fable coding agents, one fresh Fable reviewer, PR, operator phone check, merge, tag m4.
+Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored), every verdict OK on the branch.
+
+Next session: read `TODO.md` from "M4 decisions" to the end. Check `astra/out` for new deliveries (`DELIVERY.md` per request).
 
 ## Decisions (do not re-ask)
 
@@ -34,7 +36,7 @@ Next session: read `TODO.md` section "Handoff 2026-09-27 late" first. Then M4 (m
 - Recording (M3): mp4 first (`avc1.424028, mp4a.40.2`), webm fallback, no timeslice, explicit bitrate, cropped second canvas for `captureStream`, `start()` in try/catch. Hold the shutter to record. `isTypeSupported` is not trusted: when the encoder fails after start (seen: mp4 with AAC in a Chromium without an AAC encoder), the recorder restarts with the next type and remembers the failed one for the session.
 - Sticker art: Twemoji (CC-BY 4.0) stays. Fluent Emoji Color (MIT) is added as a second source (research/04). OpenMoji (BY-SA) and JoyPixels excluded. Custom props come from the operator's Piranesi generator later, committed CC0.
 - M4 (grill 2026-09-27, operator): three pull requests in the order makeup (M4a), face on a picture (M4b), backgrounds (M4c), each with a phone check. Face on a picture uses the live eyes and mouth only, on every target.
-- Makeup (M4a): one-tap looks, one at a time, a second tap turns the look off, works together with every other effect. Looks are data in `src/filters/makeup.ts`: shapes in the flat face layout, painted once per look on a canvas. The face mesh is MediaPipe's canonical face model (Apache-2.0, `src/render/faceMesh.json`, built by `scripts/fetch-facemesh.mjs`). The mesh draws in the first render pass, over the camera picture and under the stickers, with an opaque shader that reads the camera picture under each fragment (skin smoothing, then paint). The mesh has no hole, so the painter erases the eye and mouth openings last. No depth buffer: back faces are culled.
+- Makeup (M4a): one-tap looks, one at a time, a second tap turns the look off, works together with every other effect. Looks are data in `src/filters/makeup.ts`: shapes in the flat face layout, painted once per look on a canvas. The face mesh is MediaPipe's canonical face model (Apache-2.0, `src/render/faceMesh.json`, built by `scripts/fetch-facemesh.mjs`). The mesh draws in the first render pass, over the camera picture and under the stickers, with an opaque shader that reads the camera picture under each fragment (skin smoothing, then paint). The layer draws the mesh without the triangles that fill the mouth and the eyes (`trianglesOutside`), so paint has no surface on teeth and eyeballs. A look that covers the eyes on purpose (cucumber) keeps the eye triangles. The paint texture is premultiplied. A look can ask for flat paint (`flat`), which ignores the light of the face. No depth buffer: back faces are culled.
 - Art comes from Astra (2026-09-27, operator): OpenAI Codex with image generation and Blender, run by the operator. Astra makes pictures, props, 3D models and animation. Claude writes code. Claude states what the app needs in `astra/BRIEF.md` (formats, sizes, names, limits, never design advice) and keeps the start prompt in `astra/PROMPT.md`. The folder `astra/` is not in git. Astra writes only in `astra/work` and `astra/out`, never code, never git. Claude checks the finished files in `astra/out`, imports them into `public/`, sets position data, and keeps the licence records. Claude does not read `astra/work`. The Piranesi prop list (`docs/piranesi-props.json`) is request R3 of the brief now.
 - Licenses allowed: MIT, Apache-2.0, BSD, MPL-2.0, Unlicense, CC0, CC-BY. No GPL.
 

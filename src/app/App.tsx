@@ -67,6 +67,7 @@ export function App() {
     let started = false;
     const start = () => {
       camState.value = 'starting';
+      faces = []; // no effect of the old picture stays while the camera restarts
       startCamera(video, facing.value)
         .then(() => {
           camState.value = 'live';

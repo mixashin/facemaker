@@ -27,29 +27,31 @@ export function cardSize(w: number, h: number): [number, number] {
   return long > 0 ? [w / long, h / long] : [1, 1];
 }
 
+export type ShotRenderer = Pick<THREE.WebGLRenderer, 'domElement' | 'setSize' | 'render' | 'dispose' | 'forceContextLoss'>;
+const webgl = (): ShotRenderer => {
+  const r = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  r.setClearColor(0x000000, 0);
+  return r;
+};
+
 export class Shots {
-  private renderer: THREE.WebGLRenderer | null = null;
+  private renderer: ShotRenderer | null = null;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 20);
   private things = new Map<string, THREE.Object3D>(); // key: 'model:<id>' or the src of a flat sticker
   private waiting = new Map<string, Promise<boolean>>();
   private broken = false;
 
-  constructor(private load: LoadModel = loadGlb) {
+  constructor(private load: LoadModel = loadGlb, private make: () => ShotRenderer | null = webgl) {
     this.scene.add(...lights());
     // At the distance of the sticker the picture shows FRAME units to every side
     this.camera.position.z = FRAME / Math.tan(THREE.MathUtils.degToRad(FOV / 2));
   }
 
-  private gl(): THREE.WebGLRenderer | null {
+  private gl(): ShotRenderer | null {
     if (this.renderer || this.broken) return this.renderer;
-    try {
-      this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-      this.renderer.setClearColor(0x000000, 0);
-    } catch (e) {
-      console.warn('no 3D renderer for the editor', e);
-      this.broken = true;
-    }
+    try { this.renderer = this.make(); } catch (e) { console.warn('no 3D renderer for the editor', e); }
+    this.broken = !this.renderer;
     return this.renderer;
   }
 
@@ -61,10 +63,11 @@ export class Shots {
     this.scene.add(pivot);
   }
 
-  // Resolves to true when the prop is ready to draw
+  // Resolves to true when the prop is ready to draw. False with no 3D renderer: a sticker that nobody can
+  // see must not come onto the photo.
   model(id: string): Promise<boolean> {
     const key = 'model:' + id, def = prop3dById(id);
-    if (!def) return Promise.resolve(false);
+    if (!def || !this.gl()) return Promise.resolve(false);
     if (this.things.has(key)) return Promise.resolve(true);
     let p = this.waiting.get(key);
     if (!p) {
@@ -73,6 +76,7 @@ export class Shots {
         const mid = new THREE.Box3().setFromObject(m.scene).getCenter(new THREE.Vector3());
         m.scene.position.sub(mid);
         this.keep(key, m.scene);
+        this.waiting.delete(key);
         res(true);
       }, () => { this.waiting.delete(key); res(false); }));
       this.waiting.set(key, p);
@@ -97,7 +101,7 @@ export class Shots {
     const thing = this.things.get(s.model ? 'model:' + s.model : s.src), gl = thing && this.gl();
     if (!thing || !gl) return null;
     const n = shotSize(s.scale * 2 * FRAME);
-    if (gl.domElement.width !== n) gl.setSize(n, n, false);
+    if (gl.domElement.width < n || gl.domElement.width !== gl.domElement.height) gl.setSize(n, n, false); // it only grows: two stickers of two sizes would build it new for every draw
     for (const t of this.things.values()) t.visible = t === thing;
     thing.quaternion.copy(turn(s.flip ? -(s.yaw ?? 0) : s.yaw ?? 0, s.pitch ?? 0)); // the canvas mirrors the picture: the turn goes the other way there
     gl.render(this.scene, this.camera);

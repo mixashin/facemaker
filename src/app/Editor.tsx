@@ -32,7 +32,8 @@ export function Editor() {
   const nextId = useRef(1);
   const pointers = useRef(new Map<number, P>());
   const grabbed = useRef<number | null>(null); // sticker under the first finger
-  const gesture = useRef({ moved: false, pinched: false, x: 0, y: 0 });
+  const gesture = useRef({ moved: false, pinched: false, many: false, x: 0, y: 0 }); // many: the gesture had two fingers or more
+  const loading = useRef(new Set<string>()); // 3D props that load for a sticker
   const shots = useRef<Shots | null>(null); // pictures of the stickers that are turned in depth
   useEffect(() => { const s = (shots.current = new Shots()); return () => { s.dispose(); shots.current = null; }; }, []);
 
@@ -50,7 +51,13 @@ export function Editor() {
 
   const add = async ({ src, model }: PaletteItem) => {
     if (!photo) return;
-    if (model) { if (!(await shots.current?.model(model))) return; } // no 3D renderer or no file: no sticker
+    if (model) {
+      if (loading.current.has(model)) return; // taps while the prop loads: one sticker
+      loading.current.add(model);
+      const ready = await shots.current?.model(model);
+      loading.current.delete(model);
+      if (!ready) return; // no 3D renderer or no file: no sticker
+    }
     else {
       const img = await load(src);
       shots.current?.card(src, img, img.naturalWidth || img.width, img.naturalHeight || img.height);
@@ -76,6 +83,7 @@ export function Editor() {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const p = toImage(e);
     pointers.current.set(e.pointerId, p);
+    if (pointers.current.size >= 2) gesture.current.many = true;
     if (pointers.current.size === 2) { twoTap.current.downAt = performance.now(); twoTap.current.fingers = 2; twoTap.current.move = 0; }
     if (pointers.current.size === 3) twoTap.current.fingers = 3; // not a two-finger tap
     if (pointers.current.size === 1) {
@@ -83,7 +91,7 @@ export function Editor() {
       const hit = hitTest(stickers, p);
       grabbed.current = hit?.id ?? null;
       if (hit) setSelected(hit.id);
-      gesture.current = { moved: false, pinched: false, x: p.x, y: p.y };
+      gesture.current = { moved: false, pinched: false, many: false, x: p.x, y: p.y };
     }
   };
   const onMove = (e: PointerEvent) => {
@@ -94,7 +102,9 @@ export function Editor() {
     const ps = [...pointers.current.entries()];
     if (ps.length === 1) {
       if (Math.hypot(p.x - gesture.current.x, p.y - gesture.current.y) > 6) gesture.current.moved = true;
-      const id = grabbed.current;
+      // The last finger of a gesture with more fingers does not drag: the sticker would jump under it,
+      // and near the floating button it would fall into the trash can
+      const id = gesture.current.many ? null : grabbed.current;
       if (id !== null && gesture.current.moved) {
         setStickers((list) => list.map((s) => (s.id === id ? moveTo(s, p) : s)));
         const can = fabRef.current?.getBoundingClientRect();
@@ -128,16 +138,16 @@ export function Editor() {
         // two-finger tap; a second one within 450 ms mirrors the selected sticker
         if (now - t.lastAt < 450 && selected !== null) { setStickers((list) => list.map((s) => (s.id === selected ? flipSticker(s) : s))); t.lastAt = 0; }
         else t.lastAt = now;
-      } else if (grabbed.current === null && !gesture.current.moved && !gesture.current.pinched) setSelected(null); // tap off: end the edit
+      } else if (grabbed.current === null && !gesture.current.moved && !gesture.current.pinched && !gesture.current.many) setSelected(null); // tap off: end the edit
       grabbed.current = null;
       t.fingers = 1;
     }
   };
 
   const leave = () => (screen.value = 'viewer');
-  // For scripts/smoke.mjs: size, turn in the plane, yaw and pitch of the selected sticker
+  // For scripts/smoke.mjs: size, turn in the plane, yaw, pitch and place of the selected sticker
   const sel = stickers.find((s) => s.id === selected);
-  const numbers = sel ? [sel.scale, sel.rot, sel.yaw ?? 0, sel.pitch ?? 0].map((n) => n.toFixed(2)).join(' ') : '';
+  const numbers = sel ? [sel.scale, sel.rot, sel.yaw ?? 0, sel.pitch ?? 0, sel.x, sel.y].map((n) => n.toFixed(2)).join(' ') : '';
 
   const save = async () => {
     const c = canvasRef.current;
@@ -160,7 +170,7 @@ export function Editor() {
         <div class="dock-body">
           <div class="strip palette" aria-label={t('editor.title')}>
             {EDITOR_STICKERS.map((s) => (
-              <button key={s.id} class="chip" aria-label={s.id} onClick={() => add(s)}><img src={s.src} alt="" /></button>
+              <button key={s.id} class="chip" aria-label={s.id} onClick={() => add(s)}><img src={s.src} alt="" decoding="async" loading="lazy" /></button>
             ))}
           </div>
         </div>

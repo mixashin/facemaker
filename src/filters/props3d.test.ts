@@ -115,6 +115,11 @@ describe('placeProps', () => {
     expect(placed).toHaveLength(4);
     expect(only(placed, 'crown', 0).pos[0]).toBeLessThan(only(placed, 'crown', 1).pos[0]);
   });
+  it('takes the heads that the caller has, and gives the same places', () => {
+    const faces = [face(0.3), face(0.7)];
+    const heads = faces.map((f) => headPose(f, A));
+    expect(placeProps(['crown', 'bee'], faces, A, 500, heads)).toEqual(placeProps(['crown', 'bee'], faces, A, 500));
+  });
   it('is the same for the same time', () => {
     expect(placeProps(['bee', 'spider'], [face()], A, 1234)).toEqual(placeProps(['bee', 'spider'], [face()], A, 1234));
   });

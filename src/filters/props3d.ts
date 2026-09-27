@@ -112,10 +112,12 @@ function pest(p: Prop3D & Pest, head: Head, lm: Float32Array, aspect: number, fa
 
 // Every active prop on every face, for this time. The place depends on the landmarks and the time only,
 // so a photo, a recording and the screen show the same.
-export function placeProps(active: string[], faces: Face[], aspect: number, tMs: number): Placed[] {
+// heads: the heads of the faces, when the caller has them.
+export function placeProps(active: string[], faces: Face[], aspect: number, tMs: number, heads?: Head[]): Placed[] {
   const out: Placed[] = [];
+  if (!active.length) return out;
   faces.forEach((f, face) => {
-    const head = headPose(f, aspect);
+    const head = heads?.[face] ?? headPose(f, aspect);
     for (const id of active) {
       const p = BY_ID.get(id);
       if (!p) continue;

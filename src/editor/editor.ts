@@ -77,8 +77,11 @@ const clamp = (v: number, lim: number) => Math.max(-lim, Math.min(lim, v));
 // Three fingers turn the sticker in depth, as a finger turns a ball: a way to the right turns the front to the
 // right, a way down tips the top to the viewer. dx, dy: the way of the middle of the fingers in photo pixels.
 // span: the short side of the photo, a way that long is half a turn. A 3D prop turns all the way round.
+// Yaw and pitch act in the frame of the sticker, and the canvas turns the sticker in the plane after that
+// (rot). So the way of the fingers is taken into the frame of the sticker first.
 export function tilt(s: EditorSticker, dx: number, dy: number, span: number): EditorSticker {
-  const k = Math.PI / (span || 1), yaw = (s.yaw ?? 0) + dx * k, pitch = (s.pitch ?? 0) + dy * k;
+  const c = Math.cos(s.rot), n = Math.sin(s.rot), k = Math.PI / (span || 1);
+  const yaw = (s.yaw ?? 0) + (c * dx + n * dy) * k, pitch = (s.pitch ?? 0) + (c * dy - n * dx) * k;
   if (!s.model) return { ...s, yaw: clamp(yaw, MAX_TILT), pitch: clamp(pitch, MAX_TILT) };
   return { ...s, yaw: Math.atan2(Math.sin(yaw), Math.cos(yaw)), pitch: clamp(pitch, Math.PI / 2) };
 }

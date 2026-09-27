@@ -135,6 +135,11 @@ describe('Props3dLayer', () => {
     mat.onBeforeCompile(shader as never, null as never);
     expect(shader.fragmentShader).toContain('sRGBTransferOETF');
     expect(shader.fragmentShader).not.toContain('colorspace_fragment');
+    // The patch replaces one line of the shaders of Three.js. If a release of Three.js renames it, the patch does
+    // nothing and the props get dark: this fails then.
+    expect(THREE.ShaderLib.standard.fragmentShader).toContain('#include <colorspace_fragment>');
+    expect(THREE.ShaderLib.basic.fragmentShader).toContain('#include <colorspace_fragment>');
+    expect(THREE.ShaderChunk.colorspace_pars_fragment).toContain('sRGBTransferOETF');
   });
 
   it('keeps the shape of the picture', () => {

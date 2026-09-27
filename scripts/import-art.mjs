@@ -5,30 +5,48 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSyn
 
 const probe = (file) => execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,pix_fmt', '-of', 'csv=p=0', file]).toString().trim().split(',');
 const ffmpeg = (...args) => execFileSync('ffmpeg', ['-loglevel', 'error', '-y', ...args]);
-// File names follow the brief: lowercase letters, digits, hyphen. Every other file is named and left out.
-function pngs(dir) {
+// File names follow the brief: lowercase letters, digits, hyphen. good: the files of the job. left: every
+// other file (notes excepted). A job imports the good ones and ends with an error when a file was left out.
+export function pngs(dir) {
   if (!existsSync(dir)) { console.error(dir, 'not found: no delivery for this request yet'); process.exit(1); }
-  const all = readdirSync(dir).filter((n) => !/\.md$/i.test(n));
-  const good = all.filter((n) => /^[a-z0-9-]+\.png$/.test(n) && !/-chip\.png$/.test(n)).sort();
-  for (const n of all) if (!good.includes(n)) console.warn('left out (name or type not as in the brief):', n);
-  return good;
+  const all = readdirSync(dir).filter((n) => !/\.md$/i.test(n)).sort();
+  const good = all.filter((n) => /^[a-z0-9-]+\.png$/.test(n) && !/-chip\.png$/.test(n));
+  return { good, left: all.filter((n) => !good.includes(n)) };
+}
+function leftOut(left, imported) {
+  console.log('imported', imported, 'files');
+  if (!left.length) return;
+  for (const n of left) console.error('LEFT OUT (name or type not as in the brief):', n);
+  process.exitCode = 1;
 }
 const hasAlpha = (fmt) => /^(rgba|bgra|argb|abgr|ya|gbrap|pal8)/.test(fmt);
+// The largest alpha of the four corner pixels. A cut-out has 0 there. The pixel format alone does not say it:
+// a picture can have an alpha plane and a ground that covers all.
+export function cornerAlpha(file) {
+  const corners = 'format=rgba,split=4[a][b][c][d];[a]crop=1:1:0:0[a1];[b]crop=1:1:iw-1:0[b1];[c]crop=1:1:0:ih-1[c1];[d]crop=1:1:iw-1:ih-1[d1];[a1][b1][c1][d1]hstack=4';
+  const px = execFileSync('ffmpeg', ['-loglevel', 'error', '-i', file, '-frames:v', '1', '-vf', corners, '-f', 'rawvideo', '-pix_fmt', 'rgba', '-']);
+  return Math.max(px[3], px[7], px[11], px[15]);
+}
+const cutOut = (file, name) => { if (cornerAlpha(file) !== 0) throw new Error(`${name}: the corners are not transparent, expected a cut-out`); };
 
 const JOBS = {
   // Face-on targets (brief R1): square, opaque. The generator made 1254 px, so 1280 px keeps every detail.
   targets() {
     const src = 'astra/out/R1-face-targets', dst = 'public/targets';
     mkdirSync(dst, { recursive: true });
-    for (const f of pngs(src)) {
+    const { good, left } = pngs(src);
+    for (const f of good) { // every file is checked before one is written: a bad file leaves no half result
       const [w, h, fmt] = probe(`${src}/${f}`);
       if (w !== h || Number(w) < 1254) throw new Error(`${f}: ${w}x${h}, expected a square of 1254 px or more`);
       if (hasAlpha(fmt)) throw new Error(`${f}: ${fmt} has transparency, expected an opaque picture`);
+    }
+    for (const f of good) {
       const id = f.replace(/\.png$/, '');
       ffmpeg('-i', `${src}/${f}`, '-vf', 'scale=1280:1280:flags=lanczos', '-c:v', 'libwebp', '-quality', '82', `${dst}/${id}.webp`);
       ffmpeg('-i', `${src}/${f}`, '-vf', 'crop=iw*0.56:ih*0.56,scale=128:128:flags=lanczos', '-c:v', 'libwebp', '-quality', '85', `${dst}/${id}-chip.webp`);
       console.log('imported', id);
     }
+    leftOut(left, good.length);
   },
 };
 
@@ -37,10 +55,14 @@ const JOBS = {
 JOBS.facepaint = function () {
   const src = 'astra/out/R4-face-paint', dst = 'public/makeup';
   mkdirSync(dst, { recursive: true });
-  for (const f of pngs(src)) {
+  const { good, left } = pngs(src);
+  for (const f of good) {
     const [w, h, fmt] = probe(`${src}/${f}`);
     if (w !== h || Number(w) < 1024) throw new Error(`${f}: ${w}x${h}, expected a square of 1024 px or more`);
     if (!hasAlpha(fmt)) throw new Error(`${f}: ${fmt} has no transparency. Bare skin must be transparent`);
+    cutOut(`${src}/${f}`, f); // the corners of the flat face layout are outside the face
+  }
+  for (const f of good) {
     const id = f.replace(/\.png$/, '');
     ffmpeg('-i', `${src}/${f}`, '-vf', 'scale=1024:1024:flags=lanczos', '-c:v', 'libwebp', '-quality', '90', `${dst}/${id}.webp`);
     ffmpeg('-i', `${src}/${f}`, '-vf', 'scale=128:128:flags=lanczos', '-c:v', 'libwebp', '-quality', '85', `${dst}/${id}-chip.webp`);
@@ -50,6 +72,7 @@ JOBS.facepaint = function () {
   const looks = names.map((n) => ({ id: `paint-${n}`, icon: '🎨', img: `/makeup/${n}.webp`, chip: `/makeup/${n}-chip.webp` }));
   writeFileSync('src/filters/paintLooks.json', JSON.stringify(looks, null, 2) + '\n');
   console.log('src/filters/paintLooks.json:', looks.length, 'looks');
+  leftOut(left, good.length);
 };
 
 // Background scenes (brief R2), form A: <scene>/plate.png (square, opaque), optional far.png and near.png (same
@@ -77,7 +100,7 @@ JOBS.backgrounds = function () {
       if (!hasAlpha(lfmt)) throw new Error(`${scene}/${layer}.png: ${lfmt} has no transparency`);
       ffmpeg('-i', `${from}/${layer}.png`, '-vf', 'scale=1280:1280:flags=lanczos', '-c:v', 'libwebp', '-quality', '85', `${to}/${layer}.webp`);
     }
-    if (existsSync(`${from}/bits`)) for (const f of pngs(`${from}/bits`)) {
+    if (existsSync(`${from}/bits`)) for (const f of pngs(`${from}/bits`).good) {
       const [, , bfmt] = probe(`${from}/bits/${f}`);
       if (!hasAlpha(bfmt)) throw new Error(`${scene}/bits/${f}: ${bfmt} has no transparency`);
       ffmpeg('-i', `${from}/bits/${f}`, '-vf', 'scale=256:256:flags=lanczos', '-c:v', 'libwebp', '-quality', '88', `${to}/bits/${f.replace(/\.png$/, '.webp')}`);
@@ -98,16 +121,21 @@ JOBS.backgrounds = function () {
 JOBS.props = function () {
   const src = 'astra/out/R3-props', dst = 'public/props';
   mkdirSync(dst, { recursive: true });
-  for (const f of pngs(src)) {
+  const { good, left } = pngs(src);
+  for (const f of good) {
     const [w, h, fmt] = probe(`${src}/${f}`);
     if (w !== h || Number(w) < 512) throw new Error(`${f}: ${w}x${h}, expected a square of 512 px or more`);
     if (!hasAlpha(fmt)) throw new Error(`${f}: ${fmt} has no transparency`);
+    cutOut(`${src}/${f}`, f);
+  }
+  for (const f of good) {
     ffmpeg('-i', `${src}/${f}`, '-vf', 'scale=512:512:flags=lanczos', '-c:v', 'libwebp', '-quality', '82', `${dst}/${f.replace(/\.png$/, '.webp')}`);
     console.log('imported', f.replace(/\.png$/, ''));
   }
   const names = readdirSync(dst).filter((n) => /^[a-z0-9-]+\.webp$/.test(n)).map((n) => n.replace(/\.webp$/, '')).sort();
   writeFileSync('src/filters/props.json', JSON.stringify(names, null, 2) + '\n');
   console.log('src/filters/props.json:', names.length, 'props');
+  leftOut(left, good.length);
 };
 
 // What a .glb holds (glTF 2.0 binary): the facts that the brief asks for, and the things that the app refuses.
@@ -121,6 +149,12 @@ export function inspectGlb(bytes) {
   if (outside.length) throw new Error('names a file outside itself: ' + outside.join(', '));
   const ext = [...new Set([...(g.extensionsUsed ?? []), ...(g.extensionsRequired ?? [])])];
   if (ext.length) throw new Error('uses extensions: ' + ext.join(', '));
+  // The loader reads an `extensions` object in a material or a node with no look at the list at the top
+  const deep = new Set();
+  JSON.stringify(g, (key, value) => { if (key === 'extensions' && value && typeof value === 'object') Object.keys(value).forEach((k) => deep.add(k)); return value; });
+  if (deep.size) throw new Error('uses extensions: ' + [...deep].join(', '));
+  // A copy of a model with a skin shares the bones of the first one (the app makes one copy per face)
+  if ((g.skins ?? []).length) throw new Error('has a skin (armature): move the parts as objects, as the brief says');
   // The loader reads a picture in the file with fetch from a blob: address. The CSP of the app (connect-src 'self')
   // stops that, in the production build only. The 11 props of delivery R5 have plain materials.
   if ((g.images ?? []).length) throw new Error('has pictures in the file (textures): the app cannot load them under its CSP yet');
@@ -147,7 +181,8 @@ export function inspectGlb(bytes) {
   };
   for (const r of roots) walk(r, [0, 0, 0], [1, 1, 1]);
   const clips = (g.animations ?? []).map((a) => a.name);
-  return { triangles, size: hi.map((h, k) => Number((h - lo[k]).toFixed(3))), centre: hi.map((h, k) => Number(((h + lo[k]) / 2).toFixed(3))), clips };
+  // + 0: a JSON file has no minus zero
+  return { triangles, size: hi.map((h, k) => Number((h - lo[k]).toFixed(3)) + 0), centre: hi.map((h, k) => Number(((h + lo[k]) / 2).toFixed(3)) + 0), clips };
 }
 
 // 3D props (brief R5): <name>.glb plus a render <name>.png for the chip.

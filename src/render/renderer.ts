@@ -93,7 +93,8 @@ export class FaceRenderer {
   setFaceOn(view: FaceOnView | null): void { this.view = view; }
 
   // 3D props on the heads (src/filters/props3d.ts gives the places)
-  setProps3d(placed: Placed[], heads: Head[], tMs: number): void { this.placed = placed; this.heads = heads; this.time3d = tMs; }
+  // on: a prop is chosen. With no face in the picture there is nothing to place, and the choice is still on.
+  setProps3d(placed: Placed[], heads: Head[], tMs: number, on = placed.length > 0): void { this.placed = placed; this.heads = heads; this.time3d = tMs; this.propsOn = on; }
 
   // A place behind the person. The mask says where the person is (segTracker.ts).
   setScene(scene: Scene | null, tMs: number): boolean { this.place = scene; this.time = tMs; return this.sceneOn; }
@@ -101,6 +102,7 @@ export class FaceRenderer {
   rest(): void { this.backdrop.rest(); }
   private sceneOn = false;
   private time3d = 0;
+  private propsOn = false;
   private seen: View = { x0: 0, x1: 1, y0: 0, y1: 1 };
 
   // The part of the camera picture that the screen shows (the stage is shown with object-fit: cover). From the last frame.
@@ -134,9 +136,10 @@ export class FaceRenderer {
     this.seen = { x0: crop.x / this.canvas.width, x1: (crop.x + crop.w) / this.canvas.width, y0: crop.y / this.canvas.height, y1: (crop.y + crop.h) / this.canvas.height };
     this.textLayer.update(this.textState, this.mat.uniforms.uAspect.value as number, el.width > 0 ? el.width / el.height : 16 / 9);
     this.sceneOn = this.backdrop.update(this.place, this.mirror, this.time, [this.canvas.width, this.canvas.height], [el.width, el.height]);
-    // Smooth edges for the 3D props: 4 samples, only while a prop is on. Measured: the picture without a prop
-    // is the same bit for bit with and without samples. Three builds the target again after dispose().
-    const samples = this.placed.length ? 4 : 0;
+    // Smooth edges for the 3D props: 4 samples, only while a prop is chosen. Measured: the picture without a
+    // prop is the same bit for bit with and without samples. Three builds the target again after dispose().
+    // The choice decides, not the faces: a child that leaves the picture and comes back builds nothing new.
+    const samples = this.propsOn ? 4 : 0;
     if (this.target.samples !== samples) { this.target.samples = samples; this.target.dispose(); }
     this.renderer.setRenderTarget(this.target);
     this.renderer.render(this.pre, this.camera);

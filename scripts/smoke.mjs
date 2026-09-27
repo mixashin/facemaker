@@ -407,7 +407,7 @@ if (process.env.SMOKE_GALLERY) {
       return [...g.getImageData(0, 0, 200, 150).data];
     });
     const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 40) n++; return n; };
-    // size, turn in the plane, yaw, pitch of the selected sticker
+    // size, turn in the plane, yaw, pitch, x, y of the selected sticker
     const numbers = () => page.evaluate(() => (document.querySelector('.editor')?.getAttribute('data-selected') ?? '').split(' ').map(Number));
     const flat0 = await pixels();
     await fingers(three, 120, 0);
@@ -434,6 +434,21 @@ if (process.env.SMOKE_GALLERY) {
     if (out) writeFileSync(`${out}/page-editor-3d-grown.png`, await page.screenshot());
     const big = await numbers();
     console.log('two fingers scale the 3D prop: size', turned[0], 'then', big[0], '| yaw stays', big[2] === turned[2], '| pixels that changed', differ(solid1, grown), big[0] > turned[0] * 1.8 && big[2] === turned[2] && big[3] === turned[3] && differ(solid1, grown) > 100 ? 'OK' : 'FAIL');
+    // Three fingers, the first one on the sticker. Two fingers lift, the last one moves on and lifts: the sticker
+    // turned, and it did not jump under the last finger.
+    const on = [[mx - 30, my + 20], [mx + 40, my + 60], [mx + 90, my + 20]];
+    const before = await numbers();
+    await touch('touchStart', on);
+    for (let i = 1; i <= 6; i++) { await touch('touchMove', on.map(([x, y]) => [x + i * 10, y])); await page.waitForTimeout(30); }
+    const last = [on[0][0] + 60, on[0][1]];
+    await touch('touchEnd', [last]); // the first finger stays
+    await page.waitForTimeout(60);
+    for (let i = 1; i <= 5; i++) { await touch('touchMove', [[last[0] + i * 8, last[1] + i * 8]]); await page.waitForTimeout(30); }
+    const canShown = await page.locator('.trash').count();
+    await touch('touchEnd', []); await page.waitForTimeout(400);
+    const after = await numbers();
+    const still = after[4] === before[4] && after[5] === before[5];
+    console.log('the last finger of three does not drag the sticker: place', before[4], before[5], 'then', after[4], after[5], '| yaw', before[2], 'then', after[2], '| trash can', canShown, '| stickers', await stickers(), still && after[2] !== before[2] && canShown === 0 && (await stickers()) === 2 ? 'OK' : 'FAIL');
     await cdp.detach();
   }
   await closeSheet();

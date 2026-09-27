@@ -70,7 +70,8 @@ export function App() {
       const lm = faces[0]?.landmarks;
       r.setFaceOn(tg ? { target: tg, frame: lm ? faceFrame(lm, aspect) : null, wins: lm ? windows(lm, handles, aspect, tg) : [] } : null);
       r.setMakeup(makeup.value, faces);
-      r.setProps3d(props3d.value.length ? placeProps(props3d.value, faces, aspect, now) : [], props3d.value.length ? faces.map((f) => headPose(f, aspect)) : [], now);
+      const heads = props3d.value.length ? faces.map((f) => headPose(f, aspect)) : [];
+      r.setProps3d(placeProps(props3d.value, faces, aspect, now, heads), heads, now, props3d.value.length > 0);
       const place = screen.value === 'camera' && !tg && !document.hidden ? sceneById(scene.value, tryScene.value) : null; // a face-on picture has no camera view
       if (place && !seg.running) seg.start(); else if (!place && seg.running) seg.stop();
       if (place) seg.push(video, now);

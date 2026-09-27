@@ -159,6 +159,16 @@ describe('three fingers turn a sticker in depth', () => {
     const s = tilt(flat, 5000, -5000, 720);
     expect(s.yaw).toBeCloseTo(MAX_TILT, 6); expect(s.pitch).toBeCloseTo(-MAX_TILT, 6);
   });
+  it('the way of the fingers counts in the frame of the sticker: a sticker that is turned in the plane turns as the fingers go', () => {
+    const over = tilt({ ...solid, rot: Math.PI }, 50, 0, 1000); // upside down, a way to the right
+    expect(over.yaw).toBeLessThan(0); expect(over.pitch ?? 0).toBeCloseTo(0);
+    const side = tilt({ ...solid, rot: Math.PI / 2 }, 50, 0, 1000); // its top points to the right of the screen
+    expect(side.yaw ?? 0).toBeCloseTo(0); expect(side.pitch).toBeLessThan(0);
+    const down = tilt({ ...solid, rot: Math.PI / 2 }, 0, 50, 1000);
+    expect(down.yaw).toBeGreaterThan(0); expect(down.pitch ?? 0).toBeCloseTo(0);
+    const flatOver = tilt({ ...flat, rot: Math.PI }, 0, 50, 1000);
+    expect(flatOver.pitch).toBeLessThan(0);
+  });
   it('keeps place, size, turn in the plane and the mirror', () => {
     expect(tilt({ ...flat, rot: 0.4, flip: true }, 10, 10, 720)).toMatchObject({ x: 100, y: 100, scale: 200, rot: 0.4, flip: true });
   });

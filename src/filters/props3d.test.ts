@@ -17,7 +17,7 @@ function face(cx = 0.5, cy = 0.5, w = 0.3, turn = new THREE.Quaternion(), points
     const p = new THREE.Vector3(x, y, z).multiplyScalar(W).applyQuaternion(turn).add(middle);
     lm[i * 3] = (p.x + 1) / 2; lm[i * 3 + 1] = (1 - p.y * A) / 2; lm[i * 3 + 2] = -p.z / 2;
   }
-  return { landmarks: lm, matrix: new Float32Array(16), blend: new Float32Array(52) }; // no matrix: the tracker gives none
+  return { landmarks: lm, blend: new Float32Array(52) };
 }
 const only = (placed: Placed[], id: string, f = 0) => placed.find((p) => p.id === id && p.face === f)!;
 const v = (p: Placed) => new THREE.Vector3(...p.pos);
@@ -73,7 +73,7 @@ describe('stage space', () => {
     expect(h.centre.z).toBeCloseTo(-0.3); // the middle of the head in depth: where the sides of the face are, half a face width behind the skin
     expect(h.width).toBeCloseTo(0.6 * 1.457 * Math.hypot(0.74, 0.04)); // side to side (0.6 stage units), or 1.457 of the way from the forehead to the base of the nose when that is more
     expect(h.width / 0.6).toBeGreaterThan(1.05); expect(h.width / 0.6).toBeLessThan(1.12); // as the width of faceon.ts on a real face: 1.08
-    expect(h.quat.angleTo(new THREE.Quaternion())).toBeLessThan(0.1); // a real forehead stands a little before the chin
+    expect(h.quat.angleTo(new THREE.Quaternion())).toBeLessThan(0.12); // a real forehead stands a little before the chin
   });
   it('takes the turn of the head from the landmarks: the tracker gives no pose', () => {
     const still = headPose(face(), A).quat;
@@ -99,8 +99,19 @@ describe('stage space', () => {
     const open = POINTS.map(([i, x, y, z]) => [i, x, i === 152 ? y - 0.25 : y, z] as [number, number, number, number]);
     expect(headPose(face(0.5, 0.5, 0.3, undefined, open), A).width).toBeCloseTo(headPose(face(), A).width, 6);
   });
+  it('keeps the turn when the mouth opens wide: the chin is not in the turn', () => {
+    // the jaw turns around its joint: the chin goes down and back
+    const open = POINTS.map(([i, x, y, z]) => [i, x, i === 152 ? y - 0.25 : y, i === 152 ? z - 0.15 : z] as [number, number, number, number]);
+    const turn = axisTurn(0, 1, 0, 0.4).multiply(axisTurn(1, 0, 0, 0.2));
+    expect(headPose(face(0.5, 0.5, 0.3, undefined, open), A).quat.angleTo(headPose(face(), A).quat)).toBeLessThan(1e-6);
+    expect(headPose(face(0.4, 0.55, 0.25, turn, open), A).quat.angleTo(headPose(face(0.4, 0.55, 0.25, turn), A).quat)).toBeLessThan(1e-6);
+  });
+  it('the frame of the head is the one that the props were fitted to: the line from the chin to the forehead of a real face, mouth closed', () => {
+    const fitted = axisTurn(1, 0, 0, Math.atan2(0.11, 1.26)); // forehead and chin of POINTS
+    expect(headPose(face(), A).quat.angleTo(fitted)).toBeLessThan(0.03); // POINTS has two digits: 1.2 degrees off the measure. Without the correction: 8 degrees
+  });
   it('a face with all points at one place gives no turn, and no numbers that are no numbers', () => {
-    const h = headPose({ landmarks: new Float32Array(478 * 3).fill(0.5), matrix: new Float32Array(16), blend: new Float32Array(52) }, A);
+    const h = headPose({ landmarks: new Float32Array(478 * 3).fill(0.5), blend: new Float32Array(52) }, A);
     expect(h.quat.toArray()).toEqual([0, 0, 0, 1]);
     expect([...h.centre.toArray(), h.width].every(Number.isFinite)).toBe(true);
   });
@@ -127,7 +138,7 @@ describe('placeProps', () => {
     const roll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0.5);
     const f = face(0.5, 0.5, 0.3, roll);
     const tilted = only(placeProps(['crown'], [f], A, 0), 'crown'), upright = only(placeProps(['crown'], [face()], A, 0), 'crown');
-    expect(new THREE.Quaternion(...tilted.quat).angleTo(roll)).toBeLessThan(0.1);
+    expect(new THREE.Quaternion(...tilted.quat).angleTo(roll)).toBeLessThan(0.12);
     expect(tilted.pos[0]).toBeLessThan(upright.pos[0]); // the offset above the forehead turns with the head: to the left for a turn to the left
   });
   it('puts the glasses on the bridge of the nose', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker, inside, tilt, centre, MAX_TILT, FRAME, startScale, inShot } from './editor';
+import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker, inside, tilt, centre, MAX_TILT, FRAME, startScale, inShot, fingerOnPhoto } from './editor';
 import { existsSync } from 'node:fs';
 import { prop3dById } from '../filters/props3d';
 import { partById } from '../filters/costumes';
@@ -34,13 +34,22 @@ describe('elementToImage', () => {
 describe('startScale', () => {
   const item = (id: string) => EDITOR_STICKERS.find((s) => s.id === id)!;
   it('a sticker starts at a quarter of the photo width', () => {
-    expect(startScale(800, item('3d-crown'))).toBe(200);
-    expect(startScale(800, item('sunglasses'))).toBe(200);
+    expect(startScale(800, 600, item('3d-crown'))).toBe(200);
+    expect(startScale(800, 600, item('sunglasses'))).toBe(200);
+    expect(startScale(1280, 720, item('sunglasses'))).toBe(320);
   });
   it('the parts of a costume start in the size of one head: the hat is three face widths high, the nose is small', () => {
-    const hat = startScale(800, item('3d-witch-hat-hair')), nose = startScale(800, item('3d-witch-nose'));
-    expect(hat).toBeCloseTo(200 * 3.033, 3);
-    expect(nose).toBeCloseTo(200 * 0.648, 3);
+    const hat = startScale(324, 720, item('3d-witch-hat-hair')), nose = startScale(324, 720, item('3d-witch-nose')); // a phone upright
+    expect(hat).toBeCloseTo(81 * 3.033, 3);
+    expect(nose).toBeCloseTo(81 * 0.648, 3);
+  });
+  it('the hat of a costume starts inside a photo on its side: the head is 0.3 of the photo height at most', () => {
+    for (const [w, h] of [[1280, 720], [1280, 576], [1280, 960], [640, 480], [324, 720]]) {
+      const hat = startScale(w, h, item('3d-witch-hat-hair')), nose = startScale(w, h, item('3d-witch-nose'));
+      expect(hat, `${w}x${h}`).toBeLessThanOrEqual(h * 0.92);
+      expect(hat / nose, `${w}x${h}`).toBeCloseTo(3.033 / 0.648, 2); // the two parts fit one head
+    }
+    expect(startScale(1280, 720, item('3d-witch-hat-hair'))).toBeCloseTo(216 * 3.033, 3);
   });
 });
 
@@ -67,6 +76,29 @@ describe('hitTest and moveTo', () => {
     expect(hitTest([hat], { x: 320 + 600, y: 240 }, ring)?.id).toBe(1); // outside the old circle of 450, on a pixel of the ring
     const flat = st(2, 320, 240, 100);
     expect(hitTest([flat, hat], { x: 330, y: 240 }, ring)?.id).toBe(2); // a flat sticker under the space of the hat
+  });
+  it('a small or thin 3D sticker: the finger takes it near its middle too, as wide as a finger', () => {
+    const none = () => false; // no pixel under the finger: a butterfly from the front is a thin line
+    const small = solid(1, 100, 100, 100);
+    expect(hitTest([small], { x: 125, y: 100 }, none, 40)?.id).toBe(1);
+    expect(hitTest([small], { x: 145, y: 100 }, none, 40)).toBeNull(); // in its old circle, a finger away from the middle
+    expect(hitTest([small], { x: 145, y: 100 }, none, 80)?.id).toBe(1); // a wide finger on a small photo: not wider than the old circle
+    expect(hitTest([small], { x: 155, y: 100 }, none, 80)).toBeNull();
+    const large = solid(2, 320, 240, 900);
+    expect(hitTest([large], { x: 350, y: 240 }, none, 40)?.id).toBe(2);
+    expect(hitTest([large], { x: 420, y: 240 }, none, 40)).toBeNull(); // the space in the hat stays free
+    expect(hitTest([small], { x: 125, y: 100 }, none)).toBeNull(); // no finger size given: the pixels alone
+  });
+  it('asks for the pixels under a finger, not under a point', () => {
+    const asked: number[] = [];
+    hitTest([solid(1, 100, 100, 100)], { x: 100, y: 100 }, (_s, _u, _v, pad) => { asked.push(pad ?? -1); return true; }, 36);
+    expect(asked[0]).toBeCloseTo(18 / (100 * 2 * FRAME)); // half a finger to every side, in parts of the picture
+  });
+  it('knows the width of a finger on the photo', () => {
+    expect(fingerOnPhoto(640, 480, 800, 600)).toBeCloseTo(32 / 1.25);
+    expect(fingerOnPhoto(324, 720, 412, 915)).toBeCloseTo(32 / (915 / 720), 1);
+    expect(fingerOnPhoto(1280, 720, 412, 915)).toBeCloseTo(32 / (412 / 1280)); // a photo on its side on a phone upright: small on the screen
+    expect(fingerOnPhoto(0, 0, 0, 0)).toBe(0);
   });
   it('a 3D sticker with no picture to look at is hit in its circle, as a flat one', () => {
     const hat = solid(1, 320, 240, 200);

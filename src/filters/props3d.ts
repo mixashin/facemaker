@@ -27,13 +27,19 @@ type Rule = Worn | Pest;
 type Facts = { id: string; triangles: number; size: number[]; centre: number[]; clips: string[] };
 export type Prop3D = Rule & { id: string; icon: string; file: string; chip: string; clips: string[] };
 
-const FOREHEAD = 10, CHIN = 152, NOSE_BASE = 2, BRIDGE = 168, BROW = 151, SIDE_R = 234, SIDE_L = 454;
+const FOREHEAD = 10, NOSE_BASE = 2, BRIDGE = 168, BROW = 151, SIDE_R = 234, SIDE_L = 454;
 // The width of a head for the props: side to side, or this much of the way from the forehead to the base of
 // the nose when that is more (a face seen from the side is narrow in the picture). Both with depth, so a turn,
 // a nod and a tilt change nothing. The chin is not in the measure: a mouth that opens wide made the hat grow by
 // 20 %. The number: 0.867 of the face height as in faceon.ts, and the height is 1.68 of the way to the nose
 // (measured on a real face, 1.69 on the generic face of MediaPipe).
 const WIDE_BY_NOSE = 0.867 * 1.68;
+// The turn of the head takes the line from the base of the nose to the forehead: the chin goes down and back
+// when the mouth opens, and a hat nodded with every word. The props and the parts of the costumes were fitted
+// to the line from the chin to the forehead. On a real face with a closed mouth that line leans to the front
+// by this much more (radians, 9.3 degrees, measured on the face that the fits were made on, with true
+// proportions): the frame of the head turns by it, and every fit stays.
+const UP_FIX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.162);
 const hat = (scale: number, up: number, back = -0.55): Worn => ({ kind: 'hat', at: [FOREHEAD], offset: [0, up, back], scale });
 const orbit = (radius: number, height: number, period: number, scale: number, clip = 'fly'): Pest => ({ kind: 'pest', path: 'orbit', radius, height, period, scale, clip });
 // Order of the chips: what a child wears first, then what flies and crawls.
@@ -75,19 +81,20 @@ export function toStage(lm: Float32Array, i: number, aspect: number): THREE.Vect
 export type Head = { centre: THREE.Vector3; width: number; quat: THREE.Quaternion };
 // The head on the stage. centre: the middle between the sides of the face, in depth too (that is the middle
 // of the head). width: the face width. quat: the turn of the head. Its axes: x from side to side, y from
-// the chin to the forehead (made square to x), z out of the face.
+// the chin to the forehead of a face with a closed mouth (made square to x, see UP_FIX), z out of the face.
 export function headPose(face: Face, aspect: number): Head {
   const lm = face.landmarks;
   const right = toStage(lm, SIDE_R, aspect), left = toStage(lm, SIDE_L, aspect);
   const centre = right.clone().add(left).multiplyScalar(0.5);
   const forehead = toStage(lm, FOREHEAD, aspect);
-  const x = left.sub(right), up = forehead.clone().sub(toStage(lm, CHIN, aspect));
-  const width = Math.max(x.length(), WIDE_BY_NOSE * forehead.distanceTo(toStage(lm, NOSE_BASE, aspect)));
+  const nose = toStage(lm, NOSE_BASE, aspect);
+  const x = left.sub(right), up = forehead.clone().sub(nose);
+  const width = Math.max(x.length(), WIDE_BY_NOSE * forehead.distanceTo(nose));
   const z = new THREE.Vector3().crossVectors(x, up);
   const quat = new THREE.Quaternion();
   if (x.lengthSq() > 1e-12 && z.lengthSq() > 1e-12) { // a face with all points at one place has no turn
     x.normalize(); z.normalize();
-    quat.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, new THREE.Vector3().crossVectors(z, x), z));
+    quat.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, new THREE.Vector3().crossVectors(z, x), z)).multiply(UP_FIX);
   }
   return { centre, width, quat };
 }

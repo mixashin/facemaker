@@ -9,7 +9,7 @@ function put(landmarks: Float32Array, slot: number, fill: number) {
 function result(count: number, fill = 0.5): FaceResult {
   const landmarks = new Float32Array(2 * 478 * 3);
   put(landmarks, 0, fill); put(landmarks, 1, fill);
-  return { landmarks, count, matrices: new Float32Array(count * 16), blend: new Float32Array(count * 52), width: 640, height: 480 };
+  return { landmarks, count, blend: new Float32Array(count * 52), width: 640, height: 480 };
 }
 // Faces with no size: every point at one place
 const flat = (count: number, fill = 0.5): FaceResult => ({ ...result(count), landmarks: new Float32Array(2 * 478 * 3).fill(fill) });
@@ -68,6 +68,21 @@ describe('FaceTracker and faces that are no faces', () => {
     expect(faces).toHaveLength(1);
     expect(Array.from(faces[0].landmarks.slice(0, 6))).toEqual(Array.from(lm.slice(0, 6)));
     expect(faces[0].blend[0]).toBeCloseTo(0.75);
+  });
+  it('a face that moves into the place of a face that was left out starts fresh: no mix of two faces', () => {
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {} });
+    const both = result(2, 0.2);
+    put(both.landmarks, 1, 0.7); // the first face at 0.2, the second one at 0.7
+    t.smooth(both, 0);
+    const one = result(2, 0.2);
+    put(one.landmarks, 1, 0.7);
+    one.landmarks.fill(0.2, 0, 478 * 3); // the first face has no size now
+    const faces = t.smooth(one, 33);
+    expect(faces).toHaveLength(1);
+    expect(faces[0].landmarks[0]).toBeCloseTo(0.7, 4); // not on the way from 0.2 to 0.7
+    const back = t.smooth(both, 66); // the first face is back: the two places have their own faces again
+    expect(back[0].landmarks[0]).toBeCloseTo(0.2, 4);
+    expect(back[1].landmarks[0]).toBeCloseTo(0.7, 4);
   });
   it('a result with no face of size counts as no face', () => {
     const t = new FaceTracker({ numFaces: 2, onFaces: () => {} });
@@ -132,12 +147,13 @@ describe('FaceTracker.detectStill', () => {
   type Msg = { type: string; id?: number };
   class StillWorker {
     static last: StillWorker;
+    static readyAfterMs = 5; // -1: the worker never says ready
     posted: Msg[] = [];
     onmessage: ((e: { data: unknown }) => void) | null = null;
     constructor() { StillWorker.last = this; }
     postMessage(m: Msg) {
       this.posted.push(m);
-      if (m.type === 'init') setTimeout(() => this.onmessage?.({ data: { type: 'ready', delegate: 'CPU' } }), 5);
+      if (m.type === 'init' && StillWorker.readyAfterMs >= 0) setTimeout(() => this.onmessage?.({ data: { type: 'ready', delegate: 'CPU' } }), StillWorker.readyAfterMs);
     }
     answer(id: number, landmarks: Float32Array | null) { this.onmessage?.({ data: { type: 'still', id, landmarks } }); }
     terminate() {}
@@ -146,13 +162,56 @@ describe('FaceTracker.detectStill', () => {
   const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const started = async () => {
     (globalThis as any).Worker = StillWorker;
+    StillWorker.readyAfterMs = 5;
     const t = new FaceTracker({ numFaces: 2, onFaces: () => {} });
     t.start();
     await tick(15);
     return { t, w: StillWorker.last };
   };
 
-  it('gives null and closes the picture when the worker is not ready', async () => {
+  it('waits for a tracker that starts, and sends the picture then', async () => {
+    (globalThis as any).Worker = StillWorker;
+    StillWorker.readyAfterMs = 40;
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {}, stillStepMs: 10 });
+    t.start();
+    const p = picture(), a = t.detectStill(p);
+    await tick(20);
+    expect(StillWorker.last.posted.filter((m) => m.type === 'still')).toHaveLength(0); // not ready yet
+    await tick(60);
+    const sent = StillWorker.last.posted.filter((m) => m.type === 'still');
+    expect(sent).toHaveLength(1);
+    const found = new Float32Array(478 * 3);
+    put(found, 0, 0.2);
+    StillWorker.last.answer(sent[0].id!, found);
+    expect(await a).toBe(found);
+    t.stop();
+  });
+
+  it('gives null and closes the picture when the tracker does not get ready in time', async () => {
+    (globalThis as any).Worker = StillWorker;
+    StillWorker.readyAfterMs = -1;
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {}, stillStepMs: 10, stillWaitMs: 50 });
+    t.start();
+    const p = picture();
+    expect(await t.detectStill(p)).toBeNull();
+    expect(p.closed).toBe(true);
+    expect(StillWorker.last.posted.filter((m) => m.type === 'still')).toHaveLength(0);
+    t.stop();
+  });
+
+  it('a tracker that stops ends the wait of a picture', async () => {
+    (globalThis as any).Worker = StillWorker;
+    StillWorker.readyAfterMs = -1;
+    const t = new FaceTracker({ numFaces: 2, onFaces: () => {}, stillStepMs: 10, stillWaitMs: 5000 });
+    t.start();
+    const p = picture(), a = t.detectStill(p);
+    t.stop();
+    const first = await Promise.race([a, tick(200).then(() => 'still waits')]);
+    expect(first).toBeNull();
+    expect(p.closed).toBe(true);
+  });
+
+  it('gives null and closes the picture when the tracker does not run', async () => {
     (globalThis as any).Worker = StillWorker;
     const t = new FaceTracker({ numFaces: 2, onFaces: () => {} });
     const p = picture();
@@ -502,13 +561,86 @@ describe('FaceTracker health', () => {
     s.t.push(video, 6000); await tick(2);
     expect(s.t.health.lastError).toContain('no answer');
     expect(s.w().frames()).toHaveLength(2); // one more try
-    s.t.push(video, 12000); await tick(2);
-    s.t.push(video, 18000); await tick(2);
+    s.t.push(video, 8000); await tick(2);
+    s.t.push(video, 10000); await tick(2);
     expect(s.w().frames()).toHaveLength(2); // two are out: no more
     s.w().say({ type: 'result', result: result(1), ts: 0 });
     s.w().say({ type: 'result', result: result(1), ts: 6000 });
-    s.t.push(video, 18033); await tick(2);
+    s.t.push(video, 10033); await tick(2);
     expect(s.w().frames()).toHaveLength(3);
+    expect(W.all).toHaveLength(1); // a slow worker is no dead worker
+    s.t.stop();
+  });
+
+  it('a worker that hangs gets a new worker: the second frame has no answer too', async () => {
+    const s = setup();
+    s.t.start(); await tick(8);
+    const first = s.w();
+    first.say({ type: 'result', result: result(1), ts: 0 });
+    s.t.push(video, 0); await tick(2);
+    s.at(6000); s.t.push(video, 6000); await tick(2);
+    expect(first.frames()).toHaveLength(2);
+    expect(s.alive()).toEqual([first]);
+    s.at(11000); s.t.push(video, 11000); await tick(8);
+    expect(first.ended).toBe(true);
+    expect(s.alive()).toHaveLength(1);
+    expect(s.w().posted[0]).toMatchObject({ type: 'init', prefer: 'CPU' }); // as after a worker that died
+    expect(s.t.health.restarts).toBe(1);
+    expect(s.t.health.lastError).toContain('no answer');
+    expect(s.faces.at(-1)).toBe(0); // the faces go
+    s.t.push(video, 11033); await tick(2);
+    expect(s.w().frames()).toHaveLength(1); // the new worker works
+    s.t.stop();
+  });
+
+  it('a worker that is slow at its first frame is no worker that hangs: the model starts with the first frame', async () => {
+    const s = setup(undefined, 20000);
+    s.t.start(); await tick(8);
+    s.t.push(video, 0); await tick(2);
+    s.at(6000); s.t.push(video, 6000); await tick(2);
+    expect(s.w().frames()).toHaveLength(2);
+    s.at(11000); s.t.push(video, 11000); await tick(8);
+    s.at(13000); s.t.push(video, 13000); await tick(8);
+    expect(W.all).toHaveLength(1); // no new worker
+    expect(s.t.health.restarts).toBe(0);
+    expect(s.fell).toEqual([]); // and no mark of a failed GPU
+    s.w().say({ type: 'result', result: result(1), ts: 0 });
+    s.w().say({ type: 'result', result: result(1), ts: 6000 });
+    s.t.push(video, 13033); await tick(2);
+    expect(s.w().frames()).toHaveLength(3); // the frames go on
+    s.t.stop();
+  });
+
+  it('a worker that gives no answer to its first frames in the time of a start gets a new worker', async () => {
+    const s = setup(undefined, 20000);
+    s.t.start(); await tick(8);
+    const first = s.w();
+    s.t.push(video, 0); await tick(2);
+    s.at(6000); s.t.push(video, 6000); await tick(2);
+    s.at(25000); s.t.push(video, 25000); await tick(8);
+    expect(s.alive()).toEqual([first]);
+    s.at(26100); s.t.push(video, 26100); await tick(8);
+    expect(first.ended).toBe(true);
+    expect(s.alive()).toHaveLength(1);
+    expect(s.t.health.restarts).toBe(1);
+    s.t.stop();
+  });
+
+  it('no start is left and the worker hangs: one error for every wait, not one for every frame', async () => {
+    const s = setup('CPU');
+    s.t.start(); await tick(8);
+    for (let i = 0; i < 6; i++) { s.at(i * 5000); s.w().onerror?.({ message: 'x' }); await tick(8); }
+    expect(W.all).toHaveLength(7); // the first one and six new starts
+    s.w().say({ type: 'result', result: result(1), ts: 0 }); // the worker ran, then it hangs
+    s.at(40000); s.t.push(video, 40000); await tick(2);
+    s.at(46000); s.t.push(video, 46000); await tick(2);
+    const errors = s.t.health.errors;
+    s.at(52000); s.t.push(video, 52000); s.t.push(video, 52033); s.t.push(video, 52066); await tick(2);
+    expect(s.t.health.errors).toBe(errors + 1);
+    s.at(57100); s.t.push(video, 57100); s.t.push(video, 57133); await tick(2);
+    expect(s.t.health.errors).toBe(errors + 2);
+    expect(W.all).toHaveLength(7);
+    expect(s.w().frames()).toHaveLength(2); // no pile of frames
     s.t.stop();
   });
 });

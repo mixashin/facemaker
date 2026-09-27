@@ -12,7 +12,7 @@ function face(): Face {
   for (let i = 468; i < 473; i++) set(i, 0.42, 0.45); // left iris
   for (let i = 473; i < 478; i++) set(i, 0.58, 0.45); // right iris
   set(4, 0.5, 0.5);                                 // nose tip
-  return { landmarks: lm, matrix: new Float32Array(16), blend: new Float32Array(52) };
+  return { landmarks: lm, blend: new Float32Array(52) };
 }
 
 describe('handlesFor', () => {

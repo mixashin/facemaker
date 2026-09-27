@@ -8,7 +8,7 @@ function face(x: number): Face {
   const lm = new Float32Array(478 * 3);
   for (let i = 0; i < 478; i++) { lm[i * 3] = x; lm[i * 3 + 1] = 0.5; }
   lm[234 * 3] = x - 0.1; lm[454 * 3] = x + 0.1; // face width 0.2 of the picture
-  return { landmarks: lm, matrix: new Float32Array(16), blend: new Float32Array(52) };
+  return { landmarks: lm, blend: new Float32Array(52) };
 }
 function setup(looks?: Look[]) {
   const clears: number[] = [], drawn: unknown[] = [];

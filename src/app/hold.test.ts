@@ -26,6 +26,15 @@ describe('createHold', () => {
     expect(events).toEqual(['holdStart', 'holdEnd']);
   });
 
+  it('a press that was cancelled (the page went to the background with the finger down) does not eat the next tap', () => {
+    const h = mk();
+    h.down(); vi.advanceTimersByTime(100);
+    h.cancel(); // no finger-up comes in the background
+    vi.advanceTimersByTime(3000);
+    h.down(); vi.advanceTimersByTime(100); h.up();
+    expect(events).toEqual(['tap']);
+  });
+
   it('a cancelled short press does nothing: no photo when the finger slides off', () => {
     const h = mk();
     h.down(); vi.advanceTimersByTime(100); h.cancel();

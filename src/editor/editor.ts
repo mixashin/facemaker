@@ -37,9 +37,19 @@ export const EDITOR_STICKERS: PaletteItem[] = [
 
 const MIN_SCALE = 16;
 // The size of a new sticker: its long side is a quarter of the photo width. A 3D prop is about as wide as a
-// face, so that is a face of a quarter of the photo width. The parts of a costume start in the size of that
-// same head: the hat with the hair is three face widths high, the nose is small, and they fit each other.
-export const startScale = (photoWidth: number, item: PaletteItem): number => photoWidth * 0.25 * (item.grow ?? 1);
+// face, so that is a face of a quarter of the photo width. The parts of a costume start in the size of one
+// head: the hat with the hair is three face widths high, the nose is small, and they fit each other. That
+// head is 0.3 of the photo height at most: on a photo on its side the hat was higher than the photo.
+export function startScale(photoWidth: number, photoHeight: number, item: PaletteItem): number {
+  return item.grow === undefined ? photoWidth * 0.25 : Math.min(photoWidth * 0.25, photoHeight * 0.3) * item.grow;
+}
+
+// The width of a finger on the photo, in photo pixels. The photo lies in its element whole (object-fit: contain).
+export const FINGER_PX = 32;
+export function fingerOnPhoto(imgW: number, imgH: number, elW: number, elH: number, px = FINGER_PX): number {
+  const k = Math.min(elW / imgW, elH / imgH);
+  return k > 0 && Number.isFinite(k) ? px / k : 0;
+}
 // A flat sticker tilts 75 degrees at most: at 90 degrees a card is a line, and the child loses it
 export const MAX_TILT = 1.3;
 // A shot shows this many units to every side of the middle of the sticker. One unit is the long side of the
@@ -66,21 +76,26 @@ export function inShot(s: EditorSticker, p: P): { u: number; v: number } {
   return { u: (s.flip ? -x : x) / d + 0.5, v: y / d + 0.5 };
 }
 
-// Has the sticker a pixel at this place of its picture? null: there is no picture to look at (src/editor/shots.ts)
-export type Covers = (s: EditorSticker, u: number, v: number) => boolean | null;
+// Has the sticker a pixel at this place of its picture? pad: half the width of the finger, in parts of the
+// picture. null: there is no picture to look at (src/editor/shots.ts)
+export type Covers = (s: EditorSticker, u: number, v: number, pad?: number) => boolean | null;
 
 // The sticker under the finger: the smallest one, and of two with one size the one on top. A large sticker
 // can go around a small one (the hat with the hair of a costume goes around the head, and the nose is on the
 // face): with "the one on top" alone no finger reached the small one.
-// A flat sticker is hit in a circle. A 3D sticker is hit where it has a pixel: the hat of a costume at the
-// size of a head had a circle as large as the photo, and the first finger of every gesture took the hat.
-export function hitTest(stickers: EditorSticker[], p: P, covers?: Covers): EditorSticker | null {
+// A flat sticker is hit in a circle. A 3D sticker is hit where it has a pixel under the finger: the hat of a
+// costume at the size of a head had a circle as large as the photo, and the first finger of every gesture took
+// the hat. It is hit near its middle too, as wide as a finger: a butterfly from the front is a thin line, and
+// a small prop has few pixels.
+// finger: the width of a finger in photo pixels (fingerOnPhoto)
+export function hitTest(stickers: EditorSticker[], p: P, covers?: Covers, finger = 0): EditorSticker | null {
   let hit: EditorSticker | null = null;
   for (let i = stickers.length - 1; i >= 0; i--) {
     const s = stickers[i];
     if (hit && s.scale >= hit.scale) continue;
-    const at = s.model && covers ? inShot(s, p) : null, seen = at ? covers!(s, at.u, at.v) : null;
-    if (seen ?? Math.hypot(p.x - s.x, p.y - s.y) <= s.scale / 2) hit = s;
+    const far = Math.hypot(p.x - s.x, p.y - s.y);
+    const at = s.model && covers ? inShot(s, p) : null, seen = at ? covers!(s, at.u, at.v, finger / 2 / (s.scale * 2 * FRAME)) : null;
+    if (seen === null ? far <= s.scale / 2 : seen || (finger > 0 && far <= Math.min(s.scale / 2, finger))) hit = s;
   }
   return hit;
 }

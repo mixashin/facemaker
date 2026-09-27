@@ -138,7 +138,7 @@ describe('windows', () => {
   it('stay inside the quad with a wide open mouth, a big head and a loud shout', () => {
     const lm = face();
     for (const i of [17, 84, 181, 314, 405, 14, 87, 317, 91, 146, 321, 375]) lm[i * 3 + 1] += 0.3 * 0.25 * A; // lower lip down by a quarter of the face width
-    const f: Face = { landmarks: lm, matrix: new Float32Array(16), blend: new Float32Array(52) };
+    const f: Face = { landmarks: lm, blend: new Float32Array(52) };
     const w = windows(lm, handlesForAll(['bigHead', 'shout', 'bigMouth'], [f], A, 1), A);
     for (const [cx, cy, rx, ry] of w) {
       expect(Math.abs(cx) + rx).toBeLessThan(SPAN / 2);

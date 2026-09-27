@@ -55,7 +55,7 @@ async function init(wasmPath: string, modelPath: string, faces: number, prefer: 
       numFaces,
       outputFaceBlendshapes: true,
       // Off on purpose. The step that makes these matrices (face geometry) stops the whole graph when one face
-      // has no size, and a graph with an error stays broken. Nothing in the app reads the matrices.
+      // has no size, and a graph with an error stays broken. The app takes the pose of the head from the landmarks.
       outputFacialTransformationMatrixes: false,
       canvas: delegate === 'GPU' ? new OffscreenCanvas(1, 1) : undefined,
     });
@@ -84,7 +84,6 @@ function frame(bitmap: ImageBitmap, ts: number) {
   }
   const count = Math.min(res.faceLandmarks.length, numFaces);
   const landmarks = new Float32Array(numFaces * 478 * 3);
-  const matrices = new Float32Array(count * 16);
   const blend = new Float32Array(count * 52);
   for (let f = 0; f < count; f++) {
     const lm = res.faceLandmarks[f];
@@ -92,13 +91,11 @@ function frame(bitmap: ImageBitmap, ts: number) {
       const o = (f * 478 + i) * 3;
       landmarks[o] = lm[i].x; landmarks[o + 1] = lm[i].y; landmarks[o + 2] = lm[i].z;
     }
-    const m = res.facialTransformationMatrixes?.[f]?.data;
-    if (m) matrices.set(m, f * 16);
     const b = res.faceBlendshapes?.[f]?.categories;
     if (b) for (let i = 0; i < 52 && i < b.length; i++) blend[f * 52 + i] = b[i].score;
   }
-  const result: FaceResult = { landmarks, count, matrices, blend, width: w, height: h };
-  post({ type: 'result', result, ts }, [landmarks.buffer, matrices.buffer, blend.buffer]);
+  const result: FaceResult = { landmarks, count, blend, width: w, height: h };
+  post({ type: 'result', result, ts }, [landmarks.buffer, blend.buffer]);
 }
 
 // A still picture: a second landmarker in IMAGE mode, on the CPU. The video one keeps its state.

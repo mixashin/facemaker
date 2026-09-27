@@ -429,10 +429,10 @@ Open:
 
 ### State
 
-- [x] Live: the release (#27), the gear fix (#29), the pig (#30), the fixes after two reviews (#31). Version on the live site after #31: `2026-09-27 14:59 bf377c3` (a later merge of documents gives a new version with the same code). Full headless check on the live site with gallery and record: 72 verdicts OK, zero third-party requests.
-- [x] Only `main` is left, local and on GitHub, after the merge of this documents update. No worktree, no agent.
-- [x] Art: no request is open. Brief version 14.
-- [ ] Next work, in this order unless the operator says otherwise: the known defects below (the camera in the background is fixed on branch `camera-background`), then the open minor findings of the two reviews, then the plan for M5.
+- [x] Live: the release (#27), the gear fix (#29), the pig (#30), the fixes after two reviews (#31), no camera and no mic in the background (#33), costume parts in the photo editor (#34). The operator gave the word for #33 and #34 on 2026-09-27 in the evening. Version on the live site: `2026-09-27 18:45 08bc479`. Full headless check on the live site with gallery and record: 83 verdicts OK, zero third-party requests.
+- [x] Branches: `main`, and `review-minors` with its pull request (the minor findings of the reviews, and the fixes after the third review).
+- [x] Art: no request is open. Brief version 15 (the renders of the costume parts are the chips of the photo editor).
+- [ ] Next work, in this order unless the operator says otherwise: the operator's word for the pull request of `review-minors`, the operator's device checks, then the grill for M5 (agenda below).
 
 The sections below are the record of the day. Open items have an empty box.
 
@@ -512,17 +512,17 @@ Minor, fixed: `usable` asks for 478 points and refuses a face wider than four pi
 
 Minor, open:
 
-- [ ] A worker that hangs (no answer, no error) gives one error and no new start: after the second frame with no answer for 5 s, treat the worker as failed. Change the test "a frame with no answer does not block the tracker for ever" with it. Not seen on a device.
-- [ ] When a face before the last one is left out (`usable`), the next face moves into its place and takes its filter: reset the filter when the source of a place changes. MediaPipe packs its list the same way when a face leaves.
-- [ ] A new start of the tracker during the search in a device photo answers "no face" (`FaceOnPanel.tsx`): try one more time when the tracker is not ready.
-- [ ] The field `matrix` of a face is always zero now and still goes through the whole chain (`types.ts`, `faceTracker.ts`, `face.worker.ts`): remove it.
-- [ ] `headPose`: the chin is out of the width and still in the turn of the head. A mouth that opens wide tilts the head frame by about 4 degrees (made face). Take `up` from the forehead and the base of the nose, and check the fit of the witch again after that.
+- [x] A worker that hangs (no answer, no error) gives one error and no new start: after the second frame with no answer for 5 s, treat the worker as failed. Change the test "a frame with no answer does not block the tracker for ever" with it. Not seen on a device. Done on `review-minors`: the second frame with no answer for 5 s gives a new worker, as a worker that died.
+- [x] When a face before the last one is left out (`usable`), the next face moves into its place and takes its filter: reset the filter when the source of a place changes. MediaPipe packs its list the same way when a face leaves. Done on `review-minors`: the filter of a place starts fresh when another face of the tracker comes to it.
+- [x] A new start of the tracker during the search in a device photo answers "no face" (`FaceOnPanel.tsx`): try one more time when the tracker is not ready. Done on `review-minors`, in the tracker: a still picture waits up to 8 s for a tracker that starts.
+- [x] The field `matrix` of a face is always zero now and still goes through the whole chain (`types.ts`, `faceTracker.ts`, `face.worker.ts`): remove it. Done on `review-minors`: the field is gone.
+- [x] `headPose`: the chin is out of the width and still in the turn of the head. A mouth that opens wide tilts the head frame by about 4 degrees (made face). Take `up` from the forehead and the base of the nose, and check the fit of the witch again after that. Done on `review-minors`: the turn takes the line from the base of the nose to the forehead, with a fixed correction of 9.3 degrees. The fit of the witch on the real face is the same (58 dB against the picture before).
 - [ ] `headPose`: the width holds in every pose only when the depth of the tracker has the scale of x. With a depth of 0.7 the width changes by 7 % at most in a nod. Measure on the phone with a nod.
 - [ ] The neck shape turns with the head, the real neck does not: with a tilt of the head the curls beside the shape lie over the throat. No simple cure.
-- [ ] `likeTheCamera`: the list "one time per material" lives for one call. A second call on the same model would give the factor two times (today: one call per load). Two colours of the witch pass 1.0 after the factor and clip by 2.5 % on a surface that faces the sun. No test covers the `/costumes/` branch of the layer.
-- [ ] Headless check "above the face" of the witch compares with a picture that holds the crown and the bee: take the picture before with the bee only.
-- [ ] The phone tool: a process that is killed leaves its port forward in adb. Remove old forwards of the tool at its start (not the forwards of other tools).
-- [ ] The update button can clear the GPU mark too, so a release that repairs the GPU path reaches a marked device at once (now: after 7 days at most).
+- [x] `likeTheCamera`: the list "one time per material" lives for one call. A second call on the same model would give the factor two times (today: one call per load). Two colours of the witch pass 1.0 after the factor and clip by 2.5 % on a surface that faces the sun. No test covers the `/costumes/` branch of the layer. Done on `editor-costume-parts`: a material gets the factor one time, and a test covers the costume files of the layer. Open: two colours of the witch clip by 2.5 %.
+- [x] Headless check "above the face" of the witch compares with a picture that holds the crown and the bee: take the picture before with the bee only. Done on `review-minors`: the check compares with a picture that has no hat.
+- [x] The phone tool: a process that is killed leaves its port forward in adb. Remove old forwards of the tool at its start (not the forwards of other tools). Done on `review-minors`: the tool keeps a record of its ports and removes the forwards of an earlier run. Not run with a phone yet.
+- [x] The update button can clear the GPU mark too, so a release that repairs the GPU path reaches a marked device at once (now: after 7 days at most). Done on `review-minors`.
 
 ### Second review, of the gear fix and of the fixes above (2026-09-27): live with #31
 
@@ -539,7 +539,7 @@ One fresh reviewer: no important finding in the two commits, ready to merge. One
 Open:
 
 - [ ] `video.full` keeps a band of 96 px at the bottom for the row of buttons: check the video controls in the viewer on a low screen on a device.
-- [ ] The phone tool compares the host, not the scheme (`http:`, `content:` with the host of the app pass). No real page of another owner with that host is known.
+- [x] The phone tool compares the host, not the scheme (`http:`, `content:` with the host of the app pass). No real page of another owner with that host is known. Done on `review-minors`: https, or http on this computer only. Not run with a phone yet.
 - [ ] The phone tool: Ctrl+Break and a closed console window are handled in the code and not tried by hand on Windows.
 
 ### The gear took no tap on a high screen on its side (operator, 2026-09-27): live with #29
@@ -552,7 +552,7 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [x] Merged on the operator's word on 2026-09-27 at 14:14 UTC (#29), deploy success, version `2026-09-27 14:15 2d4eb43`. The gear opens the settings on the live site on six screen shapes (headless, by finger).
 - [ ] Operator: tap the gear on the tablet on its side, and on the open fold phone on its side.
 
-### The camera in the background (2026-09-27): fixed on `camera-background`
+### The camera in the background (2026-09-27): live with #33
 
 - [x] Proof of the defect on the live site (headless, page set to hidden): the track stayed `live`.
 - [x] The page is hidden: the app stops the tracks of the camera. The page is back: the camera starts again, also when it was on its way before (`startOnReturn`). The error screens stay as they are.
@@ -570,7 +570,7 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [ ] Not covered by the headless check: a hidden event of the browser itself (the check sets the state by hand, and frames still run there). The reviewer ran a tab in the back for 11 s: tracker results came again, no error, no new start.
 - [ ] Operator, on the phone: put the app in the background. The camera sign of Android (green dot) goes off. A second page with the app gets a picture. Back in the first app: the picture comes again in about a second.
 
-### The photo editor: costume parts and the two-finger hold (2026-09-27): on branch `editor-costume-parts`
+### The photo editor: costume parts and the two-finger hold (2026-09-27): live with #34
 
 - [x] The 3D parts of a costume are stickers in the palette of the photo editor, after the 3D props: the hat of the witch with its hair, and her nose. The child places them by hand, as every sticker (one finger moves, two fingers scale and turn, three fingers turn in depth).
 - [x] The chip of a part comes from the render that Astra delivered with the part (`<part>.png`). The import job makes `public/costumes/<id>/<part>-chip.webp` and refuses a part with no render. No new art request.
@@ -589,6 +589,48 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [ ] Seen by the reviewer, older than this work: on a phone upright a new sticker lands under the open palette, and the chips of the palette are 58 px wide there, not 64 px.
 - [ ] A picture buffer of 2048 px on a phone with little memory: not tried on a device.
 - Install size: precache 202 entries, 8.3 MB.
+
+### The minor findings of the reviews (2026-09-27): on branch `review-minors`
+
+- [x] Ten findings of the two reviews after the release are fixed, with tests first. The list is in the two review sections above (each line names its cure).
+- [x] The head pose: measured on the real face with true proportions (`FACE_FIT=crop`). The default test picture is stretched, and the lean of the face lines is wrong there: a check of a fit needs the true proportions.
+- [ ] Open, needs a device: the width of the head in a nod (`headPose`), the video controls of the viewer on a low screen (`video.full`), Ctrl+Break and a closed console window with the phone tool.
+- [ ] Open, no simple cure: the neck shape turns with the head.
+- [ ] Not run with a phone: the two changes of the phone tool (`scripts/phone-inspect.mjs`). Their logic has unit tests (`ownAddress`, `staleForwards`).
+
+### Third review (2026-09-27, evening): of the fixes in #33 and #34, and of `review-minors`
+
+The fix commits of #33 and #34 went live before this review ended (the operator wanted to test). Its findings are fixed on `review-minors`.
+
+- [x] Important, was live with #34: a small or thin 3D sticker was hard to hit in the editor (one tap of five took the butterfly on a phone). The editor read a square of 3 % of the picture of the sticker. Now it reads a square as wide as a finger, and a 3D sticker takes a tap near its middle too. Taps that take the butterfly: 20 % then 59 % of its old circle, the nose 51 % then 100 %.
+- [x] Important on a slow device: the rule for a worker that hangs ended a worker whose first frame took 11 s, six times in a row, and the app left a GPU that worked. Now a worker that gave no result yet has the time of a start (20 s).
+- [x] The hat of the witch started higher than a photo on its side. Now the head of a part is 0.3 of the photo height at most.
+- [x] Was live with #33: the first tap on the shutter after a return was lost when the page hid with the finger down. Now the press ends when the page hides.
+- [x] Was live with #33: the mic stayed on for the idle time in the background after an audio engine that failed.
+- [x] A second run of the phone tool removed the port forward of a run that worked. The record holds the process of each run now.
+- [x] Tests for the update button and the forced tracker. A line with no effect in the hang rule is gone. 41 mutants by the reviewer: 39 caught before these fixes.
+- [x] The headless check left a copy of the camera feed (the private photo) in the temp folder at every run. Now it removes the copy when it ends. 314 old folders of the project's scripts are removed from the temp folder (2.5 GB).
+- [x] Documents: the sentence on the error screens in `CLAUDE.md`, the transformation matrix in `docs/SPEC.md`.
+- [ ] Open, the child sees no sign of work while the camera starts. At the first start with a busy camera the screen is empty for 2.5 s. At a return with a slow camera the buttons are there and the shutter does nothing. A start has no time limit (a limit must not count while the permission question is open).
+- [ ] Open, older: two faces that change their places in the list of the tracker glide to each other for about 3 frames. Not seen on a device, and not known if MediaPipe changes the order.
+- [ ] Open: the headless verdict "the person stays, the background goes" fails with `FACE_FIT=crop` (it needs room around the person). A limit of the verdict.
+- [ ] Open: the new frame of the head shakes 26 % more than the old one with equal noise (1.0 against 0.8 degrees at a noise of 0.002). If a hat shakes on the phone: smooth the turn.
+
+### M5 plan: agenda for the grill (2026-09-27, prepared, no decision made)
+
+The spec (`docs/SPEC.md`, M5) is from before the 3D props and the costumes on the head. The grill with the operator comes first, then the plan. Questions for the grill, in this order:
+
+1. Flat or 3D. The spec says flat sprites on the body (a torso quad, limb sprites between joints). The app has a 3D way now: parts by Astra around a stand-in, hidden shapes that write depth, one frame per head. Body costumes as flat sprites, as 3D parts in a body frame, or both?
+2. How much of the body. A phone in the hand shows head and shoulders. A full body needs a device that stands some metres away. First target: shoulders and chest, the upper body, or the full body?
+3. The first costumes. The spec names clown suit, princess dress, gala dress, superhero, mermaid tail. Which two come first?
+4. One costume or two lists. The witch is a chip of the makeup list that wears parts on the head. Does a body costume join such a chip (the witch gets a dress), or has the body its own tab?
+5. Persons. The face tracker follows two faces. Body costumes for one person or for two?
+6. Trackers. The pose tracker is a third model beside the face tracker and the person mask. Can it take the place of the person mask (it gives masks too)? The answer needs a spike with numbers on a phone: frames per second, memory, size of the model file.
+7. Install size. The precache is 8.3 MB now. The pose model in the precache, or loaded at first use?
+8. Photo editor. Body parts as stickers there too?
+9. Art. Astra needs a body stand-in as a template (as `head-standin.obj`), and a rule for cloth that must bend at the joints. Rigid parts only in the first step?
+10. Scenes of the spec ("in water", "on the sun"): are they part of M5, or do the seven places of M4c cover them?
+11. Steps and pull requests. Proposal: a spike of the pose tracker with numbers, then the first costume, then the mermaid tail. A phone check for each.
 
 ### Known defects, not fixed yet
 

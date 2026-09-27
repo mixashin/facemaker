@@ -1,11 +1,14 @@
 // The button "get the newest version" in the settings (operator, 2026-09-27). The app updates by itself at the
 // second start after a release. The button does it now: it drops the offline copy of the app (service worker and
 // caches, the ML files too) and loads the app again from the network. Photos and videos are not in these caches.
+import { FELL_KEY } from '../tracking/health';
+
 export type UpdateEnv = {
   reach: () => Promise<boolean>; // true when the server of the app answers
   workers: () => Promise<{ unregister(): Promise<boolean> }[]>;
   cacheKeys: () => Promise<string[]>;
   dropCache: (key: string) => Promise<boolean>;
+  forget: () => void; // what the device keeps about the old version and the new one must find out again
   reload: () => void;
 };
 
@@ -17,6 +20,7 @@ export async function forceUpdate(env: UpdateEnv): Promise<'done' | 'offline'> {
   } catch (e) {
     console.warn('update', e); // the new load repairs a half step: the service worker builds its caches again
   }
+  try { env.forget(); } catch { /* storage unavailable */ }
   env.reload();
   return 'done';
 }
@@ -32,5 +36,8 @@ export const browserEnv = (): UpdateEnv => ({
   workers: async () => [...((await navigator.serviceWorker?.getRegistrations()) ?? [])],
   cacheKeys: () => caches.keys(),
   dropCache: (k) => caches.delete(k),
+  // The mark of a GPU that failed (src/tracking/health.ts): a release that repairs the GPU path reaches a marked
+  // device at once, not after the days of the mark. A tracker that somebody forced stays forced.
+  forget: () => localStorage.removeItem(FELL_KEY),
   reload: () => location.replace('/?u=' + Date.now()), // a new address: the page does not come from the HTTP cache
 });

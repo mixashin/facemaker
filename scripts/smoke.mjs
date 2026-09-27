@@ -211,15 +211,20 @@ if (state.fm?.faces > 0) {
     });
     const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 40) n++; return n; };
     const placed = () => page.evaluate(() => [...globalThis.__fm.placed()].sort().join('+')); // what the 3D layer draws, not what was asked for
-    await click('props3d'); await click('none'); await click('crown'); await click('bee');
+    // bare: the picture with no hat. The crown is above the face too: a picture with the crown as the base
+    // changes above the face when the crown goes, with no hat of the witch at all.
+    await click('props3d'); await click('none'); await click('bee');
     await click('makeup'); await click('none'); await page.waitForTimeout(2500);
+    const bare = await snap();
+    await click('props3d'); await click('crown'); await page.waitForTimeout(2500);
     const before = await snap(), had = await placed();
+    await click('makeup');
     await click('paint-witch'); await page.waitForTimeout(3500); // the two parts load
     const dressed = await snap(), wears = await placed();
     if (out) writeFileSync(`${out}/costume-witch.png`, await page.locator('canvas').screenshot());
     // the hat is above the face, where no paint is: the top fifth of the picture must change too
     const top = (a) => a.slice(0, 160 * 24 * 4);
-    console.log('the witch puts on paint, hat with hair and nose: parts', wears, '| pixels that changed', differ(before, dressed), '| above the face', differ(top(before), top(dressed)), had === 'bee+crown' && wears === 'bee+witch-hat-hair+witch-nose' && differ(before, dressed) > 2500 && differ(top(before), top(dressed)) > 300 ? 'OK' : 'FAIL');
+    console.log('the witch puts on paint, hat with hair and nose: parts', wears, '| pixels that changed', differ(before, dressed), '| above the face, against no hat', differ(top(bare), top(dressed)), had === 'bee+crown' && wears === 'bee+witch-hat-hair+witch-nose' && differ(before, dressed) > 2500 && differ(top(bare), top(dressed)) > 300 ? 'OK' : 'FAIL');
     await click('paint-witch'); await page.waitForTimeout(800); // a second tap takes the costume off
     const after = await placed();
     console.log('the costume goes, the chosen hat comes back:', after, after === 'bee+crown' ? 'OK' : 'FAIL');

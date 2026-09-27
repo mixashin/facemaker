@@ -11,7 +11,10 @@
 //   PHONE_GO="/?tracker=gpu" node scripts/phone-inspect.mjs   # goes to an address inside the app first
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:net';
-import { ownPages } from './phone-pages.mjs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { ownPages, ownAddress, staleForwards } from './phone-pages.mjs';
 
 // A free port of this computer. A fixed one can belong to another program, and then the tool reads a wrong browser.
 const PORT = await new Promise((ok) => { const s = createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); }); });
@@ -25,8 +28,17 @@ if (!devices.length) { console.error('No phone. Attach it by USB, turn on USB de
 console.log('phone:', adb('shell', 'getprop', 'ro.product.model'), '| Android', adb('shell', 'getprop', 'ro.build.version.release'), '| chip', adb('shell', 'getprop', 'ro.soc.model') || adb('shell', 'getprop', 'ro.board.platform'));
 const screen = adb('shell', 'dumpsys', 'deviceidle');
 if (/mScreenLocked=true/.test(screen) || /mScreenOn=false/.test(screen)) { console.error('The phone is locked or its screen is off. Unlock it and open facemaker: the camera cannot start on a locked phone.'); process.exit(1); }
+// The tool writes down the ports that it forwards. A run that was killed leaves its forward: the next run
+// removes it. Forwards of other tools are not in the record and stay.
+const RECORD = join(tmpdir(), 'facemaker-phone-forwards.json');
+const record = () => { try { return JSON.parse(readFileSync(RECORD, 'utf8')); } catch { return []; } };
+const keep = (ports) => { try { writeFileSync(RECORD, JSON.stringify(ports)); } catch { /* no record: the next run removes nothing */ } };
+const old = staleForwards(adb('forward', '--list'), record());
+for (const p of old) { try { adb('forward', '--remove', `tcp:${p}`); } catch { /* gone */ } }
+if (old.length) console.log('removed port forwards of an earlier run:', old.length);
+keep([PORT]);
 adb('forward', `tcp:${PORT}`, 'localabstract:chrome_devtools_remote');
-const unforward = () => { try { adb('forward', '--remove', `tcp:${PORT}`); } catch { /* the forward is gone with the cable */ } };
+const unforward = () => { try { adb('forward', '--remove', `tcp:${PORT}`); keep([]); } catch { /* the forward is gone with the cable */ } };
 // Ctrl+C, Ctrl+Break, a closed console window, an end from outside: the forward must go too. While it is there,
 // every program on this computer can reach the browser of the phone.
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) process.on(sig, () => { unforward(); process.exit(130); });
@@ -35,7 +47,7 @@ for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) process.on(sig, (
 // The person at the phone can go to another address in the same tab while the tool waits: then the page says
 // only that it left, and the tool prints nothing of it.
 const READ = `(async () => {
-  if (location.host !== ${JSON.stringify(match)}) return { left: true };
+  if (!(${ownAddress.toString()})(location.protocol, location.host, location.hostname, ${JSON.stringify(match)})) return { left: true };
   const fm = globalThis.__fm, v = document.querySelector('video');
   const gl = document.createElement('canvas').getContext('webgl2');
   const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');

@@ -3,7 +3,7 @@ import type { WorkerIn, WorkerOut, FaceResult } from './types';
 import { Health, START_LIMIT_MS, type Action, type Prefer } from './health';
 import { usable } from './faces';
 
-export type Face = { landmarks: Float32Array; matrix: Float32Array; blend: Float32Array };
+export type Face = { landmarks: Float32Array; blend: Float32Array };
 
 type Opts = {
   numFaces: number;
@@ -15,11 +15,14 @@ type Opts = {
   now?: () => number;
   first?: Prefer; // the tracker of the first start, when it is not `prefer` (src/tracking/health.ts, firstStart)
   onFall?: () => void; // the tracker left the GPU by itself
+  stillWaitMs?: number; // how long a still picture waits for a tracker that starts
+  stillStepMs?: number;
 };
 
 const LM = 478 * 3;
 const MISS_LIMIT = 10;
-const STALL_MS = 5000; // a frame with no answer for this long: the tracker takes the next frame
+const STILL_WAIT_MS = 8000; // a new start after an error takes 5 s of wait and the start itself
+const STALL_MS = 5000; // a frame with no answer for this long: one more frame. No answer to that one too: the worker hangs
 
 export class FaceTracker {
   private worker: Worker | null = null;
@@ -29,6 +32,7 @@ export class FaceTracker {
   private last: Face[] = [];
   private filters: OneEuroArray[];
   private present: boolean[];
+  private source: number[]; // the place in the list of the tracker, of the face in every place of the app
   private misses = 0;
   private stills = new Map<number, (lm: Float32Array | null) => void>();
   private stillId = 0;
@@ -39,6 +43,7 @@ export class FaceTracker {
   constructor(private opts: Opts) {
     this.filters = Array.from({ length: opts.numFaces }, () => new OneEuroArray(LM));
     this.present = new Array(opts.numFaces).fill(false);
+    this.source = new Array(opts.numFaces).fill(-1);
     this.health = new Health(opts.prefer ?? 'auto');
   }
 
@@ -112,8 +117,16 @@ export class FaceTracker {
     if (!this.worker || !this.ready || video.readyState < 2) return;
     if (this.open > 0) {
       // One frame at a time. A frame with no answer for a long time: one more try, never a pile of frames.
-      if (this.open > 1 || tMs - this.sentAt < STALL_MS) return;
+      if (tMs - this.sentAt < STALL_MS) return;
       const text = `no answer to a frame in ${STALL_MS / 1000} s`, w = this.worker;
+      if (this.open > 1) {
+        // The second frame has no answer too: the worker hangs. It is handled as a worker that died: no more
+        // frames, and a new worker. With no start left the worker stays, with one error for every wait.
+        this.sentAt = tMs;
+        if (this.health.wait(this.now()) !== null) this.ready = false;
+        this.fail(text, this.health.failed(text, this.now()));
+        return;
+      }
       this.fail(text, this.health.error(text, this.now()));
       if (this.worker !== w || !this.ready) return; // a new start is on its way
     }
@@ -127,9 +140,13 @@ export class FaceTracker {
   }
 
   // One picture, not a video frame: the device photo of face-on mode. The picture is handed over and closed.
-  // Result: the landmarks of the first face, or null (no face, worker not ready, tracker stopped).
-  detectStill(bitmap: ImageBitmap): Promise<Float32Array | null> {
-    if (!this.worker || !this.ready) { bitmap.close(); return Promise.resolve(null); }
+  // Result: the landmarks of the first face, or null (no face, tracker stopped, tracker not ready in time).
+  // A tracker that starts (the first start, a new start after errors) is not ready for some seconds: the
+  // picture waits for it. Without the wait the answer was "no face" for a photo with a face.
+  async detectStill(bitmap: ImageBitmap): Promise<Float32Array | null> {
+    const step = this.opts.stillStepMs ?? 100, tries = (this.opts.stillWaitMs ?? STILL_WAIT_MS) / step;
+    for (let i = 0; this.worker && !this.ready && i < tries; i++) await new Promise((r) => setTimeout(r, step));
+    if (!this.worker || !this.ready) { bitmap.close(); return null; }
     const id = ++this.stillId;
     return new Promise((resolve) => {
       this.stills.set(id, resolve);
@@ -163,11 +180,14 @@ export class FaceTracker {
     const out: Face[] = [];
     for (let f = 0; f < this.opts.numFaces; f++) {
       if (f >= which.length) { if (this.present[f]) { this.filters[f].reset(); this.present[f] = false; } continue; }
-      if (!this.present[f]) { this.filters[f].reset(); this.present[f] = true; }
       const from = which[f], src = r.landmarks.subarray(from * LM, (from + 1) * LM);
+      // A face before this one was left out, or it is back: another face comes to this place. It starts fresh,
+      // the filter must not lead it from the place of the other face to its own.
+      if (!this.present[f] || this.source[f] !== from) { this.filters[f].reset(); this.present[f] = true; }
+      this.source[f] = from;
       const dst = new Float32Array(LM);
       this.filters[f].filter(src, dst, tMs);
-      out.push({ landmarks: dst, matrix: r.matrices.slice(from * 16, from * 16 + 16), blend: r.blend.slice(from * 52, from * 52 + 52) });
+      out.push({ landmarks: dst, blend: r.blend.slice(from * 52, from * 52 + 52) });
     }
     this.last = out;
     return out;

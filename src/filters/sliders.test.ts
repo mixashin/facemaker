@@ -9,7 +9,7 @@ function face(): Face {
   set(13, 0.5, 0.62); set(14, 0.5, 0.64); set(4, 0.5, 0.5);
   for (let i = 468; i < 473; i++) set(i, 0.42, 0.45);
   for (let i = 473; i < 478; i++) set(i, 0.58, 0.45);
-  return { landmarks: lm, matrix: new Float32Array(16), blend: new Float32Array(52) };
+  return { landmarks: lm, blend: new Float32Array(52) };
 }
 const withRegion = (region: keyof SliderState, mode: SliderState[keyof SliderState]['mode'], amount: number): SliderState => ({ ...DEFAULT_SLIDERS, [region]: { mode, amount } });
 

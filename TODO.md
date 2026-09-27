@@ -375,7 +375,8 @@ Rules for a phone of the family: technical state of facemaker only. Never print 
 
 ### Art
 
-- [ ] Astra has request R7 (witch costume: face paint, hat with hair, nose with a wart). Brief version 10 (`astra/BRIEF.md`), prompt `astra/PROMPT-witch.md`, template `astra/templates/head-standin.obj`.
+- [x] Astra delivered request R7 on 2026-09-27 (witch costume: face paint, hat with hair, nose with a wart). All six files passed the check (`astra/out/R7-witch`, brief version 11). Nose skin and paint: #78CBB6.
+- [ ] Build the costume: branch `costume-witch` on top of `props3d`. Answer Astra's two questions in the brief after a look on a live face: does the join of nose and paint stay covered and of one colour, do the curls stay clear of cheeks and ears.
 - [ ] After the delivery, new code: a costume is one chip in the makeup list that puts on the paint and the 3D props. Costume props are in the head frame (origin between the sides of the face, 1 unit is the face width, no rule "largest side 1"): the import check and the placement need that second kind of prop.
 
 ### Open, for the operator to decide

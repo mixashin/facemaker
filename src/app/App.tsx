@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { startCamera, stopCamera } from '../camera/camera';
+import { startCamera, stopCamera, cameraLost } from '../camera/camera';
 import { FaceTracker, type Face } from '../tracking/faceTracker';
 import { FaceRenderer } from '../render/renderer';
-import { handlesForAll } from '../filters/presets';
+import { handlesForAll, MAX_HANDLES } from '../filters/presets';
 import { spritesForAll } from '../filters/stickers';
 import { snapshot } from '../capture/snapshot';
 import { shareOrDownload } from '../capture/share';
@@ -58,7 +58,7 @@ export function App() {
       if (screen.value === 'camera') t.push(video, now);
       const aspect = video.videoWidth / video.videoHeight;
       const level = presets.value.includes('shout') ? currentEngine()?.level() ?? 0 : 0; // mic volume drives the shout preset
-      const handles = [...handlesForAll(presets.value, faces, aspect, level), ...sliderHandles(sliders.value, faces, aspect, now)];
+      const handles = [...handlesForAll(presets.value, faces, aspect, level), ...sliderHandles(sliders.value, faces, aspect, now)].slice(0, MAX_HANDLES); // what the shader takes
       r.setHandles(handles);
       // Face-on mode: a picture with the live eyes and mouth of the first face. The filters work on them.
       const tg = target.value === 'photo' ? photo.value : TARGETS.find((x) => x.id === target.value);
@@ -90,6 +90,9 @@ export function App() {
     // A hidden tab stops the render loop: end the clip and save it.
     const onHide = () => { if (document.hidden && recording.value) stopRec(); };
     document.addEventListener('visibilitychange', onHide);
+    // Back from another app that took the camera (the photo picker can open the camera app): start it again.
+    const onBack = () => { if (!document.hidden && camState.value === 'live' && cameraLost(video.srcObject as MediaStream | null)) start(); };
+    document.addEventListener('visibilitychange', onBack);
     // The shout preset listens to the mic. It holds the mic only while it is on the visible camera screen.
     let shout: Promise<Lease> | null = null;
     const syncShout = () => {
@@ -101,6 +104,7 @@ export function App() {
     document.addEventListener('visibilitychange', syncShout);
     return () => {
       document.removeEventListener('visibilitychange', onHide);
+      document.removeEventListener('visibilitychange', onBack);
       document.removeEventListener('visibilitychange', syncShout);
       unsubShout.forEach((u) => u());
       shout?.then((l) => l.release());

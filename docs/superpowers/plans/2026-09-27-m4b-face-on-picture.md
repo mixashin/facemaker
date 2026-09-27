@@ -867,3 +867,16 @@ async function still(bitmap: ImageBitmap, id: number) {
 - [ ] `docs/SPEC.md` (M4b as built), `CLAUDE.md` (decisions: face units, windows follow the filters, stickers show only through the windows, second landmarker for stills), `TODO.md` (phone checks: every target, tilted head, near and far, big eyes on the orange, a recording, a device photo with and without a face).
 - [ ] Full verification as in M4a Task 6. One fresh reviewer (Fable). Fix Critical and Important findings.
 - [ ] Push `m4b-face-on`, open the pull request against `m4a-makeup` (it moves to `main` after M4a merges).
+
+---
+
+## Changes after the review (2026-09-27)
+
+- Windows stay at their place on the picture. The first version moved them with the filters: with big head or shout the mouth left the orange. A window now has a place (no filters), a size (with filters), and an offset to the place where the filters show the eye or the mouth (`Win` has six numbers, the shader has `uOff`). Sizes have an upper limit.
+- `SPAN` is 2.4 (was 1.6): a window reached the border of the quad with shout and a wide open mouth.
+- The picture slides toward the face place (`coverOffset`): a face at the side of a wide device photo was off a tall screen.
+- The face search for device photos keeps one landmarker. Each landmarker takes a WebGL context that `close()` does not give back.
+- The app starts the camera again when it returns from another app and the track ended.
+- A picture that failed to load is asked again after 5 s. Two photos picked one after the other: the last pick wins. A file that is not a picture shows a warning sign on the chip.
+- `pickTarget` lost its branch for `photo`: the photo chip never calls it.
+

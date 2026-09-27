@@ -5,7 +5,14 @@ import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 
 const probe = (file) => execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,pix_fmt', '-of', 'csv=p=0', file]).toString().trim().split(',');
 const ffmpeg = (...args) => execFileSync('ffmpeg', ['-loglevel', 'error', '-y', ...args]);
-const pngs = (dir) => readdirSync(dir).filter((n) => /^[a-z0-9-]+\.png$/.test(n)).sort();
+// File names follow the brief: lowercase letters, digits, hyphen. Every other file is named and left out.
+function pngs(dir) {
+  if (!existsSync(dir)) { console.error(dir, 'not found: no delivery for this request yet'); process.exit(1); }
+  const all = readdirSync(dir).filter((n) => !/\.md$/i.test(n));
+  const good = all.filter((n) => /^[a-z0-9-]+\.png$/.test(n) && !/-chip\.png$/.test(n)).sort();
+  for (const n of all) if (!good.includes(n)) console.warn('left out (name or type not as in the brief):', n);
+  return good;
+}
 const hasAlpha = (fmt) => /^(rgba|bgra|argb|abgr|ya|gbrap|pal8)/.test(fmt);
 
 const JOBS = {

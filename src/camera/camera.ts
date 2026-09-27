@@ -26,3 +26,9 @@ export function stopCamera(video: HTMLVideoElement): void {
   s?.getTracks().forEach((t) => t.stop());
   video.srcObject = null;
 }
+
+// Another app took the camera (the file picker can open the camera app): the track ended, the picture stands still.
+export function cameraLost(stream: MediaStream | null): boolean {
+  const track = stream?.getVideoTracks()[0];
+  return !track || track.readyState === 'ended';
+}

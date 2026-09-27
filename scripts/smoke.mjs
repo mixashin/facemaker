@@ -199,6 +199,14 @@ if (state.fm?.faces > 0) {
     const bright = await tinted('r + g + b > 600');
     console.log('the photo takes the place of the camera view: bright pixels', camera, bright, camera !== bright ? 'OK' : 'FAIL');
     if (out) writeFileSync(`${out}/faceon-photo.png`, await shot(['-']));
+    // Many photos in a row: the face search keeps one model, and the live tracker keeps its place on the GPU.
+    for (let i = 0; i < 8; i++) { await page.locator('input[type=file][aria-label="photo file"]').setInputFiles(face); await page.waitForTimeout(700); }
+    await page.waitForTimeout(2500);
+    const f0 = await page.evaluate(() => globalThis.__fm.frames);
+    await page.waitForTimeout(1500);
+    const f1 = await page.evaluate(() => globalThis.__fm.frames);
+    const again = (await page.evaluate(() => globalThis.__fm?.target?.()))?.photo;
+    console.log('eight more photos: tracker frames', f0, f1, '| face in the last photo', !!again && again.nose[0] !== 0.5, f1 > f0 && !!again && again.nose[0] !== 0.5 ? 'OK' : 'FAIL');
     await click('faceon'); await click('none');
   }
   await click('warp');

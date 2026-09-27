@@ -87,20 +87,20 @@ function frame(bitmap: ImageBitmap, ts: number) {
   post({ type: 'result', result, ts }, [landmarks.buffer, matrices.buffer, blend.buffer]);
 }
 
-// A still picture: a second landmarker in IMAGE mode, on the CPU, closed after use. The video one keeps its state.
+// A still picture: a second landmarker in IMAGE mode, on the CPU. The video one keeps its state.
+// Made at the first photo and kept: each landmarker takes a WebGL context for its input, close() does not
+// give it back, and the browser drops the oldest context (the one of the video landmarker) when there are too many.
+let stillOne: Promise<import('@mediapipe/tasks-vision').FaceLandmarker> | null = null;
 async function still(bitmap: ImageBitmap, id: number) {
   let lm: Float32Array | null = null;
   try {
     if (!fileset) throw new Error('not ready');
-    const one = await FaceLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: model, delegate: 'CPU' }, runningMode: 'IMAGE', numFaces: 1 });
-    try {
-      const f = one.detect(bitmap).faceLandmarks[0];
-      if (f) {
-        lm = new Float32Array(478 * 3);
-        for (let i = 0; i < 478 && i < f.length; i++) { lm[i * 3] = f[i].x; lm[i * 3 + 1] = f[i].y; lm[i * 3 + 2] = f[i].z; }
-      }
-    } finally {
-      one.close();
+    stillOne ??= FaceLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: model, delegate: 'CPU' }, runningMode: 'IMAGE', numFaces: 1 });
+    const one = await stillOne.catch((err) => { stillOne = null; throw err; });
+    const f = one.detect(bitmap).faceLandmarks[0];
+    if (f) {
+      lm = new Float32Array(478 * 3);
+      for (let i = 0; i < 478 && i < f.length; i++) { lm[i * 3] = f[i].x; lm[i * 3 + 1] = f[i].y; lm[i * 3 + 2] = f[i].z; }
     }
   } catch (err) {
     console.warn('still picture', err);

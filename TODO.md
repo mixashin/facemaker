@@ -244,7 +244,9 @@ Fixed in the branch: paint on teeth with the mouth open (mesh holes), eyeliner e
 - [ ] Talk, blink, open the mouth wide: the mouth window grows with the mouth.
 - [ ] Tilt the head, move near and far: eyes and mouth stay level and keep their size on the picture.
 - [ ] Big eyes and big mouth on the orange. A makeup look on a picture (clown lips on the orange).
-- [ ] A photo from the device with a face, and one without a face.
+- [ ] A photo from the device with a face, and one without a face. A wide photo with the face at the side.
+- [ ] Tap the photo chip and pick "Camera" in the file picker. Take the photo, return. The live view must run (the app starts the camera again when the track ended).
+- [ ] The shout face on the orange, with a loud shout and the mouth wide open: no straight cut edge below the mouth.
 - [ ] A photo and a recording in face-on mode. The saved file shows the picture, not the camera view.
 - [ ] Frame rate in face-on mode.
 
@@ -253,3 +255,15 @@ Known limits, decide later:
 - Stickers show only where they overlap eyes or mouth. A crown on the orange needs a place per target.
 - The skin around eyes and mouth shows as a soft rim in skin colour. A tint toward the colour of the target is possible.
 - The device photo is gone after the session (memory only).
+- A head turned to the side has a smaller face width in the picture, so eyes and mouth grow on the target.
+
+## Deferred from the M4b review (2026-09-27)
+
+Fixed in the branch: a device photo with the face at the side (the picture slides), a window that left the face quad with shout and an open mouth (quad 2.4 face widths), one WebGL context more per device photo (one landmarker kept), the camera after the camera app took it, a picture that failed to load (asks again after 5 s), two photos picked one after the other (the last pick wins), a file that is not a picture (⚠️ on the chip), handle count for the windows, tests for the turn of the face quad and for the dead branch in `pickTarget`.
+
+- [ ] The roll sign and the mirror in `faceon.frag` have no automated check (checked by hand port in the review: correct). A smoke run with `FACE_ROTATE=20` that measures the height of both eye windows would protect them.
+- [ ] `createImageBitmap(file)` decodes the full photo before the size limit applies: about 50 MB for 12 megapixels, 200 MB for 50. Read the size from the file header first, or decode with `resizeWidth`.
+- [ ] The camera view shows for some frames at the first use of each picture, and between two device photos.
+- [ ] Textures of the five pictures stay on the GPU once used (6.5 MB each). Release the ones that are off.
+- [ ] `scripts/import-art.mjs` leaves old outputs in `public/targets` when a source is gone.
+- [ ] EXIF rotation of a portrait phone photo: Chrome applies it in `createImageBitmap` by default. Confirm on the phone.

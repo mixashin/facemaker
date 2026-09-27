@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync } from 'node:fs';
-import { faceFrame, toFace, windows, coverScale, pickTarget, photoTarget, fitSize, TARGETS, FACEON, SPAN, type Frame } from './faceon';
+import { faceFrame, toFace, windows, coverScale, coverOffset, pickTarget, photoTarget, fitSize, TARGETS, FACEON, SPAN, type Frame } from './faceon';
+import { handlesForAll } from './presets';
+import { coverCrop } from '../capture/snapshot';
 import { EYE_R, EYE_L, LIPS } from './makeup';
 import { UV } from '../render/faceMesh';
 import type { Handle } from './presets';
+import { unwarpPoint } from './warpMath';
+import type { Face } from '../tracking/faceTracker';
 
 const A = 4 / 3;
 // A face from the flat layout: centre (cx, cy), width w in x units, rolled by roll.
@@ -46,19 +50,55 @@ describe('windows', () => {
     expect(w).toHaveLength(3);
     expect(w[0][0]).toBeLessThan(0); expect(w[1][0]).toBeGreaterThan(0);
     expect(w[0][1]).toBeLessThan(0); expect(w[1][1]).toBeLessThan(0); expect(w[2][1]).toBeGreaterThan(0);
-    for (const [cx, cy, rx, ry] of w) {
+    for (const [cx, cy, rx, ry, ox, oy] of w) {
       expect(rx).toBeGreaterThan(0); expect(ry).toBeGreaterThan(0);
       expect(Math.abs(cx) + rx).toBeLessThan(SPAN / 2); expect(Math.abs(cy) + ry).toBeLessThan(SPAN / 2);
+      expect(ox).toBeCloseTo(0, 9); expect(oy).toBeCloseTo(0, 9); // no filter: the window shows what is under it
     }
   });
-  it('windows follow a filter: a magnifier on the head moves the eyes apart and makes them bigger', () => {
+  it('a filter on the whole head makes eyes and mouth bigger, at their place on the picture', () => {
     const lm = face();
     const f = faceFrame(lm, A);
     const head: Handle = { cx: f.nose[0], cy: f.nose[1], r: 0.3, strength: 0.4, type: 0 };
     const plain = windows(lm, [], A), bigHead = windows(lm, [head], A);
-    expect(bigHead[0][0]).toBeLessThan(plain[0][0]);
-    expect(bigHead[1][0]).toBeGreaterThan(plain[1][0]);
-    expect(bigHead[0][2]).toBeGreaterThan(plain[0][2]);
+    for (let i = 0; i < 3; i++) {
+      expect(bigHead[i][0]).toBeCloseTo(plain[i][0], 9); // same place: the orange does not grow with the head
+      expect(bigHead[i][1]).toBeCloseTo(plain[i][1], 9);
+      expect(bigHead[i][2]).toBeGreaterThan(plain[i][2]); // bigger
+    }
+    expect(bigHead[0][4]).toBeLessThan(0);    // the filter shows the right eye farther out: the window reads there
+    expect(bigHead[1][4]).toBeGreaterThan(0);
+    expect(bigHead[2][5]).toBeGreaterThan(0); // and the mouth farther down
+  });
+  it('the window reads where the filters show the eye', () => {
+    const lm = face();
+    const f = faceFrame(lm, A);
+    const head: Handle = { cx: f.nose[0] + 0.02, cy: f.nose[1], r: 0.3, strength: 0.4, type: 0 };
+    const [cx, cy, , , ox, oy] = windows(lm, [head], A)[0];
+    // centre of the ring box after the forward map, by hand
+    let x0 = 9, x1 = -9, y0 = 9, y1 = -9;
+    for (const i of EYE_R) {
+      const [x, y] = toFace(unwarpPoint([lm[i * 3], lm[i * 3 + 1]], [head], A), f, A);
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+    expect(cx + ox).toBeCloseTo((x0 + x1) / 2, 9);
+    expect(cy + oy).toBeCloseTo((y0 + y1) / 2, 9);
+  });
+  it('limits the size of a window: eyes and mouth stay on the target', () => {
+    const lm = face();
+    const f = faceFrame(lm, A);
+    const huge: Handle = { cx: f.nose[0], cy: f.nose[1], r: 0.6, strength: 0.9, type: 0 };
+    for (const [, , rx, ry] of windows(lm, [huge], A)) { expect(rx).toBeLessThanOrEqual(0.5); expect(ry).toBeLessThanOrEqual(0.4); }
+  });
+  it('stay inside the quad with a wide open mouth, a big head and a loud shout', () => {
+    const lm = face();
+    for (const i of [17, 84, 181, 314, 405, 14, 87, 317, 91, 146, 321, 375]) lm[i * 3 + 1] += 0.3 * 0.25 * A; // lower lip down by a quarter of the face width
+    const f: Face = { landmarks: lm, matrix: new Float32Array(16), blend: new Float32Array(52) };
+    const w = windows(lm, handlesForAll(['bigHead', 'shout', 'bigMouth'], [f], A, 1), A);
+    for (const [cx, cy, rx, ry] of w) {
+      expect(Math.abs(cx) + rx).toBeLessThan(SPAN / 2);
+      expect(Math.abs(cy) + ry).toBeLessThan(SPAN / 2);
+    }
   });
   it('the mouth window grows when the mouth opens', () => {
     const shut = face(), open = face();
@@ -80,6 +120,34 @@ describe('cover fit', () => {
   });
 });
 
+describe('cover offset', () => {
+  // the face place on the screen, in clip space, after the slide
+  const onScreen = (cw: number, ch: number, ew: number, eh: number, pw: number, ph: number, nose: [number, number]) => {
+    const [sx, sy] = coverScale(cw, ch, ew, eh, pw, ph), [gx, gy] = coverOffset(cw, ch, ew, eh, pw, ph, nose);
+    const v = coverCrop(cw, ch, ew, eh);
+    const x = gx + (nose[0] - 0.5) * sx, y = gy - (nose[1] - 0.5) * (ph / pw) * sy;
+    return { x, y, gx, gy, halfW: v.w / cw, halfH: v.h / ch, picW: sx / 2, picH: ((ph / pw) * sy) / 2 };
+  };
+  it('slides a wide photo so that a face at the side is on the screen', () => {
+    // tall canvas, tall screen, landscape photo, face in the left quarter: not visible without the slide
+    const s = onScreen(720, 1280, 412, 915, 1536, 1152, [0.25, 0.5]);
+    expect(Math.abs(s.x)).toBeLessThan(s.halfW * 0.5);
+  });
+  it('never uncovers the screen', () => {
+    for (const nose of [[0.02, 0.02], [0.98, 0.5], [0.5, 0.99], [0.25, 0.8]] as [number, number][]) {
+      for (const [cw, ch, ew, eh, pw, ph] of [[720, 1280, 412, 915, 1536, 1152], [640, 480, 380, 860, 1152, 1536], [1280, 720, 1280, 720, 1000, 1000], [640, 480, 800, 600, 600, 1200]]) {
+        const s = onScreen(cw, ch, ew, eh, pw, ph, nose);
+        expect(s.picW - Math.abs(s.gx)).toBeGreaterThanOrEqual(s.halfW - 1e-9);
+        expect(s.picH - Math.abs(s.gy)).toBeGreaterThanOrEqual(s.halfH - 1e-9);
+      }
+    }
+  });
+  it('leaves a face in the middle where it is', () => {
+    const s = onScreen(640, 480, 380, 860, 1280, 1280, [0.5, 0.5]);
+    expect(s.gx).toBeCloseTo(0, 9); expect(s.gy).toBeCloseTo(0, 9);
+  });
+});
+
 describe('targets', () => {
   it('have a picture and a chip on disk, and a face place inside the picture', () => {
     expect(TARGETS.map((t) => t.id)).toEqual(['orange', 'apple', 'cat', 'dog', 'lion']);
@@ -92,11 +160,11 @@ describe('targets', () => {
     expect(FACEON[0].id).toBe('none');
     expect(FACEON.at(-1)!.id).toBe('photo');
   });
-  it('a second tap turns the target off, a tap on photo always asks for a photo', () => {
+  it('a second tap turns the target off', () => {
     expect(pickTarget('none', 'cat')).toBe('cat');
     expect(pickTarget('cat', 'cat')).toBe('none');
     expect(pickTarget('cat', 'dog')).toBe('dog');
-    expect(pickTarget('photo', 'photo')).toBe('photo');
+    expect(pickTarget('photo', 'cat')).toBe('cat');
   });
 });
 

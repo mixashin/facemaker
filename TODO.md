@@ -199,6 +199,7 @@ Process rules that cost time when forgotten:
 - Renderer colour: the render target and the sprite textures carry no colour space. After a change there, compare pictures with a baseline from the old build: `ffmpeg -i old.png -i new.png -lavfi psnr -f null -`.
 - Smoke: `SMOKE_RECORD=1 SMOKE_GALLERY=1 SMOKE_VIEWPORT=380x860 FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs http://localhost:4173` against `npm run build && npx vite preview --port 4173 --strictPort`. A label `-` in `SMOKE_SHOTS` closes the dock before the shot. Headless Chromium has no AAC encoder: the recorder falls back, the warning in the console is expected.
 - The installed PWA takes a new version on the launch after it downloaded it: open, close fully, open again.
+- Before `gh pr merge`: read the result of `gh pr checks <n>` and stop on a failure. A pipe to `tail` hides the exit code, so a chain with `&&` merges anyway (happened with #21 on 2026-09-27). A run that a later push cancelled shows as "fail": confirm with `gh run view <id> --json conclusion`, and make sure that a run of the same commits passed.
 
 ## M4 decisions (grill, 2026-09-27)
 

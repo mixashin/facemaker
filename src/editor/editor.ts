@@ -1,18 +1,22 @@
 export type P = { x: number; y: number };
 // rot: the turn in the plane of the photo. yaw and pitch: the turn in depth (three fingers). model: a 3D prop
-// (id in src/filters/props3d.ts), src is its chip picture then.
+// (id in src/filters/props3d.ts) or a part of a costume (id in src/filters/costumes.ts), src is its chip picture then.
 export type EditorSticker = { id: number; src: string; x: number; y: number; scale: number; rot: number; flip?: boolean; yaw?: number; pitch?: number; model?: string };
 // The picture of a sticker that is turned in depth (src/editor/shots.ts), or null when there is none
 export type Shot = (s: EditorSticker) => CanvasImageSource | null;
-export type PaletteItem = { id: string; src: string; model?: string };
+// grow: the size of the sticker at its start, against a plain sticker
+export type PaletteItem = { id: string; src: string; model?: string; grow?: number };
 export type Ctx = Pick<CanvasRenderingContext2D, 'drawImage' | 'save' | 'restore' | 'translate' | 'rotate' | 'clearRect' | 'strokeRect' | 'scale' | 'shadowBlur' | 'shadowColor' | 'strokeStyle' | 'lineWidth'> & { canvas: { width: number; height: number } };
 
 import props from '../filters/props.json';
 import { PROPS3D } from '../filters/props3d';
+import { COSTUMES } from '../filters/costumes';
 
-// 3D props by Astra first (CC0, brief R5), then her flat props (brief R3), then emoji art.
+// 3D props by Astra first (CC0, brief R5), then the 3D parts of her costumes (brief R7), then her flat props
+// (brief R3), then emoji art.
 export const EDITOR_STICKERS: PaletteItem[] = [
   ...PROPS3D.map((p) => ({ id: '3d-' + p.id, src: p.chip, model: p.id })),
+  ...COSTUMES.flatMap((c) => c.parts.map((p) => ({ id: '3d-' + p.id, src: p.chip, model: p.id, grow: p.long }))),
   ...(props as string[]).map((id) => ({ id, src: `/props/${id}.webp` })),
   { id: 'sunglasses', src: '/stickers/1f576.svg' },
   { id: 'cap', src: '/stickers/1f9e2.svg' },
@@ -32,6 +36,10 @@ export const EDITOR_STICKERS: PaletteItem[] = [
 ];
 
 const MIN_SCALE = 16;
+// The size of a new sticker: its long side is a quarter of the photo width. A 3D prop is about as wide as a
+// face, so that is a face of a quarter of the photo width. The parts of a costume start in the size of that
+// same head: the hat with the hair is three face widths high, the nose is small, and they fit each other.
+export const startScale = (photoWidth: number, item: PaletteItem): number => photoWidth * 0.25 * (item.grow ?? 1);
 // A flat sticker tilts 75 degrees at most: at 90 degrees a card is a line, and the child loses it
 export const MAX_TILT = 1.3;
 // A shot shows this many units to every side of the middle of the sticker. One unit is the long side of the
@@ -50,12 +58,31 @@ export function elementToImage(ex: number, ey: number, imgW: number, imgH: numbe
   return { x: (ex - ox) / k, y: (ey - oy) / k };
 }
 
-export function hitTest(stickers: EditorSticker[], p: P): EditorSticker | null {
+// Where a point of the photo is in the picture of a sticker that is turned in depth (renderEditor): u from the
+// left, v from the top, 0 to 1 inside the picture.
+export function inShot(s: EditorSticker, p: P): { u: number; v: number } {
+  const dx = p.x - s.x, dy = p.y - s.y, c = Math.cos(s.rot), n = Math.sin(s.rot), d = s.scale * 2 * FRAME;
+  const x = dx * c + dy * n, y = dy * c - dx * n; // the turn in the plane, taken back
+  return { u: (s.flip ? -x : x) / d + 0.5, v: y / d + 0.5 };
+}
+
+// Has the sticker a pixel at this place of its picture? null: there is no picture to look at (src/editor/shots.ts)
+export type Covers = (s: EditorSticker, u: number, v: number) => boolean | null;
+
+// The sticker under the finger: the smallest one, and of two with one size the one on top. A large sticker
+// can go around a small one (the hat with the hair of a costume goes around the head, and the nose is on the
+// face): with "the one on top" alone no finger reached the small one.
+// A flat sticker is hit in a circle. A 3D sticker is hit where it has a pixel: the hat of a costume at the
+// size of a head had a circle as large as the photo, and the first finger of every gesture took the hat.
+export function hitTest(stickers: EditorSticker[], p: P, covers?: Covers): EditorSticker | null {
+  let hit: EditorSticker | null = null;
   for (let i = stickers.length - 1; i >= 0; i--) {
     const s = stickers[i];
-    if (Math.hypot(p.x - s.x, p.y - s.y) <= s.scale / 2) return s;
+    if (hit && s.scale >= hit.scale) continue;
+    const at = s.model && covers ? inShot(s, p) : null, seen = at ? covers!(s, at.u, at.v) : null;
+    if (seen ?? Math.hypot(p.x - s.x, p.y - s.y) <= s.scale / 2) hit = s;
   }
-  return null;
+  return hit;
 }
 
 export function moveTo(s: EditorSticker, p: P): EditorSticker { return { ...s, x: p.x, y: p.y }; }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { screen, store, current, refreshGallery } from './state';
 import { safePut } from '../storage/gallery';
 import { shareOrDownload } from '../capture/share';
-import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, inside, tilt, centre, type EditorSticker, type P, type PaletteItem } from '../editor/editor';
+import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, inside, tilt, centre, startScale, type EditorSticker, type P, type PaletteItem } from '../editor/editor';
 import { Shots } from '../editor/shots';
 import { t } from '../i18n/i18n';
 
@@ -49,7 +49,8 @@ export function Editor() {
     renderEditor(c.getContext('2d')!, photo, stickers, images, selected, shots.current?.draw);
   }, [photo, stickers, images, selected]);
 
-  const add = async ({ src, model }: PaletteItem) => {
+  const add = async (item: PaletteItem) => {
+    const { src, model } = item;
     if (!photo) return;
     if (model) {
       if (loading.current.has(model)) return; // taps while the prop loads: one sticker
@@ -63,7 +64,7 @@ export function Editor() {
       shots.current?.card(src, img, img.naturalWidth || img.width, img.naturalHeight || img.height);
       setImages((m) => new Map(m).set(src, img));
     }
-    const s: EditorSticker = { id: nextId.current++, src, model, x: photo.width / 2, y: photo.height / 2, scale: photo.width * 0.25, rot: 0 };
+    const s: EditorSticker = { id: nextId.current++, src, model, x: photo.width / 2, y: photo.height / 2, scale: startScale(photo.width, item), rot: 0 };
     setStickers((list) => [...list, s]);
     setSelected(s.id);
   };
@@ -88,7 +89,7 @@ export function Editor() {
     if (pointers.current.size === 3) twoTap.current.fingers = 3; // not a two-finger tap
     if (pointers.current.size === 1) {
       twoTap.current.fingers = 1;
-      const hit = hitTest(stickers, p);
+      const hit = hitTest(stickers, p, shots.current?.covers);
       grabbed.current = hit?.id ?? null;
       if (hit) setSelected(hit.id);
       gesture.current = { moved: false, pinched: false, many: false, x: p.x, y: p.y };

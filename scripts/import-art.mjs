@@ -28,6 +28,16 @@ export function cornerAlpha(file) {
   return Math.max(px[3], px[7], px[11], px[15]);
 }
 const cutOut = (file, name) => { if (cornerAlpha(file) !== 0) throw new Error(`${name}: the corners are not transparent, expected a cut-out`); };
+// The render of a 3D part, for its chip: a square picture, not smaller than the chip. ffprobe gives no error
+// for a file that is no picture, it gives a size of 0.
+export const CHIP_PX = 160;
+export function checkRender(file) {
+  if (!existsSync(file)) throw new Error(`${file}: not found`);
+  let w = 0, h = 0;
+  try { [w, h] = probe(file).map(Number); } catch { /* no picture */ }
+  if (!(w > 0 && h > 0)) throw new Error(`${file}: no picture`);
+  if (w !== h || w < CHIP_PX) throw new Error(`${file}: ${w}x${h}, expected a square of ${CHIP_PX} px or more`);
+}
 
 const JOBS = {
   // Face-on targets (brief R1): square, opaque. The generator made 1254 px, so 1280 px keeps every detail.
@@ -212,7 +222,8 @@ JOBS.props3d = function () {
 };
 
 // Costumes (brief R7): one folder per costume with <id>-paint.png (face paint, as R4), <id>.png (the whole costume,
-// for the chip) and the parts <id>-<part>.glb. A part is in the head frame: origin between the sides of the face,
+// for the chip) and the parts <id>-<part>.glb, each with a render <id>-<part>.png (the chip of the part in the
+// photo editor). A part is in the head frame: origin between the sides of the face,
 // one unit is the face width. So the rule "largest side 1" of the props does not hold here.
 const COSTUMES = { witch: { src: 'astra/out/R7-witch', triangles: { 'witch-hat-hair': 8000, 'witch-nose': 2000 } } };
 // A part must lie around a head: no point farther than this from the middle of the head, in face widths
@@ -242,7 +253,8 @@ JOBS.costumes = function () {
       const file = `${c.src}/${part}.glb`;
       if (!existsSync(file)) throw new Error(`${file}: not found`);
       if (statSync(file).size > 1.5 * 1024 * 1024) throw new Error(`${file}: larger than 1.5 MB`);
-      try { return { id: part, file: `/costumes/${id}/${part}.glb`, ...inspectPart(readFileSync(file), c.triangles[part]) }; } catch (e) { throw new Error(`${file}: ${e.message}`); }
+      checkRender(`${c.src}/${part}.png`);
+      try { return { id: part, file: `/costumes/${id}/${part}.glb`, chip: `/costumes/${id}/${part}-chip.webp`, ...inspectPart(readFileSync(file), c.triangles[part]) }; } catch (e) { throw new Error(`${file}: ${e.message}`); }
     });
     const other = readdirSync(c.src).filter((n) => /\.glb$/.test(n) && !parts.some((p) => `${p.id}.glb` === n));
     if (other.length) throw new Error(`${c.src}: parts that the job does not know: ${other.join(', ')}`);
@@ -252,7 +264,10 @@ JOBS.costumes = function () {
     mkdirSync(`public/costumes/${id}`, { recursive: true });
     ffmpeg('-i', paint, '-vf', 'scale=1024:1024:flags=lanczos', '-c:v', 'libwebp', '-quality', '90', `public/makeup/${id}.webp`);
     ffmpeg('-i', chip, '-vf', 'scale=128:128:flags=lanczos', '-c:v', 'libwebp', '-quality', '85', `public/makeup/${id}-chip.webp`);
-    for (const p of parts) copyFileSync(`${c.src}/${p.id}.glb`, `public${p.file}`);
+    for (const p of parts) {
+      copyFileSync(`${c.src}/${p.id}.glb`, `public${p.file}`);
+      ffmpeg('-i', `${c.src}/${p.id}.png`, '-vf', `scale=${CHIP_PX}:${CHIP_PX}:flags=lanczos`, '-c:v', 'libwebp', '-quality', '85', `public${p.chip}`);
+    }
     list.push({ id, look: `paint-${id}`, parts });
     console.log('imported costume', id, 'with', parts.map((p) => `${p.id} (${p.triangles} triangles)`).join(', '));
   }

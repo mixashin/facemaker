@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { turn, shotSize, cardSize, Shots, type ShotRenderer } from './shots';
-import type { Model } from '../render/props3dLayer';
+import { COSTUME_GAIN, type Model } from '../render/props3dLayer';
 import type { EditorSticker } from './editor';
+import { OCCLUDERS } from '../filters/props3d';
 
 const front = (yaw: number, pitch: number) => new THREE.Vector3(0, 0, 1).applyQuaternion(turn(yaw, pitch));
 const top = (yaw: number, pitch: number) => new THREE.Vector3(0, 1, 0).applyQuaternion(turn(yaw, pitch));
@@ -34,11 +35,12 @@ describe('shotSize', () => {
     expect(shotSize(256)).toBe(256);
     expect(shotSize(257)).toBe(512);
     expect(shotSize(900)).toBe(1024);
+    expect(shotSize(1780)).toBe(2048); // the hat of a costume at the size of a head
   });
   it('holds limits', () => {
     expect(shotSize(3)).toBe(128);
     expect(shotSize(NaN)).toBe(128);
-    expect(shotSize(99999)).toBe(1024);
+    expect(shotSize(99999)).toBe(2048);
   });
 });
 
@@ -56,9 +58,12 @@ describe('Shots', () => {
   function setup(renderer: 'yes' | 'none' = 'yes') {
     const asked: string[] = [], sizes: number[] = [], log: string[] = [];
     const pending = new Map<string, { done: (m: Model) => void; fail: () => void }>();
-    const gl = { domElement: { width: 300, height: 150 }, setSize(n: number) { sizes.push(n); gl.domElement.width = gl.domElement.height = n; }, render() { log.push('render'); }, dispose() { log.push('dispose'); }, forceContextLoss() { log.push('context given back'); } };
+    const read: number[][] = [];
+    // the picture of the fake renderer: the left half has pixels, the right half is clear
+    const context = { readPixels(x: number, y: number, w: number, h: number, _f: number, _t: number, px: Uint8Array) { read.push([x, y, w, h]); for (let i = 0; i < w * h; i++) px[i * 4 + 3] = x + (i % w) < gl.domElement.width / 2 ? 255 : 0; } };
+    const gl = { domElement: { width: 300, height: 150 }, getContext: () => context, setSize(n: number) { sizes.push(n); gl.domElement.width = gl.domElement.height = n; }, render() { log.push('render'); }, dispose() { log.push('dispose'); }, forceContextLoss() { log.push('context given back'); } };
     const shots = new Shots((file, done, fail) => { asked.push(file); pending.set(file, { done, fail }); }, () => (renderer === 'yes' ? (gl as unknown as ShotRenderer) : null));
-    return { shots, asked, sizes, log, pending };
+    return { shots, asked, sizes, log, pending, read };
   }
   const sticker = (scale: number, more: Partial<EditorSticker> = {}): EditorSticker => ({ id: 1, src: '/props3d/crown-chip.webp', model: 'crown', x: 0, y: 0, scale, rot: 0, ...more });
 
@@ -114,6 +119,115 @@ describe('Shots', () => {
     const q = m.scene.parent!.quaternion.clone();
     s.shots.draw(sticker(100, { yaw: 0.5, flip: true }));
     expect(m.scene.parent!.quaternion.angleTo(q)).toBeCloseTo(1, 5); // from 0.5 to -0.5
+  });
+  // A part of a costume is made around a head: one unit is the face width, the origin is the middle of the head
+  const part = (): Model => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 1.8), new THREE.MeshStandardMaterial({ color: new THREE.Color(0.4, 0.2, 0.1) }));
+    mesh.position.set(0, 0.44, -0.2);
+    const twin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mesh.material); // two meshes, one material
+    return { scene: new THREE.Group().add(mesh, twin), clips: [] };
+  };
+  const hat = '/costumes/witch/witch-hat-hair.glb';
+  it('a part of a costume: its long side is one unit, it turns around its middle, and it has the colours of the live camera', async () => {
+    const s = setup();
+    const a = s.shots.model('witch-hat-hair');
+    expect(s.asked).toEqual([hat]);
+    const m = part();
+    s.pending.get(hat)!.done(m);
+    expect(await a).toBe(true);
+    const sticker3d = sticker(100, { src: '/costumes/witch/witch-hat-hair-chip.webp', model: 'witch-hat-hair', yaw: 0.3 });
+    expect(s.shots.draw(sticker3d)).not.toBeNull();
+    m.scene.parent!.quaternion.identity(); m.scene.parent!.updateMatrixWorld(true);
+    const box = new THREE.Box3(), size = new THREE.Vector3();
+    for (const mesh of m.scene.children.slice(0, 2)) box.expandByObject(mesh); // what shows: not the hidden head
+    box.getSize(size);
+    expect(Math.max(size.x, size.y, size.z)).toBeCloseTo(1, 5);
+    expect(size.x / size.y).toBeCloseTo(2 / 3, 5); // the form stays
+    expect(box.getCenter(new THREE.Vector3()).length()).toBeCloseTo(0, 5);
+    const c = ((m.scene.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).color;
+    expect(c.r).toBeCloseTo(0.4 * COSTUME_GAIN, 5); expect(c.b).toBeCloseTo(0.1 * COSTUME_GAIN, 5); // one time, for a material that two meshes share
+  });
+  const shapes = (m: Model) => { const all: THREE.Mesh[] = []; m.scene.parent!.traverse((o) => { const mesh = o as THREE.Mesh; if (mesh.isMesh && !(mesh.material as THREE.Material).colorWrite) all.push(mesh); }); return all; };
+  it('a part that goes around the head has the hidden head in it: the hair behind the head does not hang over the face of the photo', async () => {
+    const s = setup();
+    const a = s.shots.model('witch-hat-hair');
+    const m = part(); // from -1.1 to 0.7 in depth: it reaches behind the middle of the head
+    s.pending.get(hat)!.done(m);
+    await a;
+    const head = shapes(m);
+    expect(head).toHaveLength(OCCLUDERS.length);
+    expect(head.every((h) => h.renderOrder < 0 && (h.material as THREE.Material).depthWrite)).toBe(true); // into the depth buffer first, and no colour
+    m.scene.parent!.quaternion.identity(); m.scene.parent!.updateMatrixWorld(true);
+    // the head is in the frame of the part: it has the scale and the place of the part
+    const k = 1 / 3, mid = new THREE.Vector3(0, 0.44, -0.2);
+    head.forEach((h, i) => {
+      const want = new THREE.Vector3(0, OCCLUDERS[i].up, -OCCLUDERS[i].back).sub(mid).multiplyScalar(k);
+      expect(h.getWorldPosition(new THREE.Vector3()).distanceTo(want), 'place ' + i).toBeLessThan(1e-6);
+      expect(h.getWorldScale(new THREE.Vector3()).toArray().map((n) => +n.toFixed(6))).toEqual(OCCLUDERS[i].radii.map((r) => +(r * k).toFixed(6)));
+    });
+    const c = ((m.scene.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).color;
+    expect(c.r).toBeCloseTo(0.4 * COSTUME_GAIN, 5); // the size and the colours are as without the head
+    const size = new THREE.Box3().setFromObject(m.scene.children[0]).getSize(new THREE.Vector3());
+    expect(size.y).toBeCloseTo(1, 5);
+  });
+  it('a part in front of the face has no hidden head: a nose that the child turns round does not go away', async () => {
+    const s = setup();
+    const a = s.shots.model('witch-nose');
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.64), new THREE.MeshStandardMaterial());
+    mesh.position.set(0.03, -0.01, 0.71); // from 0.39 to 1.03 in depth
+    const m: Model = { scene: new THREE.Group().add(mesh), clips: [] };
+    s.pending.get('/costumes/witch/witch-nose.glb')!.done(m);
+    await a;
+    expect(shapes(m)).toHaveLength(0);
+  });
+  it('a 3D prop has no hidden head', async () => {
+    const s = setup();
+    const a = s.shots.model('crown');
+    const m = model();
+    s.pending.get('/props3d/crown.glb')!.done(m);
+    await a;
+    expect(shapes(m)).toHaveLength(0);
+  });
+  it('a 3D prop keeps its size and its colours', async () => {
+    const s = setup();
+    const a = s.shots.model('crown');
+    const m = model();
+    ((m.scene.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).color.setRGB(0.4, 0.2, 0.1);
+    (m.scene.children[0] as THREE.Mesh).scale.setScalar(0.8); // a prop with a long side of 0.8 stays that small
+    s.pending.get('/props3d/crown.glb')!.done(m);
+    await a;
+    const size = new THREE.Box3().setFromObject(m.scene.parent!).getSize(new THREE.Vector3());
+    expect(size.x).toBeCloseTo(0.8, 5);
+    expect(((m.scene.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).color.r).toBeCloseTo(0.4, 5);
+  });
+  it('says where a sticker has pixels: it draws the sticker and reads a small square at the place of the finger', async () => {
+    const s = setup();
+    const a = s.shots.model('crown');
+    s.pending.get('/props3d/crown.glb')!.done(model());
+    await a;
+    const renders = s.log.filter((l) => l === 'render').length;
+    expect(s.shots.covers(sticker(500), 0.25, 0.5)).toBe(true);
+    expect(s.shots.covers(sticker(500), 0.75, 0.5)).toBe(false);
+    expect(s.log.filter((l) => l === 'render').length).toBe(renders + 2);
+    const [x, y, w, h] = s.read[0];
+    expect(w).toBe(h); expect(w).toBeGreaterThan(8); expect(w).toBeLessThan(100); // a finger is wide, the square is small
+    expect(x + w / 2).toBeCloseTo(0.25 * 1024, -1); expect(y + h / 2).toBeCloseTo(0.5 * 1024, -1);
+    expect(s.shots.covers(sticker(500), 0.5, 0.1)).toBe(true);
+    expect(s.read[2][1] + s.read[2][3] / 2).toBeCloseTo(0.9 * 1024, -1); // the rows of the picture buffer count from the bottom
+  });
+  it('a place outside the picture has no pixel, and the square stays inside the picture', async () => {
+    const s = setup();
+    const a = s.shots.model('crown');
+    s.pending.get('/props3d/crown.glb')!.done(model());
+    await a;
+    for (const [u, v] of [[-0.1, 0.5], [1.1, 0.5], [0.5, -0.01], [0.5, 1.2], [NaN, 0.5]]) expect(s.shots.covers(sticker(500), u, v)).toBe(false);
+    expect(s.read).toHaveLength(0);
+    s.shots.covers(sticker(500), 0, 0); s.shots.covers(sticker(500), 1, 1);
+    for (const [x, y, w, h] of s.read) { expect(x).toBeGreaterThanOrEqual(0); expect(y).toBeGreaterThanOrEqual(0); expect(x + w).toBeLessThanOrEqual(1024); expect(y + h).toBeLessThanOrEqual(1024); }
+  });
+  it('gives no answer with no picture: no renderer, or a prop that is not there', async () => {
+    expect(setup('none').shots.covers(sticker(500), 0.5, 0.5)).toBeNull();
+    expect(setup().shots.covers(sticker(500), 0.5, 0.5)).toBeNull(); // not loaded
   });
   it('gives the context back at the end', async () => {
     const s = setup();

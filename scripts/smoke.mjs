@@ -601,6 +601,63 @@ if (process.env.SMOKE_GALLERY) {
     const after = await numbers();
     const still = after[4] === before[4] && after[5] === before[5];
     console.log('the last finger of three does not drag the sticker: place', before[4], before[5], 'then', after[4], after[5], '| yaw', before[2], 'then', after[2], '| trash can', canShown, '| stickers', await stickers(), still && after[2] !== before[2] && canShown === 0 && (await stickers()) === 2 ? 'OK' : 'FAIL');
+    // Two fingers that rest on empty space and do not move: the selection stays. Seen: a hold of more than
+    // 0.3 s was taken as a tap on empty space, and the selection went away. The tap of one finger at the same
+    // place shows that the place is empty space.
+    const corner = [[photo.x + 15, photo.y + photo.height - 15], [photo.x + 95, photo.y + photo.height - 15]];
+    const chosen = () => page.evaluate(() => document.querySelector('.editor')?.getAttribute('data-selected') ?? '');
+    const held0 = await chosen();
+    await touch('touchStart', corner); await page.waitForTimeout(600);
+    await touch('touchEnd', []); await page.waitForTimeout(700);
+    const held1 = await chosen();
+    await touch('touchStart', [corner[0]]); await page.waitForTimeout(60);
+    await touch('touchEnd', []); await page.waitForTimeout(400);
+    const tapped = await chosen();
+    console.log('a two-finger hold keeps the selection:', JSON.stringify(held0), 'then', JSON.stringify(held1), '| a tap of one finger there ends it:', tapped === '', held0 !== '' && held1 === held0 && tapped === '' ? 'OK' : 'FAIL');
+    // The 3D parts of a costume are stickers too. The pictures are taken with no selection: the glow of a
+    // selection alone changes some hundred pixels.
+    {
+      // a tap beside the stickers, at the right edge: it ends the selection and closes the palette (the palette lies over the left part)
+      const edge = [photo.x + photo.width - 12, photo.y + photo.height / 2];
+      const tapOff = async () => { await touch('touchStart', [edge]); await page.waitForTimeout(60); await touch('touchEnd', []); await page.waitForTimeout(400); };
+      const put = async (id) => {
+        await page.locator('.pull').first().click(); await page.waitForTimeout(400);
+        await click(id); await page.waitForTimeout(2500); // the model loads
+        const n = (await chosen()).split(' ').map(Number); // size, turn, yaw, pitch, x, y
+        if (out) writeFileSync(`${out}/page-editor-${id}.png`, await page.screenshot());
+        await tapOff();
+        return n;
+      };
+      // a photo with no sticker: the taps below must meet the parts only
+      await click('Done'); await click('Remove all stickers'); await page.waitForTimeout(300);
+      const bare = await pixels(), had = await stickers();
+      const hat = await put('3d-witch-hat-hair'), withHat = await pixels();
+      const nose = await put('3d-witch-nose'), withNose = await pixels();
+      if (out) writeFileSync(`${out}/page-editor-parts.png`, await page.screenshot());
+      // The hat goes around the head: where the head is, the photo shows (the hair behind the head is hidden).
+      // The place of the head in the sticker: the middle of the part is 0.437 face widths above the middle of
+      // the head, and the part is 3.033 face widths high.
+      const canvas = await page.evaluate(() => { const c = document.querySelector('.edit-canvas'); return [c.width, c.height]; });
+      const k = 200 / canvas[0], face = (hat[0] / 3.033) * k, hx = hat[4] * k, hy = hat[5] * (150 / canvas[1]) + 0.437 * face + 0.07 * face;
+      let covered = 0, area = 0;
+      for (let y = Math.round(hy - 0.3 * face); y <= Math.round(hy + 0.3 * face); y++) for (let x = Math.round(hx - 0.25 * face); x <= Math.round(hx + 0.25 * face); x++) {
+        if (x < 0 || y < 0 || x >= 200 || y >= 150) continue;
+        const i = (y * 200 + x) * 4;
+        area++;
+        if (Math.abs(bare[i] - withHat[i]) + Math.abs(bare[i + 1] - withHat[i + 1]) + Math.abs(bare[i + 2] - withHat[i + 2]) > 40) covered++;
+      }
+      // A tap takes the 3D sticker that has a pixel under the finger. Seen: the hat was hit in a circle as large
+      // as the photo, and the first finger of every gesture took the hat.
+      const fit = Math.min(photo.width / canvas[0], photo.height / canvas[1]); // object-fit: contain
+      const onScreen = (x, y) => [photo.x + (photo.width - canvas[0] * fit) / 2 + x * fit, photo.y + (photo.height - canvas[1] * fit) / 2 + y * fit];
+      const pick = async (x, y) => { await touch('touchStart', [onScreen(x, y)]); await page.waitForTimeout(60); await touch('touchEnd', []); await page.waitForTimeout(400); return Number((await chosen()).split(' ')[0]) || 0; };
+      const inHead = await pick(hat[4], hat[5] + 0.507 * (hat[0] / 3.033)), onHat = await pick(hat[4], hat[5] - 0.25 * hat[0]), onNose = await pick(nose[4], nose[5]);
+      await tapOff();
+      console.log('a tap takes the 3D sticker that has a pixel there: in the place of the head', inHead, '| on the hat', onHat, '| on the nose', onNose, inHead === 0 && onHat === hat[0] && onNose === nose[0] ? 'OK' : 'FAIL');
+      const ratio = hat[0] / nose[0];
+      console.log('the parts of a costume land on the photo: stickers', had, 'then', await stickers(), '| pixels of the hat', differ(bare, withHat), '| of the nose', differ(withHat, withNose), '| size of the hat against the nose', ratio.toFixed(2), '| the place of the head in the hat: covered', covered, 'of', area,
+        had === 0 && (await stickers()) === 2 && differ(bare, withHat) > 1500 && differ(withHat, withNose) > 60 && Math.abs(ratio - 3.033 / 0.648) < 0.05 && area > 100 && covered < area * 0.1 ? 'OK' : 'FAIL');
+    }
     await cdp.detach();
   }
   await closeSheet();

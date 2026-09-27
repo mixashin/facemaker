@@ -15,23 +15,37 @@ export const loadGlb: LoadModel = (file, done, fail) => {
 // stronger lights made the bright parts of the plain props lose their form.
 export const COSTUME_GAIN = 1.35;
 
+// Meshes share materials: every material one time
+function materialsOf(root: THREE.Object3D): Set<THREE.Material> {
+  const all = new Set<THREE.Material>();
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (mesh.isMesh) for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) all.add(m);
+  });
+  return all;
+}
+
+// A factor for the colours of the materials (COSTUME_GAIN). A material gets it one time, whatever the number
+// of calls is: a model that two users share must not get brighter with every user.
+export function brighten(root: THREE.Object3D, gain: number): void {
+  for (const m of materialsOf(root)) {
+    const c = (m as THREE.MeshStandardMaterial).color;
+    if (!c || m.userData.gain) continue;
+    c.multiplyScalar(gain);
+    m.userData.gain = gain;
+  }
+}
+
 // The first render pass holds values as the camera gives them (sRGB values, no colour space on the target).
 // A lit material gives linear values: write them as sRGB here, so a prop is as bright as the picture.
 // gain: a factor for the colours of the materials.
 export function likeTheCamera(root: THREE.Object3D, gain = 1): void {
-  const done = new Set<THREE.Material>(); // meshes share materials: every material one time
-  root.traverse((o) => {
-    const mesh = o as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
-      if (done.has(m)) continue;
-      done.add(m);
-      m.toneMapped = false;
-      if (gain !== 1 && (m as THREE.MeshStandardMaterial).color) (m as THREE.MeshStandardMaterial).color.multiplyScalar(gain);
-      m.onBeforeCompile = (shader) => { shader.fragmentShader = shader.fragmentShader.replace('#include <colorspace_fragment>', 'gl_FragColor = sRGBTransferOETF( gl_FragColor );'); };
-      m.needsUpdate = true;
-    }
-  });
+  if (gain !== 1) brighten(root, gain);
+  for (const m of materialsOf(root)) {
+    m.toneMapped = false;
+    m.onBeforeCompile = (shader) => { shader.fragmentShader = shader.fragmentShader.replace('#include <colorspace_fragment>', 'gl_FragColor = sRGBTransferOETF( gl_FragColor );'); };
+    m.needsUpdate = true;
+  }
 }
 
 // The light of every 3D prop, on the camera and in the photo editor. No surface gets more light than its own

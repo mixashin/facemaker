@@ -365,7 +365,7 @@ Open, for the operator to decide:
 Known limits:
 - Textures in a model: the import refuses them. When Astra needs textures (avatars, R6): load pictures without fetch from a `blob:` address, or verify a CSP change, then lift the rule in `inspectGlb`.
 - The turn of the head comes from the pose matrix of MediaPipe, with no smoothing of its own. If a hat shakes on the phone: smooth the quaternion (One Euro, as the landmarks).
-- A two-finger hold of more than 0.3 s with no move clears the selection in the editor (old behaviour, seen in the headless check).
+- Fixed: a two-finger hold of more than 0.3 s with no move cleared the selection in the editor (old behaviour, seen in the headless check). See "The photo editor: costume parts and the two-finger hold".
 
 ## Flat props as live stickers (2026-09-27): built on branch `art-r1-r3`, not live
 
@@ -398,7 +398,7 @@ Phone checks owed by the operator:
 - [ ] Frame rate with the witch (9 500 triangles, 4 samples).
 
 Open:
-- [ ] The photo editor has no costume parts in its palette.
+- [x] The photo editor has no costume parts in its palette. Done on branch `editor-costume-parts`.
 - [ ] More costumes: the way is ready (template, brief section R7 as the pattern, import job, one line per costume in `COSTUMES` of the import script).
 - [ ] Install size with the witch: precache 198 entries, 8.2 MB.
 ## A phone where the face is not tracked (operator, 2026-09-27)
@@ -570,7 +570,26 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [ ] Not covered by the headless check: a hidden event of the browser itself (the check sets the state by hand, and frames still run there). The reviewer ran a tab in the back for 11 s: tracker results came again, no error, no new start.
 - [ ] Operator, on the phone: put the app in the background. The camera sign of Android (green dot) goes off. A second page with the app gets a picture. Back in the first app: the picture comes again in about a second.
 
+### The photo editor: costume parts and the two-finger hold (2026-09-27): on branch `editor-costume-parts`
+
+- [x] The 3D parts of a costume are stickers in the palette of the photo editor, after the 3D props: the hat of the witch with its hair, and her nose. The child places them by hand, as every sticker (one finger moves, two fingers scale and turn, three fingers turn in depth).
+- [x] The chip of a part comes from the render that Astra delivered with the part (`<part>.png`). The import job makes `public/costumes/<id>/<part>-chip.webp` and refuses a part with no render. No new art request.
+- [x] A part is made around a head and is larger than a prop (the hat is three face widths high). In the editor its long side is one unit, as the long side of a prop is. Its colours have the same factor as on the live camera (`COSTUME_GAIN`).
+- [x] The face paint of a costume is not in the editor: paint needs the face mesh, and the editor has no face tracker.
+- [x] The two-finger hold: the defect does not occur any more. The flag for a gesture with more than one finger (`many`, from the review of the 3D props, commit `44428db`) cured it. New headless verdict as a guard. It fails when the flag is taken out of the condition.
+- [x] Review by a fresh reviewer: ready after fixes. Fixed after it:
+  - [x] The hat with the hair covered the face of the photo (79 % of it): the editor had no hidden head. Now a part that goes around the head holds the hidden shapes of the head, in its own frame. They write depth and no colour, so the head of the photo shows there. A part in front of the face (the nose) has none.
+  - [x] The parts start in the size of one head (a face of a quarter of the photo width): the hat is three face widths high, the nose is small, and they fit each other. Before, the child had to scale the hat by 6.
+  - [x] At the size of a head the hit circle of the hat covered the photo: a finger on the nose took the hat, and the first finger of every gesture took the hat. Now a 3D sticker is hit where it has a pixel (the editor reads its picture at the place of the finger), and the smallest sticker under the finger is taken.
+  - [x] The import job took a render that was no picture (ffprobe gives the size 0 and no error) and left a half result. Now `checkRender` refuses it before a file is written, with tests.
+  - [x] The headless verdict of the part passed on the glow of the selection alone. Now: pictures with no selection, the nose too, the place of the head in the hat is free, and three taps (in the place of the head, on the hat, on the nose).
+  - [x] The picture of a large sticker was soft: the limit of the picture buffer is 2048 px now.
+  - [x] The colour factor of a costume goes on a material one time, whatever the number of calls is. A test covers the costume files in the live layer.
+- [ ] Operator, on the phone: put the hat of the witch and the nose on a photo, scale them, turn them with three fingers, save.
+- [ ] Seen by the reviewer, older than this work: on a phone upright a new sticker lands under the open palette, and the chips of the palette are 58 px wide there, not 64 px.
+- [ ] A picture buffer of 2048 px on a phone with little memory: not tried on a device.
+- Install size: precache 202 entries, 8.3 MB.
+
 ### Known defects, not fixed yet
 
-- The photo editor has no costume parts in its palette.
-- A two-finger hold of more than 0.3 s with no move clears the selection in the editor.
+- None on the list. Open minor findings of the reviews: see the two review sections above.

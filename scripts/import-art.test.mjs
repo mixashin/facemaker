@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { inspectGlb, inspectPart, pngs, cornerAlpha, PART_REACH } from './import-art.mjs';
+import { inspectGlb, inspectPart, pngs, cornerAlpha, checkRender, PART_REACH } from './import-art.mjs';
 
 // A glTF 2.0 binary with a JSON chunk only: enough for the checks that read the JSON
 function glb(json) {
@@ -87,6 +87,25 @@ describe.skipIf(!tools)('cornerAlpha (needs ffmpeg)', () => {
   });
 });
 
+describe.skipIf(!tools)('checkRender: the render of a part, for its chip (needs ffmpeg)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'facemaker-art-'));
+  const make = (name, size) => { const f = join(dir, name); execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', `color=c=red:s=${size},format=rgba`, '-frames:v', '1', f]); return f; };
+  it('takes a square picture that is large enough for a chip', () => {
+    expect(() => checkRender(make('good.png', '1024x1024'))).not.toThrow();
+    expect(() => checkRender(make('least.png', '160x160'))).not.toThrow();
+  });
+  it('refuses a picture that is not square, and one that is smaller than the chip', () => {
+    expect(() => checkRender(make('wide.png', '1024x512'))).toThrow(/1024x512, expected a square/);
+    expect(() => checkRender(make('small.png', '16x16'))).toThrow(/16x16, expected a square of 160 px or more/);
+  });
+  it('refuses a file that is no picture, and a file that is not there', () => {
+    const text = join(dir, 'text.png');
+    writeFileSync(text, 'this is no picture');
+    expect(() => checkRender(text)).toThrow(/no picture/);
+    expect(() => checkRender(join(dir, 'none.png'))).toThrow(/not found/);
+  });
+});
+
 describe('inspectPart (a part of a costume, in the head frame)', () => {
   const part = (min, max, more = {}) => glb(plain({ accessors: [{ count: 4, min, max }, { count: 6 }], animations: [], ...more }));
   it('takes a part that lies around a head, of any size up to the reach', () => {
@@ -112,10 +131,11 @@ describe('inspectPart (a part of a costume, in the head frame)', () => {
     const looks = JSON.parse(readFileSync('src/filters/paintLooks.json', 'utf8')).map((l) => l.id);
     for (const c of list) {
       expect(looks, c.id).toContain(c.look);
-      expect(readdirSync(`public/costumes/${c.id}`).sort()).toEqual(c.parts.map((p) => `${p.id}.glb`).sort());
+      expect(readdirSync(`public/costumes/${c.id}`).sort()).toEqual(c.parts.flatMap((p) => [`${p.id}.glb`, `${p.id}-chip.webp`]).sort());
       for (const p of c.parts) {
-        const { id, file, ...facts } = p;
+        const { id, file, chip, ...facts } = p;
         expect(file).toBe(`/costumes/${c.id}/${id}.glb`);
+        expect(chip).toBe(`/costumes/${c.id}/${id}-chip.webp`); // the picture of the part for the photo editor
         expect(inspectGlb(readFileSync('public' + file)), id).toEqual(facts);
       }
     }

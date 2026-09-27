@@ -9,11 +9,15 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 3. `TODO.md`: backlog and every decision from grill-me. Add operator requests here as they arrive.
 4. `research/01-tech-stack-2026-09-26.md`, `02-filters-2026-09-26.md`, `03-mediapipe-telemetry-audit-2026-09-26.md`, `04-sticker-art-alternatives-2026-09-26.md`, `06-asset-sources-2026-09-27.md` (Etsy and paid packs fail: no free redistribution; use Kenney CC0, FreeSVG, Quaternius, Piranesi set in `docs/piranesi-props.json`): verified research with sources.
 
-## State (2026-09-27)
+## State (2026-09-27, late)
 
-Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b, m3). Shipped: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations: effects dock, shutter saves to gallery, cropped photos, editor gestures (select glow, pinch anywhere, mirror), floating save button; Fluent Emoji Color packs (PR #11, 20 packs, 6 editor props, LICENSE-ASSETS.md); M3 video + voice (PR #12, merged 2026-09-27, live): hold the shutter to record, voice tab with 7 voices and a voice mirror, shout preset, videos in the gallery. Operator phone check passed 2026-09-27 (record, playback, voices, shout, share); tag `m3`. Media pauses when the app goes to the background. Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored). Operator phone checks passed for M1; M2a/M2b/UI checks partly done by the operator on a Fold cover screen.
+Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b, m3). Only branch is `main`, tree clean.
 
-Next: M4 (makeup, face-onto-image, backgrounds). Open operator question: allow SIL OFL fonts (TODO.md). Operator phone check also pending for the Fluent packs (mask sizes on the Fold).
+Shipped: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations (effects dock, shutter saves to gallery, cropped photos, editor gestures, floating save button); Fluent Emoji Color packs (PR #11); M3 video + voice (PR #12, #13: hold to record, 7 voices, voice mirror, shout preset, videos in the gallery, media pauses in the background); after M3, on operator request: several face filters at once (PR #14), several sticker packs at once (PR #15), stickers follow the warp (PR #16, two render passes).
+
+Operator phone check of M3 passed on the Fold (record, playback, voices, shout, share). Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored), every verdict OK at the end of 2026-09-27.
+
+Next session: read `TODO.md` section "Handoff 2026-09-27 late" first. Then M4 (makeup, face-onto-image, backgrounds): grill only new questions, plan with superpowers:writing-plans, execute Native + Fable coding agents, one fresh Fable reviewer, PR, operator phone check, merge, tag m4.
 
 ## Decisions (do not re-ask)
 

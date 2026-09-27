@@ -165,3 +165,38 @@ Up to 5 face filters together (big head + big eyes + big mouth and so on). One c
 ## Stickers follow the warp (operator, 2026-09-27): done
 
 Two render passes: stickers are drawn into the camera picture, then the whole picture is warped. Verified against baseline pictures: plain picture identical, sticker pictures without a warp at 49 dB and 52 dB PSNR, heart area grows with big head and big eyes. Phone check owed: frame rate on the Fold with several filters and stickers on (one more full-size pass per frame).
+
+## Handoff 2026-09-27 late (next session starts here)
+
+State: everything is merged and live. `main` at the merge of PR #16, tags m1, m2a, m2b, m3, no other branch, tree clean. 214 unit tests, type check clean, full smoke OK.
+
+Done on 2026-09-27:
+- Fluent Emoji Color packs (PR #11).
+- research/05 (voice-effects engine, Opus researchers) and, by a parallel session, research/06 (asset sources) plus docs/piranesi-props.json (33 props for the Piranesi generator).
+- M3 video + voice (PR #12), review fix pass, no playback in the background (PR #13), tag m3.
+- Several face filters at once (PR #14), several sticker packs at once (PR #15), stickers follow the warp (PR #16).
+
+Open, operator side:
+- [ ] Frame rate on the Fold with several filters and several stickers on (one more full-size render pass per frame since PR #16). If it stutters: run the first pass only while a sticker and a warp are both on.
+- [ ] M3 checks still open: file extension of a saved clip (mp4 expected), a long recording at full camera resolution, denied microphone gives a silent video and the lock hint.
+- [ ] Fluent mask sizes on the Fold.
+- [ ] Decide: allow SIL OFL fonts (Fredoka or Baloo 2) for the Serbian letter đ. Needs OFL-1.1 on the allowed list.
+- [ ] Decide: pin `effort: high` in `~/projects/web-research/agents/deep-researcher.md` and `claim-verifier.md` (they pin only the model, Opus 5.5), then run install.sh.
+- [ ] Generate the custom props on Piranesi from docs/piranesi-props.json (CC0, into public/editor/gen/). Then Claude wires them into the editor palette and the sticker packs.
+
+Open, code side (none blocks M4):
+- "Deferred from the M3 review" in this file (12 minors). The two with the most user impact: rotation or Fold open during a recording keeps the old crop; a recorder error late in a clip loses the clip.
+- "Deferred from the M2a review" and "Deferred from the M2b review".
+
+Next milestone: M4 (docs/SPEC.md "M4: Makeup, face-onto-image, backgrounds"). Backgrounds need the MediaPipe ImageSegmenter: new model file, new worker or a second task in the face worker, the same two privacy fences (meta CSP and the worker fetch guard), smoke egress check after the dependency change. research/02 has the filter research, research/06 the asset sources for background loops (Pixabay and Pexels raw loops are excluded, use procedural shaders or CC0).
+
+Process rules that cost time when forgotten:
+- Coding, review, explore and plan agents: `model: "fable"`. Research agents (`deep-researcher`, `claim-verifier`): never pass `model`, they run on their own definition (Opus 5.5).
+- Worktree coding agents: start from the plan commit with `git reset --hard <commit>`, link `node_modules` with a junction, never `npm install`. In their sandbox `git` and `cmd` fail in Bash (rtk hook): they use the PowerShell tool. Remove the junction with PowerShell (`cmd /c rmdir <path>` after a `LinkType -eq 'Junction'` check) before `git worktree remove`.
+- `tsc -b --force` after cherry-picks: the build info file lives in `node_modules/.tmp` and is shared through the junction.
+- Gate every commit on the vitest exit code (`npx vitest run > log; S=$?`), not on a grep of the output. Commit 6f3149d went in red because of that.
+- Long shell heredocs with backticks or `${` break. Write a script file with the Write tool and run it.
+- Renderer colour: the render target and the sprite textures carry no colour space. After a change there, compare pictures with a baseline from the old build: `ffmpeg -i old.png -i new.png -lavfi psnr -f null -`.
+- Smoke: `SMOKE_RECORD=1 SMOKE_GALLERY=1 SMOKE_VIEWPORT=380x860 FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs http://localhost:4173` against `npm run build && npx vite preview --port 4173 --strictPort`. A label `-` in `SMOKE_SHOTS` closes the dock before the shot. Headless Chromium has no AAC encoder: the recorder falls back, the warning in the console is expected.
+- The installed PWA takes a new version on the launch after it downloaded it: open, close fully, open again.
+

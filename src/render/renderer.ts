@@ -6,13 +6,16 @@ import { MAX_HANDLES, type Handle } from '../filters/presets';
 import { SpriteLayer } from './spriteLayer';
 import { TextLayer, type TextState } from './textLayer';
 import type { Sprite } from '../filters/stickers';
+import { MakeupLayer } from './makeupLayer';
+import type { LookId } from '../filters/makeup';
+import type { Face } from '../tracking/faceTracker';
 
 const MAX_H = MAX_HANDLES; // must equal MAX_H in warp.frag (a test checks it)
 
 export class FaceRenderer {
   private renderer: THREE.WebGLRenderer;
   // Two passes, so stickers follow the warp (operator, 2026-09-27):
-  // 1. pre: the camera picture with the stickers on it, into a texture. Unmirrored, unwarped.
+  // 1. pre: the camera picture, the makeup on the face mesh, then the stickers, into a texture. Unmirrored, unwarped.
   // 2. scene: that texture through the warp shader (which also mirrors), then the text on top.
   private pre = new THREE.Scene();
   private target: THREE.WebGLRenderTarget;
@@ -22,6 +25,9 @@ export class FaceRenderer {
   private tex: THREE.VideoTexture;
   private mat: THREE.ShaderMaterial;
   private sprites: SpriteLayer;
+  private makeup: MakeupLayer;
+  private look: LookId = 'none';
+  private faces: Face[] = [];
   private spriteList: Sprite[] = [];
   private mirror = true;
   private textLayer: TextLayer;
@@ -51,6 +57,7 @@ export class FaceRenderer {
     });
     this.scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mat));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.makeup = new MakeupLayer(this.pre, this.tex);
     this.sprites = new SpriteLayer(this.pre);
     this.textLayer = new TextLayer(this.scene);
   }
@@ -58,6 +65,8 @@ export class FaceRenderer {
   setMirror(on: boolean): void { this.mirror = on; this.mat.uniforms.uMirror.value = on; }
 
   setSprites(s: Sprite[]): void { this.spriteList = s; }
+
+  setMakeup(id: LookId, faces: Face[]): void { this.look = id; this.faces = faces; }
 
   setText(s: TextState | null): void { this.textState = s; }
 
@@ -81,6 +90,7 @@ export class FaceRenderer {
   render(): void {
     this.resize();
     this.sprites.update(this.spriteList, this.mirror, this.mat.uniforms.uAspect.value as number);
+    this.makeup.update(this.look, this.faces, this.canvas.width, this.canvas.height);
     const el = this.canvas.getBoundingClientRect();
     this.textLayer.update(this.textState, this.mat.uniforms.uAspect.value as number, el.width > 0 ? el.width / el.height : 16 / 9);
     this.renderer.setRenderTarget(this.target);
@@ -89,5 +99,5 @@ export class FaceRenderer {
     this.renderer.render(this.scene, this.camera);
   }
 
-  dispose(): void { this.textLayer.dispose(); this.sprites.dispose(); this.tex.dispose(); this.mat.dispose(); this.copy.dispose(); this.target.dispose(); this.renderer.dispose(); }
+  dispose(): void { this.textLayer.dispose(); this.makeup.dispose(); this.sprites.dispose(); this.tex.dispose(); this.mat.dispose(); this.copy.dispose(); this.target.dispose(); this.renderer.dispose(); }
 }

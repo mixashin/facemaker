@@ -45,7 +45,7 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
-const RAIL = new Set(['warp', 'sticker', 'text', 'voice', 'lab']);
+const RAIL = new Set(['warp', 'sticker', 'makeup', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
 const click = async (label) => {
   if (RAIL.has(label)) await openDock();
@@ -137,6 +137,42 @@ if (state.fm?.faces > 0) {
   const red1 = await redPixels();
   console.log('stickers follow the warp: heart pixels', red0, 'with big head and big eyes', red1, 'ratio', (red1 / Math.max(1, red0)).toFixed(2), red0 > 50 && red1 > red0 * 1.3 ? 'OK' : 'FAIL');
   await click('none'); await click('sticker'); await click('none');
+  // Makeup: a look paints the face, follows the warp, and works together with a filter and a sticker.
+  const tinted = (test) => page.evaluate((body) => {
+    const hit = new Function('r', 'g', 'b', `return ${body};`);
+    const src = document.querySelector('canvas.stage');
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let n = 0; for (let i = 0; i < d.length; i += 4) if (hit(d[i], d[i + 1], d[i + 2])) n++;
+    return n;
+  }, test);
+  const RED = 'r > 120 && g < 70 && b < 90';
+  await click('warp'); await click('none');
+  await click('makeup'); await click('none'); await page.waitForTimeout(500);
+  const bareFace = await shot([]);
+  const lip0 = await tinted(RED);
+  const glam = await shot(['glam']);
+  const lip1 = await tinted(RED);
+  console.log('makeup paints the lips: red pixels', lip0, 'with the look', lip1, lip1 > lip0 + 150 ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/glam.png`, glam);
+  await click('warp'); await click('bigMouth'); await page.waitForTimeout(600);
+  const lip2 = await tinted(RED);
+  console.log('makeup follows the warp: red pixels', lip1, 'with big mouth', lip2, 'ratio', (lip2 / Math.max(1, lip1)).toFixed(2), lip2 > lip1 * 1.3 ? 'OK' : 'FAIL');
+  await click('sticker'); await click('crown'); await page.waitForTimeout(600);
+  const all = await page.locator('canvas').screenshot();
+  await click('makeup');
+  const on = await pressed();
+  await click('glam'); await page.waitForTimeout(500); // second tap: off
+  const off = await pressed();
+  const noLook = await page.locator('canvas').screenshot();
+  let d4 = 0; for (let i = 0; i < Math.min(all.length, noLook.length); i++) if (all[i] !== noLook[i]) d4++;
+  console.log('look with filter and sticker:', on.join('+'), '| second tap:', off.join('+'), '| picture differs:', d4 > 0, on[0] === 'glam' && off[0] === 'none' && d4 > 0 ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/glam-combo.png`, all);
+  await click('sticker'); await click('none'); await click('warp'); await click('none'); await page.waitForTimeout(500);
+  const red3 = await tinted(RED);
+  console.log('no look, no trace: red pixels as before', lip0, red3, Math.abs(red3 - lip0) <= Math.max(20, lip0 * 0.1) ? 'OK' : 'FAIL');
+  if (out) { writeFileSync(`${out}/makeup-none-before.png`, bareFace); writeFileSync(`${out}/makeup-none-after.png`, await shot([])); }
   await click('warp');
 }
 if (process.env.SMOKE_SHOTS && out) {

@@ -1,7 +1,8 @@
-import { dockOpen, dockTab, presets, stickers, sliders, type DockTab } from './state';
+import { dockOpen, dockTab, presets, stickers, sliders, makeup, type DockTab } from './state';
 import { DEFAULT_SLIDERS } from '../filters/sliders';
 import { PRESETS, togglePreset, type PresetId } from '../filters/presets';
 import { STICKER_PACKS, toggleSticker } from '../filters/stickers';
+import { MAKEUP, pickLook, type LookId } from '../filters/makeup';
 import { Strip } from './Strip';
 import { TextEditor } from './TextEditor';
 import { LabRows } from './FaceLab';
@@ -11,6 +12,7 @@ import { t } from '../i18n/i18n';
 const TABS: { id: DockTab; icon: string }[] = [
   { id: 'warp', icon: '🎭' },
   { id: 'sticker', icon: '🐱' },
+  { id: 'makeup', icon: '💄' },
   { id: 'text', icon: '✏️' },
   { id: 'voice', icon: '🎤' },
   { id: 'lab', icon: '🧪' },
@@ -37,6 +39,7 @@ export function Dock() {
       <div class="dock-body">
         {tab === 'warp' && <Strip items={PRESETS} value={presets.value} onPick={(id) => { presets.value = togglePreset(presets.value, id as PresetId); if (presets.value.length > 0) sliders.value = DEFAULT_SLIDERS; }} label={t('tabs.warp')} />}
         {tab === 'sticker' && <Strip items={STICKER_PACKS} value={stickers.value} onPick={(id) => (stickers.value = toggleSticker(stickers.value, id))} label={t('tabs.sticker')} />}
+        {tab === 'makeup' && <Strip items={MAKEUP} value={makeup.value} onPick={(id) => (makeup.value = pickLook(makeup.value, id as LookId))} label={t('tabs.makeup')} />}
         {tab === 'text' && <TextEditor />}
         {tab === 'voice' && <VoicePanel />}
         {tab === 'lab' && <LabRows />}

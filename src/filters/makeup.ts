@@ -221,7 +221,10 @@ const BUILT_IN: Look[] = [
 const PAINTED: Look[] = (painted as { id: string; icon: string; img: string; chip: string }[]).map((p) => ({ ...p, smooth: 0, layers: [] }));
 export const LOOKS: Look[] = [...BUILT_IN, ...PAINTED];
 
-export const MAKEUP: { id: LookId; icon: string; img?: string }[] = LOOKS.map(({ id, icon, chip }) => ({ id, icon, img: chip }));
+// The chips: none, the painted looks, then the drawn looks. A drawn look that has a painted twin is not
+// in the list (its code stays: take the id out of TWINS to show it again).
+const TWINS = new Set(['tiger', 'butterfly', 'clown', 'rainbow', 'hero']);
+export const MAKEUP: { id: LookId; icon: string; img?: string }[] = [BUILT_IN[0], ...PAINTED, ...BUILT_IN.slice(1).filter((l) => !TWINS.has(l.id))].map(({ id, icon, chip }) => ({ id, icon, img: chip }));
 const BY_ID = new Map(LOOKS.map((l) => [l.id, l]));
 export const lookById = (id: LookId): Look => BY_ID.get(id) ?? LOOKS[0];
 

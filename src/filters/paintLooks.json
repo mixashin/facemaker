@@ -6,9 +6,69 @@
     "chip": "/makeup/butterfly-chip.webp"
   },
   {
+    "id": "paint-cat",
+    "icon": "🎨",
+    "img": "/makeup/cat.webp",
+    "chip": "/makeup/cat-chip.webp"
+  },
+  {
+    "id": "paint-clown",
+    "icon": "🎨",
+    "img": "/makeup/clown.webp",
+    "chip": "/makeup/clown-chip.webp"
+  },
+  {
+    "id": "paint-dragon-scales",
+    "icon": "🎨",
+    "img": "/makeup/dragon-scales.webp",
+    "chip": "/makeup/dragon-scales-chip.webp"
+  },
+  {
+    "id": "paint-flowers",
+    "icon": "🎨",
+    "img": "/makeup/flowers.webp",
+    "chip": "/makeup/flowers-chip.webp"
+  },
+  {
+    "id": "paint-ladybug",
+    "icon": "🎨",
+    "img": "/makeup/ladybug.webp",
+    "chip": "/makeup/ladybug-chip.webp"
+  },
+  {
+    "id": "paint-puppy",
+    "icon": "🎨",
+    "img": "/makeup/puppy.webp",
+    "chip": "/makeup/puppy-chip.webp"
+  },
+  {
+    "id": "paint-rainbow",
+    "icon": "🎨",
+    "img": "/makeup/rainbow.webp",
+    "chip": "/makeup/rainbow-chip.webp"
+  },
+  {
+    "id": "paint-robot",
+    "icon": "🎨",
+    "img": "/makeup/robot.webp",
+    "chip": "/makeup/robot-chip.webp"
+  },
+  {
+    "id": "paint-superhero-mask",
+    "icon": "🎨",
+    "img": "/makeup/superhero-mask.webp",
+    "chip": "/makeup/superhero-mask-chip.webp"
+  },
+  {
     "id": "paint-tiger",
     "icon": "🎨",
     "img": "/makeup/tiger.webp",
     "chip": "/makeup/tiger-chip.webp"
+  },
+  {
+    "id": "paint-unicorn",
+    "icon": "🎨",
+    "img": "/makeup/unicorn.webp",
+    "chip": "/makeup/unicorn-chip.webp"
   }
 ]

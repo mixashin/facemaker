@@ -65,7 +65,8 @@ describe('looks', () => {
     expect(LOOKS[0].layers).toEqual([]);
     expect(new Set(LOOKS.map((l) => l.id)).size).toBe(LOOKS.length);
     for (const l of LOOKS) expect(l.icon.length).toBeGreaterThan(0);
-    expect(MAKEUP.map((m) => m.id)).toEqual(LOOKS.map((l) => l.id));
+    expect(MAKEUP[0].id).toBe('none');
+    for (const m of MAKEUP) expect(lookById(m.id).id).toBe(m.id);
     expect(lookById('glam').id).toBe('glam');
     expect(lookById('nope' as never).id).toBe('none');
   });
@@ -98,7 +99,14 @@ describe('looks', () => {
       expect(existsSync('public' + l.chip), l.chip).toBe(true);
       expect(l.layers).toEqual([]);
     }
-    expect(MAKEUP.slice(11).map((m) => m.img)).toEqual(painted.map((l) => l.chip)); // the chip shows the paint, not an emoji
+    expect(painted.length).toBeGreaterThanOrEqual(12);
+    const chips = MAKEUP.map((m) => m.id);
+    expect(chips.slice(1, 1 + painted.length)).toEqual(painted.map((l) => l.id)); // after none: the painted looks, then the drawn ones
+    for (const l of painted) expect(MAKEUP.find((m) => m.id === l.id)!.img).toBe(l.chip); // the chip shows the paint, not an emoji
+    // A drawn look with a painted twin leaves the list. The painted one is the better art.
+    for (const id of ['tiger', 'butterfly', 'clown', 'rainbow', 'hero']) expect(chips).not.toContain(id);
+    for (const id of ['glam', 'soft', 'zombie', 'vampire', 'cucumber']) expect(chips).toContain(id);
+    expect(new Set(chips).size).toBe(chips.length);
     expect(LOOKS.filter((l) => !l.img).length).toBe(11);
   });
   it('a second tap turns the look off', () => {

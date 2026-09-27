@@ -212,7 +212,7 @@ Process rules that cost time when forgotten:
 Astra is OpenAI Codex with image generation and Blender, run by the operator. Astra makes art. Claude writes code. One file holds what the app needs: `astra/BRIEF.md` (requests R1 to R6, formats, folders, rules). The start prompt for Astra is `astra/PROMPT.md`. The folder `astra/` is not in git.
 
 - [x] R1 face-on targets (for M4b): the required five arrived 2026-09-27 (orange, apple, cat, dog, lion; 2048 px, opaque, no eyes, no mouth) and passed the check. Imported into `public/targets` with M4b (WebP, 1280 px, about 75 KB each). Extras: open.
-- [ ] R2 background scenes (for M4c): open.
+- [x] R2 background scenes (for M4c): seven scenes arrived 2026-09-27 (four required, three extra), passed the check, and are in the app (branch `m4c-scenes`). The brief (version 5) asks for more bits and for near and far layers, all optional.
 - [ ] R3 sticker props (33): open.
 - [x] R4 face paint on the flat face layout: the experiment passed 2026-09-27. Tiger and butterfly arrived, fit the face (front, tilted, under filters), and are in the app as picture looks (branch `m4-face-paint`, PR #20). The brief (version 4) releases the other looks.
 - [ ] R4, the other looks: open. After each delivery: `node scripts/import-art.mjs facepaint`, build, look at the fit.
@@ -274,8 +274,8 @@ Fixed in the branch: a device photo with the face at the side (the picture slide
 
 Built and checked headless on branch `m4c-backgrounds`: segmenter worker, mask smoothing, backdrop shader, scene fit, loop video support, tab (hidden while there is no scene). About 25 masks per second in the headless run. With no scene the picture is identical to the live build.
 
-- [ ] Scenes: wait for request R2. Then `scripts/import-art.mjs` job `backgrounds`, fill `SCENES`, tune `drift` and `sway`, precache plates and layers, runtime cache for loop videos.
-- [ ] Floating bits (`bits/<name>.png` of the brief): not built. Build when a scene delivers them.
+- [x] Scenes: imported, seven places in the tab, plates and bits in the precache (about 1 MB). Loop videos: none delivered, the import job names a video and uses the plate.
+- [x] Floating bits: built (`bitSprites`), four motions (rise, fall, drift, twinkle), in front of the person.
 - [x] One fresh reviewer for the branch (2026-09-27), findings below. Pull request #19 against `m4b-face-on`.
 
 Phone checks owed by the operator, when scenes are in:

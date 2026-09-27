@@ -343,3 +343,41 @@ Open:
 - [ ] Known limit of the update button: with the app open in two places (installed app and a Chrome tab) the old service worker can stay, and its cache stays empty until the next release. The app works with a network. Close the other one first.
 - [ ] A reload from the computer (`phone-inspect.mjs reload`) with the phone locked leaves the app on the camera error screen: the camera cannot start on a locked phone. Unlock first.
 - [ ] Icons differ between devices: the rail and the buttons use the emoji font of the device (old art on an old Android). Option: own icon art for the rail and the buttons, as the chips have.
+
+## Handoff 2026-09-27 afternoon (next session starts here)
+
+### Pull requests
+
+| Number | Branch | Base | Content | State |
+|---|---|---|---|---|
+| #23 | `tracker-health` | main | Version, update button, device report, tracker that starts again, gear in its corner | Reviewed, fixed, CI green |
+| #24 | `art-r1-r3` | main | More face-on pictures, 33 props as stickers, more painted looks | Reviewed, fixed |
+| #25 | `props3d` | `art-r1-r3` | 3D props, three fingers turn a sticker in depth | Reviewed, fixed |
+
+- [ ] The operator's word for each merge. Wished order: #23, #24, #25. Read `gh pr checks <number>` in full before a merge.
+- [ ] After a merge: rebase the next branch on main. Conflicts to expect: `CLAUDE.md` (State, Decisions), the end of `TODO.md`, the end of `scripts/smoke.mjs`, `src/app/App.tsx`, `src/app/styles.css`, `src/i18n/*.json`, `vite.config.ts` (define line, glob patterns), `src/vite-env.d.ts`. Keep both sides. For the State section take the newest text.
+- [ ] After the merge of #24: set the base of #25 to main.
+- [ ] #25: run the headless check on the production build again (it passed before the review fixes, the dev server passed after them).
+- [ ] After #23 and #25 are both on main: the editor palette of #25 gets `loading="lazy"` chips already, nothing to do. The report of #23 gets no 3D line. Nothing to join by hand except the conflicts above.
+
+### The phone where the face is not tracked
+
+Facts are in the section "A phone where the face is not tracked". Next steps, in this order:
+
+1. The phone must be unlocked, facemaker open and in front, a face in view. Then `node scripts/phone-inspect.mjs` (no reload). It prints the tracker state and the console, each message one time with its count. Wanted: the full text of the first error.
+2. Test the fix before its release: `adb reverse tcp:5173 tcp:5173`, open `http://localhost:5173` in Chrome on the phone (the dev server serves the project folder, branch `tracker-health`). Then `PHONE_MATCH=localhost:5173 node scripts/phone-inspect.mjs`, or About, 🩺 on the phone.
+3. Read the result: `tracker: CPU`, `new starts: 1`, faces that work: the new start cures it, and the GPU path is the suspect. `new starts` that rise: the error comes back, the geometry step is the suspect. Then leave the geometry step out and take the turn of the head from the landmarks.
+4. Compare with `http://localhost:5173/?tracker=gpu` and `?tracker=cpu`. End with `?tracker=auto`, so nothing stays forced on the phone.
+
+Rules for a phone of the family: technical state of facemaker only. Never print or keep the addresses of other browser tabs. No picture of the camera. No name of a person in a file of the repo.
+
+### Art
+
+- [ ] Astra has request R7 (witch costume: face paint, hat with hair, nose with a wart). Brief version 10 (`astra/BRIEF.md`), prompt `astra/PROMPT-witch.md`, template `astra/templates/head-standin.obj`.
+- [ ] After the delivery, new code: a costume is one chip in the makeup list that puts on the paint and the 3D props. Costume props are in the head frame (origin between the sides of the face, 1 unit is the face width, no rule "largest side 1"): the import check and the placement need that second kind of prop.
+
+### Open, for the operator to decide
+
+- Own icon art for the rail and the buttons, so every device shows the same icons (now: the emoji font of the device).
+- Flat twins of the 3D props in the sticker strip (pirate hat, party hat, witch hat, fly, mosquito, spider): keep both or drop the flat ones.
+- Tag `m4` after the phone checks of M4.

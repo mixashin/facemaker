@@ -17,6 +17,7 @@ describe('attributions', () => {
     expect(names).toContain('Fluent Emoji graphics');
     expect(names).toContain('MediaPipe Face Landmarker model');
     expect(names).toContain('MediaPipe canonical face model');
+    expect(names).toContain('Facemaker art by Astra');
     expect(names).toContain('Workbox');
   });
 

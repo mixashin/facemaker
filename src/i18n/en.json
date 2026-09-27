@@ -69,5 +69,6 @@
   "tabs.voice": "Voice",
   "voice.try": "Hold and talk",
   "voice.denied": "Microphone is off. Allow it in the browser settings.",
-  "tabs.makeup": "Makeup"
+  "tabs.makeup": "Makeup",
+  "tabs.faceon": "Funny faces"
 }

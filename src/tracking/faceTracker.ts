@@ -21,6 +21,8 @@ export class FaceTracker {
   private filters: OneEuroArray[];
   private present: boolean[];
   private misses = 0;
+  private stills = new Map<number, (lm: Float32Array | null) => void>();
+  private stillId = 0;
 
   constructor(private opts: Opts) {
     this.filters = Array.from({ length: opts.numFaces }, () => new OneEuroArray(LM));
@@ -34,6 +36,7 @@ export class FaceTracker {
       if (m.type === 'ready') { this.ready = true; this.opts.onReady?.(m.delegate); }
       else if (m.type === 'error') { this.inFlight = false; this.opts.onError?.(m.message); }
       else if (m.type === 'result') { this.inFlight = false; this.opts.onFaces(this.smooth(m.result, m.ts)); }
+      else if (m.type === 'still') { this.stills.get(m.id)?.(m.landmarks); this.stills.delete(m.id); }
     };
     const msg: WorkerIn = { type: 'init', wasmPath: `/mediapipe/${__MP_VER__}/wasm`, modelPath: '/models/face_landmarker-f16-v1.task', numFaces: this.opts.numFaces };
     this.worker.postMessage(msg);
@@ -48,7 +51,23 @@ export class FaceTracker {
     }).catch(() => { this.inFlight = false; });
   }
 
-  stop(): void { this.worker?.terminate(); this.worker = null; this.inFlight = false; this.ready = false; }
+  // One picture, not a video frame: the device photo of face-on mode. The picture is handed over and closed.
+  // Result: the landmarks of the first face, or null (no face, worker not ready, tracker stopped).
+  detectStill(bitmap: ImageBitmap): Promise<Float32Array | null> {
+    if (!this.worker || !this.ready) { bitmap.close(); return Promise.resolve(null); }
+    const id = ++this.stillId;
+    return new Promise((resolve) => {
+      this.stills.set(id, resolve);
+      const msg: WorkerIn = { type: 'still', bitmap, id };
+      this.worker!.postMessage(msg, [bitmap]);
+    });
+  }
+
+  stop(): void {
+    this.worker?.terminate(); this.worker = null; this.inFlight = false; this.ready = false;
+    this.stills.forEach((resolve) => resolve(null));
+    this.stills.clear();
+  }
 
   smooth(r: FaceResult, tMs: number): Face[] {
     if (r.count === 0) {

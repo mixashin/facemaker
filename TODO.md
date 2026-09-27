@@ -211,7 +211,7 @@ Process rules that cost time when forgotten:
 
 Astra is OpenAI Codex with image generation and Blender, run by the operator. Astra makes art. Claude writes code. One file holds what the app needs: `astra/BRIEF.md` (requests R1 to R6, formats, folders, rules). The start prompt for Astra is `astra/PROMPT.md`. The folder `astra/` is not in git.
 
-- [x] R1 face-on targets (for M4b): the required five arrived 2026-09-27 (orange, apple, cat, dog, lion; 2048 px, opaque, no eyes, no mouth) and passed the check. Import into `public/` comes with M4b. Extras: open, the operator picks the subjects.
+- [x] R1 face-on targets (for M4b): the required five arrived 2026-09-27 (orange, apple, cat, dog, lion; 2048 px, opaque, no eyes, no mouth) and passed the check. Imported into `public/targets` with M4b (WebP, 1280 px, about 75 KB each). Extras: open.
 - [ ] R2 background scenes (for M4c): open.
 - [ ] R3 sticker props (33): open.
 - [ ] R4 face paint on the flat face layout (experiment): open. When the first two files arrive: add image looks to the makeup engine (load a PNG into the look canvas, then erase the openings) and check the fit on the face.
@@ -237,3 +237,33 @@ Fixed in the branch: paint on teeth with the mouth open (mesh holes), eyeliner e
 - [ ] Blobs have no rotation (`sx` stretches along x only). Add it when a look needs it.
 - [ ] The mesh ends at mid forehead. Shapes that must join the hair are not possible.
 - [ ] Depth buffer for the makeup mesh, when overlap artefacts show on a head turned far to the side.
+
+## M4b face on a picture: phone checks owed by the operator
+
+- [ ] Every picture (orange, apple, cat, dog, lion): eyes and mouth sit where a face belongs, no hard edge.
+- [ ] Talk, blink, open the mouth wide: the mouth window grows with the mouth.
+- [ ] Tilt the head, move near and far: eyes and mouth stay level and keep their size on the picture.
+- [ ] Big eyes and big mouth on the orange. A makeup look on a picture (clown lips on the orange).
+- [ ] A photo from the device with a face, and one without a face. A wide photo with the face at the side.
+- [ ] Tap the photo chip and pick "Camera" in the file picker. Take the photo, return. The live view must run (the app starts the camera again when the track ended).
+- [ ] The shout face on the orange, with a loud shout and the mouth wide open: no straight cut edge below the mouth.
+- [ ] A photo and a recording in face-on mode. The saved file shows the picture, not the camera view.
+- [ ] Frame rate in face-on mode.
+
+Known limits, decide later:
+- Face-on mode uses the first face only. A second child in the picture has no place on the target.
+- Stickers show only where they overlap eyes or mouth. A crown on the orange needs a place per target.
+- The skin around eyes and mouth shows as a soft rim in skin colour. A tint toward the colour of the target is possible.
+- The device photo is gone after the session (memory only).
+- A head turned to the side has a smaller face width in the picture, so eyes and mouth grow on the target.
+
+## Deferred from the M4b review (2026-09-27)
+
+Fixed in the branch: a device photo with the face at the side (the picture slides), a window that left the face quad with shout and an open mouth (quad 2.4 face widths), one WebGL context more per device photo (one landmarker kept), the camera after the camera app took it, a picture that failed to load (asks again after 5 s), two photos picked one after the other (the last pick wins), a file that is not a picture (⚠️ on the chip), handle count for the windows, tests for the turn of the face quad and for the dead branch in `pickTarget`.
+
+- [ ] The roll sign and the mirror in `faceon.frag` have no automated check (checked by hand port in the review: correct). A smoke run with `FACE_ROTATE=20` that measures the height of both eye windows would protect them.
+- [ ] `createImageBitmap(file)` decodes the full photo before the size limit applies: about 50 MB for 12 megapixels, 200 MB for 50. Read the size from the file header first, or decode with `resizeWidth`.
+- [ ] The camera view shows for some frames at the first use of each picture, and between two device photos.
+- [ ] Textures of the five pictures stay on the GPU once used (6.5 MB each). Release the ones that are off.
+- [ ] `scripts/import-art.mjs` leaves old outputs in `public/targets` when a source is gone.
+- [ ] EXIF rotation of a portrait phone photo: Chrome applies it in `createImageBitmap` by default. Confirm on the phone.

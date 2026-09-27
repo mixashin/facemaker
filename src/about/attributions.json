@@ -48,6 +48,12 @@
     "url": "https://github.com/google-ai-edge/mediapipe"
   },
   {
+    "name": "Facemaker art by Astra",
+    "version": "2026-09",
+    "license": "CC0-1.0",
+    "url": "https://github.com/mixashin/facemaker/blob/main/LICENSE-ASSETS.md"
+  },
+  {
     "name": "Workbox",
     "version": "7.4.1",
     "license": "MIT",

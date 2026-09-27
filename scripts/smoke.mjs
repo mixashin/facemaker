@@ -4,6 +4,7 @@
 //   SMOKE_WAIT_MS   wait after load before reading state (default 4000)
 //   FACE            image used as the camera feed (default test/face.png if present; converted to y4m with ffmpeg)
 //   FACE_ROTATE     degrees to roll the face image (head-tilt check for sticker rotation)
+//   FACE_FIT        "crop": cut the face image to 4:3 (true proportions). Default: stretch it to 640x480
 //   SMOKE_OUT       directory for screenshots; enables the shot options below
 //   SMOKE_SHOTS     "sticker,cat;warp,upsideDown": click each group's aria-labels in order, save <last label>.png of the canvas; a label "-" closes the dock before the shot
 //   SMOKE_PAGE      "theme,Blossom": click labels, save page-<last label>.png of the whole page, then close any open sheet
@@ -24,7 +25,8 @@ const args = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-str
 if (face) {
   const y4m = join(mkdtempSync(join(tmpdir(), 'facemaker-')), 'face.y4m');
   const rot = Number(process.env.FACE_ROTATE ?? 0);
-  const vf = rot ? `rotate=${rot}*PI/180:c=black,scale=640:480` : 'scale=640:480';
+  const size = process.env.FACE_FIT === 'crop' ? 'scale=640:480:force_original_aspect_ratio=increase,crop=640:480' : 'scale=640:480';
+  const vf = rot ? `rotate=${rot}*PI/180:c=black,${size}` : size;
   execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-loop', '1', '-i', face, '-t', '2', '-r', '15', '-vf', vf, '-pix_fmt', 'yuv420p', y4m]);
   args.push(`--use-file-for-fake-video-capture=${y4m}`);
   console.log('face feed:', face);
@@ -45,7 +47,7 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
-const RAIL = new Set(['warp', 'sticker', 'makeup', 'text', 'voice', 'lab']);
+const RAIL = new Set(['warp', 'sticker', 'makeup', 'faceon', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
 const click = async (label) => {
   if (RAIL.has(label)) await openDock();
@@ -172,6 +174,41 @@ if (state.fm?.faces > 0) {
   const red3 = await tinted(RED);
   console.log('no look, no trace: red pixels as before', lip0, red3, Math.abs(red3 - lip0) <= Math.max(20, lip0 * 0.1) ? 'OK' : 'FAIL');
   if (out) { writeFileSync(`${out}/makeup-none-before.png`, bareFace); writeFileSync(`${out}/makeup-none-after.png`, await shot([])); }
+  // Face on a picture: the orange fills the screen, the live eyes and mouth sit on it, filters still work.
+  const ORANGE = 'r > 200 && g > 90 && g < 170 && b < 80';
+  await click('faceon'); await click('none'); await page.waitForTimeout(400);
+  const o0 = await tinted(ORANGE);
+  await click('orange'); await page.waitForTimeout(1200); // the picture loads
+  const o1 = await tinted(ORANGE);
+  console.log('face on a picture: orange pixels', o0, 'with the orange', o1, o1 > o0 + 20000 ? 'OK' : 'FAIL');
+  await click('warp'); await click('bigEyes'); await page.waitForTimeout(600);
+  const o2 = await tinted(ORANGE);
+  console.log('filters work on the picture: orange pixels', o1, 'with big eyes', o2, o2 < o1 - 300 ? 'OK' : 'FAIL');
+  await click('none'); await click('faceon'); await click('orange'); await page.waitForTimeout(500); // second tap: off
+  const o3 = await tinted(ORANGE);
+  console.log('second tap brings the camera back: orange pixels', o3, Math.abs(o3 - o0) < 500 ? 'OK' : 'FAIL');
+  // A photo from the device as the picture. The face in it is found on the device.
+  if (face) {
+    const camera = await tinted('r + g + b > 600');
+    await page.locator('input[type=file][aria-label="photo file"]').setInputFiles(face);
+    await page.waitForTimeout(6000); // second face model on the CPU, then the picture loads
+    const tgt = await page.evaluate(() => globalThis.__fm?.target?.());
+    const p = tgt?.photo;
+    const found = !!p && (p.nose[0] !== 0.5 || p.nose[1] !== 0.5);
+    console.log('device photo:', tgt?.id, 'face in the photo', found ? `at ${p.nose.map((v) => v.toFixed(2)).join(',')} width ${p.width.toFixed(2)}` : 'not found', '| local url', String(p?.img).slice(0, 5), tgt?.id === 'photo' && found && String(p.img).startsWith('blob:') ? 'OK' : 'FAIL');
+    const bright = await tinted('r + g + b > 600');
+    console.log('the photo takes the place of the camera view: bright pixels', camera, bright, camera !== bright ? 'OK' : 'FAIL');
+    if (out) writeFileSync(`${out}/faceon-photo.png`, await shot(['-']));
+    // Many photos in a row: the face search keeps one model, and the live tracker keeps its place on the GPU.
+    for (let i = 0; i < 8; i++) { await page.locator('input[type=file][aria-label="photo file"]').setInputFiles(face); await page.waitForTimeout(700); }
+    await page.waitForTimeout(2500);
+    const f0 = await page.evaluate(() => globalThis.__fm.frames);
+    await page.waitForTimeout(1500);
+    const f1 = await page.evaluate(() => globalThis.__fm.frames);
+    const again = (await page.evaluate(() => globalThis.__fm?.target?.()))?.photo;
+    console.log('eight more photos: tracker frames', f0, f1, '| face in the last photo', !!again && again.nose[0] !== 0.5, f1 > f0 && !!again && again.nose[0] !== 0.5 ? 'OK' : 'FAIL');
+    await click('faceon'); await click('none');
+  }
   await click('warp');
 }
 if (process.env.SMOKE_SHOTS && out) {

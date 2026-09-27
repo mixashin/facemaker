@@ -7,12 +7,14 @@ import { Strip } from './Strip';
 import { TextEditor } from './TextEditor';
 import { LabRows } from './FaceLab';
 import { VoicePanel } from './VoicePanel';
+import { FaceOnPanel } from './FaceOnPanel';
 import { t } from '../i18n/i18n';
 
 const TABS: { id: DockTab; icon: string }[] = [
   { id: 'warp', icon: '🎭' },
   { id: 'sticker', icon: '🐱' },
   { id: 'makeup', icon: '💄' },
+  { id: 'faceon', icon: '🍊' },
   { id: 'text', icon: '✏️' },
   { id: 'voice', icon: '🎤' },
   { id: 'lab', icon: '🧪' },
@@ -40,6 +42,7 @@ export function Dock() {
         {tab === 'warp' && <Strip items={PRESETS} value={presets.value} onPick={(id) => { presets.value = togglePreset(presets.value, id as PresetId); if (presets.value.length > 0) sliders.value = DEFAULT_SLIDERS; }} label={t('tabs.warp')} />}
         {tab === 'sticker' && <Strip items={STICKER_PACKS} value={stickers.value} onPick={(id) => (stickers.value = toggleSticker(stickers.value, id))} label={t('tabs.sticker')} />}
         {tab === 'makeup' && <Strip items={MAKEUP} value={makeup.value} onPick={(id) => (makeup.value = pickLook(makeup.value, id as LookId))} label={t('tabs.makeup')} />}
+        {tab === 'faceon' && <FaceOnPanel />}
         {tab === 'text' && <TextEditor />}
         {tab === 'voice' && <VoicePanel />}
         {tab === 'lab' && <LabRows />}

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import vert from './quad.vert?raw';
+import chain from './warpChain.glsl?raw';
 import frag from './warp.frag?raw';
 import copyFrag from './copy.frag?raw';
 import { MAX_HANDLES, type Handle } from '../filters/presets';
@@ -7,16 +8,18 @@ import { SpriteLayer } from './spriteLayer';
 import { TextLayer, type TextState } from './textLayer';
 import type { Sprite } from '../filters/stickers';
 import { MakeupLayer } from './makeupLayer';
+import { FaceOnLayer, type FaceOnView } from './faceOnLayer';
 import type { LookId } from '../filters/makeup';
 import type { Face } from '../tracking/faceTracker';
 
-const MAX_H = MAX_HANDLES; // must equal MAX_H in warp.frag (a test checks it)
+const MAX_H = MAX_HANDLES; // must equal MAX_H in warpChain.glsl (a test checks it)
 
 export class FaceRenderer {
   private renderer: THREE.WebGLRenderer;
   // Two passes, so stickers follow the warp (operator, 2026-09-27):
   // 1. pre: the camera picture, the makeup on the face mesh, then the stickers, into a texture. Unmirrored, unwarped.
   // 2. scene: that texture through the warp shader (which also mirrors), then the text on top.
+  //    Face-on mode: a picture takes the place of the warped camera view, with the live eyes and mouth on it.
   private pre = new THREE.Scene();
   private target: THREE.WebGLRenderTarget;
   private copy: THREE.ShaderMaterial;
@@ -26,6 +29,9 @@ export class FaceRenderer {
   private mat: THREE.ShaderMaterial;
   private sprites: SpriteLayer;
   private makeup: MakeupLayer;
+  private quad: THREE.Mesh;
+  private faceOn: FaceOnLayer;
+  private view: FaceOnView | null = null;
   private look: LookId = 'none';
   private faces: Face[] = [];
   private spriteList: Sprite[] = [];
@@ -43,7 +49,7 @@ export class FaceRenderer {
     this.pre.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.copy));
     this.mat = new THREE.ShaderMaterial({
       vertexShader: vert,
-      fragmentShader: frag,
+      fragmentShader: chain + frag,
       uniforms: {
         uTex: { value: this.target.texture },
         uAspect: { value: 16 / 9 },
@@ -55,7 +61,9 @@ export class FaceRenderer {
       depthTest: false,
       depthWrite: false,
     });
-    this.scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mat));
+    this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mat);
+    this.scene.add(this.quad);
+    this.faceOn = new FaceOnLayer(this.scene, this.mat.uniforms);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.makeup = new MakeupLayer(this.pre, this.tex);
     this.sprites = new SpriteLayer(this.pre);
@@ -67,6 +75,8 @@ export class FaceRenderer {
   setSprites(s: Sprite[]): void { this.spriteList = s; }
 
   setMakeup(id: LookId, faces: Face[]): void { this.look = id; this.faces = faces; }
+
+  setFaceOn(view: FaceOnView | null): void { this.view = view; }
 
   setText(s: TextState | null): void { this.textState = s; }
 
@@ -95,9 +105,10 @@ export class FaceRenderer {
     this.textLayer.update(this.textState, this.mat.uniforms.uAspect.value as number, el.width > 0 ? el.width / el.height : 16 / 9);
     this.renderer.setRenderTarget(this.target);
     this.renderer.render(this.pre, this.camera);
+    this.quad.visible = !this.faceOn.update(this.view, [this.canvas.width, this.canvas.height], [el.width, el.height]);
     this.renderer.setRenderTarget(null);
     this.renderer.render(this.scene, this.camera);
   }
 
-  dispose(): void { this.textLayer.dispose(); this.makeup.dispose(); this.sprites.dispose(); this.tex.dispose(); this.mat.dispose(); this.copy.dispose(); this.target.dispose(); this.renderer.dispose(); }
+  dispose(): void { this.textLayer.dispose(); this.faceOn.dispose(); this.makeup.dispose(); this.sprites.dispose(); this.tex.dispose(); this.mat.dispose(); this.copy.dispose(); this.target.dispose(); this.renderer.dispose(); }
 }

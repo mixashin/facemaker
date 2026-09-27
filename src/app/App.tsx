@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { startCamera, stopCamera } from '../camera/camera';
+import { startCamera, stopCamera, cameraLost } from '../camera/camera';
 import { FaceTracker, type Face } from '../tracking/faceTracker';
 import { FaceRenderer } from '../render/renderer';
-import { handlesForAll } from '../filters/presets';
+import { handlesForAll, MAX_HANDLES } from '../filters/presets';
 import { spritesForAll } from '../filters/stickers';
 import { snapshot } from '../capture/snapshot';
 import { shareOrDownload } from '../capture/share';
@@ -17,6 +17,7 @@ import { Viewer } from './Viewer';
 import { Editor } from './Editor';
 import { openStore, safePut } from '../storage/gallery';
 import { sliderHandles } from '../filters/sliders';
+import { TARGETS, faceFrame, windows } from '../filters/faceon';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
 import { Recorder, type RecCtor } from '../capture/recorder';
@@ -24,7 +25,7 @@ import { RecordCanvas } from '../capture/recordCanvas';
 import { acquireVoice, currentEngine, type Lease } from '../audio/session';
 import { micState } from '../audio/mic';
 import { isRealClip, type HoldEvent } from './hold';
-import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup } from './state';
+import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup, target, photo, still } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -45,18 +46,24 @@ export function App() {
     let raf = 0;
     const r = new FaceRenderer(canvas, video);
     // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
-    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value });
+    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }) });
     const t = new FaceTracker({
       numFaces: 2,
       onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
       onReady: (d) => { fm.delegate = d; },
       onError: (m) => console.error('tracker', m),
     });
+    still.detect = (picture) => t.detectStill(picture);
     const loop = (now: number) => {
       if (screen.value === 'camera') t.push(video, now);
       const aspect = video.videoWidth / video.videoHeight;
       const level = presets.value.includes('shout') ? currentEngine()?.level() ?? 0 : 0; // mic volume drives the shout preset
-      r.setHandles([...handlesForAll(presets.value, faces, aspect, level), ...sliderHandles(sliders.value, faces, aspect, now)]);
+      const handles = [...handlesForAll(presets.value, faces, aspect, level), ...sliderHandles(sliders.value, faces, aspect, now)].slice(0, MAX_HANDLES); // what the shader takes
+      r.setHandles(handles);
+      // Face-on mode: a picture with the live eyes and mouth of the first face. The filters work on them.
+      const tg = target.value === 'photo' ? photo.value : TARGETS.find((x) => x.id === target.value);
+      const lm = faces[0]?.landmarks;
+      r.setFaceOn(tg ? { target: tg, frame: lm ? faceFrame(lm, aspect) : null, wins: lm ? windows(lm, handles, aspect) : [] } : null);
       r.setSprites(spritesForAll(stickers.value, faces, aspect));
       r.setMakeup(makeup.value, faces);
       r.setText(text.value);
@@ -83,6 +90,9 @@ export function App() {
     // A hidden tab stops the render loop: end the clip and save it.
     const onHide = () => { if (document.hidden && recording.value) stopRec(); };
     document.addEventListener('visibilitychange', onHide);
+    // Back from another app that took the camera (the photo picker can open the camera app): start it again.
+    const onBack = () => { if (!document.hidden && camState.value === 'live' && cameraLost(video.srcObject as MediaStream | null)) start(); };
+    document.addEventListener('visibilitychange', onBack);
     // The shout preset listens to the mic. It holds the mic only while it is on the visible camera screen.
     let shout: Promise<Lease> | null = null;
     const syncShout = () => {
@@ -94,9 +104,11 @@ export function App() {
     document.addEventListener('visibilitychange', syncShout);
     return () => {
       document.removeEventListener('visibilitychange', onHide);
+      document.removeEventListener('visibilitychange', onBack);
       document.removeEventListener('visibilitychange', syncShout);
       unsubShout.forEach((u) => u());
       shout?.then((l) => l.release());
+      still.detect = null;
       unsub(); cancelAnimationFrame(raf); t.stop(); r.dispose(); stopCamera(video);
     };
   }, []);

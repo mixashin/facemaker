@@ -194,7 +194,7 @@ describe('handle budget', () => {
 
   it('the shader and the renderer use the same budget', () => {
     expect(MAX_HANDLES).toBe(32);
-    expect(readFileSync('src/render/warp.frag', 'utf8')).toContain(`#define MAX_H ${MAX_HANDLES}`);
+    expect(readFileSync('src/render/warpChain.glsl', 'utf8')).toContain(`#define MAX_H ${MAX_HANDLES}`);
     expect(readFileSync('src/render/renderer.ts', 'utf8')).toContain('MAX_HANDLES');
   });
 });

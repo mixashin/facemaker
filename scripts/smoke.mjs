@@ -47,7 +47,7 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
-const RAIL = new Set(['warp', 'sticker', 'makeup', 'faceon', 'text', 'voice', 'lab']);
+const RAIL = new Set(['warp', 'sticker', 'makeup', 'faceon', 'scene', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
 const click = async (label) => {
   if (RAIL.has(label)) await openDock();
@@ -187,6 +187,38 @@ if (state.fm?.faces > 0) {
   await click('none'); await click('faceon'); await click('orange'); await page.waitForTimeout(500); // second tap: off
   const o3 = await tinted(ORANGE);
   console.log('second tap brings the camera back: orange pixels', o3, Math.abs(o3 - o0) < 500 ? 'OK' : 'FAIL');
+  // A place behind the person. The check brings its own scene (a picture of the app), so it runs before the art is in.
+  {
+    const probe = (x, y) => page.evaluate(([x, y]) => {
+      const src = document.querySelector('canvas.stage');
+      const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+      const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+      return [...g.getImageData(Math.round(x * c.width), Math.round(y * c.height), 1, 1).data].slice(0, 3);
+    }, [x, y]);
+    const far = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+    const faceAt = await page.evaluate(() => globalThis.__fm.nose?.() ?? [0.5, 0.5]);
+    const noseX = 1 - faceAt[0]; // the front camera view is mirrored
+    const EDGE = [[0.03, 0.03], [0.97, 0.03], [0.03, 0.5], [0.97, 0.5]]; // the person is in the middle: the room shows at the sides
+    const edges = () => Promise.all(EDGE.map(([x, y]) => probe(x, y)));
+    const most = (a, b) => Math.max(...a.map((v, i) => far(v, b[i])));
+    const cheek0 = await probe(noseX, faceAt[1] - 0.04), top0 = await edges();
+    await page.evaluate(() => globalThis.__fm.scene({ id: 'check', icon: 'x', plate: '/targets/apple.webp' }));
+    await page.waitForTimeout(4000); // second worker, model, first masks
+    const m0 = await page.evaluate(() => globalThis.__fm.masks);
+    await page.waitForTimeout(2000);
+    const m1 = await page.evaluate(() => globalThis.__fm.masks);
+    const cheek1 = await probe(noseX, faceAt[1] - 0.04), top1 = await edges();
+    console.log('place behind the person: masks per second', ((m1 - m0) / 2).toFixed(1), (m1 - m0) / 2 > 5 ? 'OK' : 'FAIL');
+    console.log('the person stays, the background goes: face pixel moved by', far(cheek0, cheek1), 'edge pixels moved by', most(top0, top1), far(cheek0, cheek1) < 40 && most(top0, top1) > 60 ? 'OK' : 'FAIL (needs a test picture with room around the person)');
+    if (out) writeFileSync(`${out}/scene.png`, await page.locator('canvas').screenshot());
+    await page.evaluate(() => globalThis.__fm.scene(null));
+    await page.waitForTimeout(800);
+    const top2 = await edges();
+    const m2 = await page.evaluate(() => globalThis.__fm.masks);
+    await page.waitForTimeout(1500);
+    const m3 = await page.evaluate(() => globalThis.__fm.masks);
+    console.log('place off: the camera picture is back', most(top0, top2) < 12, '| the segmenter rests', m3 === m2, most(top0, top2) < 12 && m3 === m2 ? 'OK' : 'FAIL');
+  }
   // A photo from the device as the picture. The face in it is found on the device.
   if (face) {
     const camera = await tinted('r + g + b > 600');

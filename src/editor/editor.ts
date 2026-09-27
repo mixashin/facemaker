@@ -4,7 +4,8 @@ export type P = { x: number; y: number };
 export type EditorSticker = { id: number; src: string; x: number; y: number; scale: number; rot: number; flip?: boolean; yaw?: number; pitch?: number; model?: string };
 // The picture of a sticker that is turned in depth (src/editor/shots.ts), or null when there is none
 export type Shot = (s: EditorSticker) => CanvasImageSource | null;
-export type PaletteItem = { id: string; src: string; model?: string };
+// grow: the size of the sticker at its start, against a plain sticker
+export type PaletteItem = { id: string; src: string; model?: string; grow?: number };
 export type Ctx = Pick<CanvasRenderingContext2D, 'drawImage' | 'save' | 'restore' | 'translate' | 'rotate' | 'clearRect' | 'strokeRect' | 'scale' | 'shadowBlur' | 'shadowColor' | 'strokeStyle' | 'lineWidth'> & { canvas: { width: number; height: number } };
 
 import props from '../filters/props.json';
@@ -15,7 +16,7 @@ import { COSTUMES } from '../filters/costumes';
 // (brief R3), then emoji art.
 export const EDITOR_STICKERS: PaletteItem[] = [
   ...PROPS3D.map((p) => ({ id: '3d-' + p.id, src: p.chip, model: p.id })),
-  ...COSTUMES.flatMap((c) => c.parts.map((p) => ({ id: '3d-' + p.id, src: p.chip, model: p.id }))),
+  ...COSTUMES.flatMap((c) => c.parts.map((p) => ({ id: '3d-' + p.id, src: p.chip, model: p.id, grow: p.long }))),
   ...(props as string[]).map((id) => ({ id, src: `/props/${id}.webp` })),
   { id: 'sunglasses', src: '/stickers/1f576.svg' },
   { id: 'cap', src: '/stickers/1f9e2.svg' },
@@ -35,6 +36,10 @@ export const EDITOR_STICKERS: PaletteItem[] = [
 ];
 
 const MIN_SCALE = 16;
+// The size of a new sticker: its long side is a quarter of the photo width. A 3D prop is about as wide as a
+// face, so that is a face of a quarter of the photo width. The parts of a costume start in the size of that
+// same head: the hat with the hair is three face widths high, the nose is small, and they fit each other.
+export const startScale = (photoWidth: number, item: PaletteItem): number => photoWidth * 0.25 * (item.grow ?? 1);
 // A flat sticker tilts 75 degrees at most: at 90 degrees a card is a line, and the child loses it
 export const MAX_TILT = 1.3;
 // A shot shows this many units to every side of the middle of the sticker. One unit is the long side of the
@@ -53,12 +58,16 @@ export function elementToImage(ex: number, ey: number, imgW: number, imgH: numbe
   return { x: (ex - ox) / k, y: (ey - oy) / k };
 }
 
+// The sticker under the finger: the smallest one, and of two with one size the one on top. A large sticker
+// can go around a small one (the hat with the hair of a costume goes around the head, and the nose is on the
+// face): with "the one on top" alone no finger reached the small one.
 export function hitTest(stickers: EditorSticker[], p: P): EditorSticker | null {
+  let hit: EditorSticker | null = null;
   for (let i = stickers.length - 1; i >= 0; i--) {
     const s = stickers[i];
-    if (Math.hypot(p.x - s.x, p.y - s.y) <= s.scale / 2) return s;
+    if (Math.hypot(p.x - s.x, p.y - s.y) <= s.scale / 2 && (!hit || s.scale < hit.scale)) hit = s;
   }
-  return null;
+  return hit;
 }
 
 export function moveTo(s: EditorSticker, p: P): EditorSticker { return { ...s, x: p.x, y: p.y }; }

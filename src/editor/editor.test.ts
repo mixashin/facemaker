@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker, inside, tilt, centre, MAX_TILT, FRAME } from './editor';
+import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker, inside, tilt, centre, MAX_TILT, FRAME, startScale } from './editor';
 import { existsSync } from 'node:fs';
 import { prop3dById } from '../filters/props3d';
 import { partById } from '../filters/costumes';
@@ -31,7 +31,26 @@ describe('elementToImage', () => {
   });
 });
 
+describe('startScale', () => {
+  const item = (id: string) => EDITOR_STICKERS.find((s) => s.id === id)!;
+  it('a sticker starts at a quarter of the photo width', () => {
+    expect(startScale(800, item('3d-crown'))).toBe(200);
+    expect(startScale(800, item('sunglasses'))).toBe(200);
+  });
+  it('the parts of a costume start in the size of one head: the hat is three face widths high, the nose is small', () => {
+    const hat = startScale(800, item('3d-witch-hat-hair')), nose = startScale(800, item('3d-witch-nose'));
+    expect(hat).toBeCloseTo(200 * 3.033, 3);
+    expect(nose).toBeCloseTo(200 * 0.648, 3);
+  });
+});
+
 describe('hitTest and moveTo', () => {
+  it('takes the smallest sticker under the finger: a nose under the hat that goes around the head', () => {
+    const nose = st(1, 320, 260, 60), hat = st(2, 320, 200, 900); // the hat came later, it lies on top
+    expect(hitTest([nose, hat], { x: 325, y: 265 })?.id).toBe(1);
+    expect(hitTest([hat, nose], { x: 325, y: 265 })?.id).toBe(1);
+    expect(hitTest([nose, hat], { x: 500, y: 100 })?.id).toBe(2);
+  });
   it('returns the topmost sticker under the point', () => {
     const a = st(1, 100, 100), b = st(2, 120, 100);
     expect(hitTest([a, b], { x: 110, y: 100 })?.id).toBe(2);

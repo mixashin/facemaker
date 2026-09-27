@@ -3,7 +3,7 @@
 // that picture on the photo with the 2D canvas. The turn in the plane and the mirror stay with the 2D canvas.
 import * as THREE from 'three';
 import { loadGlb, lights, brighten, COSTUME_GAIN, type LoadModel } from '../render/props3dLayer';
-import { prop3dById } from '../filters/props3d';
+import { prop3dById, OCCLUDERS } from '../filters/props3d';
 import { partById } from '../filters/costumes';
 import { FRAME, type EditorSticker } from './editor';
 
@@ -15,10 +15,11 @@ export function turn(yaw: number, pitch: number): THREE.Quaternion {
   return new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'XYZ'));
 }
 
-// Side of the shot in pixels, for a shot that is `px` wide on the photo
+// Side of the shot in pixels, for a shot that is `px` wide on the photo. The limit: the hat of a costume at the
+// size of a head on a phone photo needs about 1800 px.
 export function shotSize(px: number): number {
   let n = 128;
-  while (n < 1024 && n < px) n *= 2;
+  while (n < 2048 && n < px) n *= 2;
   return n;
 }
 
@@ -83,6 +84,17 @@ export class Shots {
           const size = box.getSize(new THREE.Vector3()), k = 1 / (Math.max(size.x, size.y, size.z) || 1);
           m.scene.position.multiplyScalar(k); m.scene.scale.multiplyScalar(k);
           brighten(m.scene, COSTUME_GAIN);
+          // A part that goes around the head (the hat with its hair) has hair behind the head. The live camera
+          // hides it behind the hidden shapes of the head. Here the same shapes go into the part, in its frame:
+          // they write depth and no colour, so the head of the photo shows where they are. A part in front of
+          // the face (the nose) gets none: it would go away when the child turns it round.
+          if (box.min.z < 0) for (const shape of OCCLUDERS) {
+            const head = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true }));
+            head.position.set(0, shape.up, -shape.back);
+            head.scale.set(...shape.radii);
+            head.renderOrder = -1; // into the depth buffer before the part
+            m.scene.add(head);
+          }
         }
         this.keep(key, m.scene);
         this.waiting.delete(key);

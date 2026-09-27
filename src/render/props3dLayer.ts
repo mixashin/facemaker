@@ -25,9 +25,15 @@ function materialsOf(root: THREE.Object3D): Set<THREE.Material> {
   return all;
 }
 
-// A factor for the colours of the materials (COSTUME_GAIN)
+// A factor for the colours of the materials (COSTUME_GAIN). A material gets it one time, whatever the number
+// of calls is: a model that two users share must not get brighter with every user.
 export function brighten(root: THREE.Object3D, gain: number): void {
-  for (const m of materialsOf(root)) (m as THREE.MeshStandardMaterial).color?.multiplyScalar(gain);
+  for (const m of materialsOf(root)) {
+    const c = (m as THREE.MeshStandardMaterial).color;
+    if (!c || m.userData.gain) continue;
+    c.multiplyScalar(gain);
+    m.userData.gain = gain;
+  }
 }
 
 // The first render pass holds values as the camera gives them (sRGB values, no colour space on the target).

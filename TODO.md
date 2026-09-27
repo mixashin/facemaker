@@ -425,9 +425,19 @@ Open:
 - [ ] A reload from the computer (`phone-inspect.mjs reload`) with the phone locked leaves the app on the camera error screen: the camera cannot start on a locked phone. Unlock first.
 - [ ] Icons differ between devices: the rail and the buttons use the emoji font of the device (old art on an old Android). Option: own icon art for the rail and the buttons, as the chips have.
 
-## Handoff 2026-09-27, after the release (next session starts here)
+## Handoff 2026-09-27, late (next session starts here)
 
-### The release: done
+### State
+
+- [x] Live: the release (#27), the gear fix (#29), the pig (#30), the fixes after two reviews (#31). Version on the live site after #31: `2026-09-27 14:59 bf377c3` (a later merge of documents gives a new version with the same code). Full headless check on the live site with gallery and record: 72 verdicts OK, zero third-party requests.
+- [x] Only `main` is left, local and on GitHub, after the merge of this documents update. No worktree, no agent.
+- [x] Art: no request is open. Brief version 14.
+- [ ] Next work, in this order unless the operator says otherwise: the known defects below (the camera in the background first: privacy), then the open minor findings of the two reviews, then the plan for M5.
+
+The sections below are the record of the day. Open items have an empty box.
+
+
+### The release of 2026-09-27: done
 
 - [x] The operator merged pull request #27 on 2026-09-27 at 13:21 UTC. It holds #23 (tracker fix, version label, update button, device report), #24 (art), #25 (3D props), #26 (the witch). Version on the live site: `2026-09-27 13:21 928bcd2`.
 - [x] Deploy: success. Headless check on the live site with gallery and record: 66 verdicts OK, zero third-party requests.
@@ -465,7 +475,7 @@ Solved in #23, tested on the phone over USB, the operator saw it work. Live sinc
 ### Art
 
 - [x] Request R7 (the witch) is delivered, accepted and built (#26). Brief version 12 has the result and the answers to Astra's two questions.
-- [x] A pig for the face on a picture (operator, 2026-09-27): built on branch `faceon-pig`. Astra delivered `pig.png` (brief version 13, request R1), accepted with no change. The snout is as high as the nose and the upper lip of a face together, so the pig has own places for eyes and mouth (`eyes`, `mouth` in `TARGETS`, `src/filters/faceon.ts`): eyes above the snout, mouth below it, low enough that a mouth that opens wide stays clear of the snout. A test holds the windows on the plain skin that Astra measured on the picture. Seen in the browser with true face proportions on three screen shapes, plain and with the filters big eyes and big mouth. Brief version 14 has the result and the answer to Astra's question.
+- [x] A pig for the face on a picture (operator, 2026-09-27): live with #30. Astra delivered `pig.png` (brief version 13, request R1), accepted with no change. The snout is as high as the nose and the upper lip of a face together, so the pig has own places for eyes and mouth (`eyes`, `mouth` in `TARGETS`, `src/filters/faceon.ts`): eyes above the snout, mouth below it, low enough that a mouth that opens wide stays clear of the snout. A test holds the windows on the plain skin that Astra measured on the picture. Seen in the browser with true face proportions on three screen shapes, plain and with the filters big eyes and big mouth. Brief version 14 has the result and the answer to Astra's question.
 - [ ] Operator: the pig on a device, with a child that talks and opens the mouth wide.
 - [ ] More costumes: the pattern is section R7 of the brief, the template is `astra/templates/head-standin.obj`, the import job takes one line per costume (`COSTUMES` in `scripts/import-art.mjs`).
 
@@ -477,6 +487,10 @@ Lists are in the sections "3D props", "Costume: the witch", "M4a", "M4b", "M4c" 
 - [ ] 3D hats and bugs: fit and frame rate on the tablet.
 - [ ] Three fingers in the photo editor on a phone.
 - [ ] The update button and the version label in the settings.
+- [ ] The gear on the tablet on its side and on the open fold phone on its side.
+- [ ] The pig with a child that talks and opens the mouth wide.
+- [ ] The viewer on a phone on its side: share, save, edit, delete, close.
+- [ ] The phone where the GPU path fails: face effects after the second start of the installed app.
 
 ### Open, for the operator to decide
 
@@ -485,7 +499,7 @@ Lists are in the sections "3D props", "Costume: the witch", "M4a", "M4b", "M4c" 
 - Tag `m4` after the phone checks of M4.
 - Install size: precache 8.2 MB with the witch. Option: art in a runtime cache that fills in the background.
 
-### Review after the release (2026-09-27): fixed on `review-after-release`
+### Review after the release (2026-09-27): live with #31
 
 One fresh reviewer read the three parts on main. The merge lost nothing (every file is the blob of one side, the key lists of both languages are the same, 66 verdicts are 47 + 12 + 7). Four important findings, all fixed with a test that failed first:
 
@@ -510,7 +524,7 @@ Minor, open:
 - [ ] The phone tool: a process that is killed leaves its port forward in adb. Remove old forwards of the tool at its start (not the forwards of other tools).
 - [ ] The update button can clear the GPU mark too, so a release that repairs the GPU path reaches a marked device at once (now: after 7 days at most).
 
-### Second review, of the gear fix and of the fixes above (2026-09-27): fixed on `review-after-release`
+### Second review, of the gear fix and of the fixes above (2026-09-27): live with #31
 
 One fresh reviewer: no important finding in the two commits, ready to merge. One important defect that is older than the commits and live, and minor points. All fixed here, each with a test or a check that failed first:
 

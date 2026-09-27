@@ -9,15 +9,17 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 3. `TODO.md`: backlog and every decision from grill-me. Add operator requests here as they arrive.
 4. `research/01-tech-stack-2026-09-26.md`, `02-filters-2026-09-26.md`, `03-mediapipe-telemetry-audit-2026-09-26.md`, `04-sticker-art-alternatives-2026-09-26.md`, `06-asset-sources-2026-09-27.md` (Etsy and paid packs fail: no free redistribution; use Kenney CC0, FreeSVG, Quaternius, Piranesi set in `docs/piranesi-props.json`): verified research with sources.
 
-## State (2026-09-27, after the release)
+## State (2026-09-27, late)
 
 Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b, m3). Only branch is `main`. M4 and the release of 2026-09-27 have no tag yet: the operator's checks on devices are open (lists in `TODO.md`).
 
-Shipped and live: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations; Fluent Emoji Color packs (PR #11); M3 video + voice (PR #12, #13); several face filters at once (PR #14), several sticker packs at once (PR #15), stickers follow the warp (PR #16); M4a makeup (PR #17), M4b face on a picture (PR #18), M4c backgrounds (PR #19), makeup looks from a picture (PR #20), the fixes after the first phone check of M4 (PR #21), seven places with floating bits (PR #22); release of 2026-09-27 (PR #27, which holds #23 to #26): face tracker that starts again after errors, version label and update button, device report, more art by Astra, 3D props on the live camera and in the photo editor, the witch costume.
+Shipped and live: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations; Fluent Emoji Color packs (PR #11); M3 video + voice (PR #12, #13); several face filters at once (PR #14), several sticker packs at once (PR #15), stickers follow the warp (PR #16); M4a makeup (PR #17), M4b face on a picture (PR #18), M4c backgrounds (PR #19), makeup looks from a picture (PR #20), the fixes after the first phone check of M4 (PR #21), seven places with floating bits (PR #22); release of 2026-09-27 (PR #27, which holds #23 to #26): face tracker that starts again after errors, version label and update button, device report, more art by Astra, 3D props on the live camera and in the photo editor, the witch costume; after the release, same day: the gear takes taps on a high screen on its side (PR #29), a pig in the face-on-picture list (PR #30), the fixes after two reviews of the release (PR #31: tracker restart, GPU mark, buttons of the viewer on a phone on its side, hat chip under a costume, phone tool).
 
-Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored) on the live site after the release: 66 verdicts OK, zero third-party requests.
+Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored) on the live site after PR #31, with gallery and record: 72 verdicts OK, zero third-party requests.
 
-Next session: read `TODO.md` section "Handoff 2026-09-27, after the release" first. Check `astra/out` for new deliveries (`DELIVERY.md` per request).
+Merges: the operator gives the word per pull request, the session merges and watches the deploy. The operator allowed `gh pr merge` in the permission settings on 2026-09-27: before that the session was stopped ("Production Deploy"). A session never changes permission settings itself and never works around a denial.
+
+Next session: read `TODO.md` section "Handoff 2026-09-27, late" first. Check `astra/out` for new deliveries (`DELIVERY.md` per request). No art request is open (brief version 14).
 
 ## Decisions (do not re-ask)
 

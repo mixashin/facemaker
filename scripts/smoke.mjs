@@ -390,6 +390,52 @@ if (process.env.SMOKE_GALLERY) {
   await page.waitForTimeout(300);
   const kept = await stickers(), canGone = (await page.locator('.trash').count()) === 0;
   console.log('a drag that ends on the photo keeps the sticker:', kept === 1 && canGone ? 'OK' : 'FAIL');
+  // Three fingers turn the sticker in depth. Touch comes through the DevTools protocol: the mouse is one finger only.
+  {
+    const cdp = await page.context().newCDPSession(page);
+    const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+    const fingers = async (from, dx, dy) => {
+      await touch('touchStart', from);
+      for (let i = 1; i <= 8; i++) { await touch('touchMove', from.map(([x, y]) => [x + (dx * i) / 8, y + (dy * i) / 8])); await page.waitForTimeout(30); }
+      await touch('touchEnd', []);
+      await page.waitForTimeout(400);
+    };
+    const three = [[mx - 60, my + 150], [mx, my + 170], [mx + 60, my + 150]];
+    const pixels = () => page.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 200; c.height = 150;
+      const g = c.getContext('2d'); g.drawImage(document.querySelector('.edit-canvas'), 0, 0, 200, 150);
+      return [...g.getImageData(0, 0, 200, 150).data];
+    });
+    const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 40) n++; return n; };
+    // size, turn in the plane, yaw, pitch of the selected sticker
+    const numbers = () => page.evaluate(() => (document.querySelector('.editor')?.getAttribute('data-selected') ?? '').split(' ').map(Number));
+    const flat0 = await pixels();
+    await fingers(three, 120, 0);
+    const flat1 = await pixels();
+    if (out) writeFileSync(`${out}/page-editor-card.png`, await page.screenshot());
+    const card = await numbers();
+    console.log('three fingers tilt a flat sticker like a card: yaw', card[2], 'pitch', card[3], '| pixels that changed', differ(flat0, flat1), '| stickers', await stickers(), card[2] > 0.2 && Math.abs(card[3]) < 0.05 && differ(flat0, flat1) > 20 && (await stickers()) === 1 ? 'OK' : 'FAIL');
+    await page.locator('.pull').first().click(); await page.waitForTimeout(400);
+    await click('3d-crown'); await page.waitForTimeout(2500); // the model loads
+    const solid0 = await pixels();
+    console.log('a 3D prop lands on the photo: stickers', await stickers(), '| pixels that changed', differ(flat1, solid0), (await stickers()) === 2 && differ(flat1, solid0) > 100 ? 'OK' : 'FAIL');
+    if (out) writeFileSync(`${out}/page-editor-3d.png`, await page.screenshot());
+    await fingers(three, 90, 60);
+    const solid1 = await pixels();
+    if (out) writeFileSync(`${out}/page-editor-3d-turned.png`, await page.screenshot());
+    const turned = await numbers();
+    console.log('three fingers turn the 3D prop: yaw', turned[2], 'pitch', turned[3], '| pixels that changed', differ(solid0, solid1), turned[2] > 0.2 && turned[3] > 0.1 && differ(solid0, solid1) > 60 ? 'OK' : 'FAIL');
+    // Two fingers still scale, and the turn in depth stays
+    const two = [[mx - 40, my + 160], [mx + 40, my + 160]];
+    await touch('touchStart', two);
+    for (let i = 1; i <= 8; i++) { await touch('touchMove', [[mx - 40 - i * 8, my + 160], [mx + 40 + i * 8, my + 160]]); await page.waitForTimeout(30); }
+    await touch('touchEnd', []); await page.waitForTimeout(400);
+    const grown = await pixels();
+    if (out) writeFileSync(`${out}/page-editor-3d-grown.png`, await page.screenshot());
+    const big = await numbers();
+    console.log('two fingers scale the 3D prop: size', turned[0], 'then', big[0], '| yaw stays', big[2] === turned[2], '| pixels that changed', differ(solid1, grown), big[0] > turned[0] * 1.8 && big[2] === turned[2] && big[3] === turned[3] && differ(solid1, grown) > 100 ? 'OK' : 'FAIL');
+    await cdp.detach();
+  }
   await closeSheet();
   await click('Leave without saving'); await page.waitForTimeout(300); // editor -> viewer
   const left = (await page.locator('.editor').count()) === 0;
@@ -399,9 +445,11 @@ if (process.env.SMOKE_GALLERY) {
   await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
   await click('Edit'); await page.waitForTimeout(800);
   await click('moustache-handlebar'); await page.waitForTimeout(400);
+  await click('3d-party-hat'); await page.waitForTimeout(2500);
   await click('Done'); await click('Save as new photo'); await page.waitForTimeout(1200);
   const after = await page.locator('.thumb').count();
   console.log('gallery photos before/after edit:', before, after, before >= 1 && after === before + 1 ? 'OK' : 'FAIL');
+  if (out) { await page.locator('.thumb').first().click(); await page.waitForTimeout(800); writeFileSync(`${out}/page-viewer-saved.png`, await page.screenshot()); await closeSheet(); }
   await closeSheet();
 }
 // SMOKE_RECORD=1: hold the shutter, expect a playable clip with sound (the fake device has a microphone)

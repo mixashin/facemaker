@@ -121,6 +121,9 @@ export function inspectGlb(bytes) {
   if (outside.length) throw new Error('names a file outside itself: ' + outside.join(', '));
   const ext = [...new Set([...(g.extensionsUsed ?? []), ...(g.extensionsRequired ?? [])])];
   if (ext.length) throw new Error('uses extensions: ' + ext.join(', '));
+  // The loader reads a picture in the file with fetch from a blob: address. The CSP of the app (connect-src 'self')
+  // stops that, in the production build only. The 11 props of delivery R5 have plain materials.
+  if ((g.images ?? []).length) throw new Error('has pictures in the file (textures): the app cannot load them under its CSP yet');
   let triangles = 0;
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
   for (const m of g.meshes ?? []) for (const p of m.primitives) {

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { screen, store, current, refreshGallery } from './state';
 import { safePut } from '../storage/gallery';
 import { shareOrDownload } from '../capture/share';
-import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, inside, type EditorSticker, type P } from '../editor/editor';
+import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, inside, tilt, centre, type EditorSticker, type P, type PaletteItem } from '../editor/editor';
+import { Shots } from '../editor/shots';
 import { t } from '../i18n/i18n';
 
 const cache = new Map<string, HTMLImageElement>();
@@ -32,6 +33,8 @@ export function Editor() {
   const pointers = useRef(new Map<number, P>());
   const grabbed = useRef<number | null>(null); // sticker under the first finger
   const gesture = useRef({ moved: false, pinched: false, x: 0, y: 0 });
+  const shots = useRef<Shots | null>(null); // pictures of the stickers that are turned in depth
+  useEffect(() => { const s = (shots.current = new Shots()); return () => { s.dispose(); shots.current = null; }; }, []);
 
   useEffect(() => {
     let bmp: ImageBitmap | null = null, gone = false;
@@ -42,14 +45,18 @@ export function Editor() {
   useEffect(() => {
     const c = canvasRef.current;
     if (!c || !photo) return;
-    renderEditor(c.getContext('2d')!, photo, stickers, images, selected);
+    renderEditor(c.getContext('2d')!, photo, stickers, images, selected, shots.current?.draw);
   }, [photo, stickers, images, selected]);
 
-  const add = async (src: string) => {
+  const add = async ({ src, model }: PaletteItem) => {
     if (!photo) return;
-    const img = await load(src);
-    setImages((m) => new Map(m).set(src, img));
-    const s: EditorSticker = { id: nextId.current++, src, x: photo.width / 2, y: photo.height / 2, scale: photo.width * 0.25, rot: 0 };
+    if (model) { if (!(await shots.current?.model(model))) return; } // no 3D renderer or no file: no sticker
+    else {
+      const img = await load(src);
+      shots.current?.card(src, img, img.naturalWidth || img.width, img.naturalHeight || img.height);
+      setImages((m) => new Map(m).set(src, img));
+    }
+    const s: EditorSticker = { id: nextId.current++, src, model, x: photo.width / 2, y: photo.height / 2, scale: photo.width * 0.25, rot: 0 };
     setStickers((list) => [...list, s]);
     setSelected(s.id);
   };
@@ -61,6 +68,7 @@ export function Editor() {
     return elementToImage(e.clientX - r.left, e.clientY - r.top, c.width, c.height, r.width, r.height);
   };
   // Tap a sticker: selected (glow). One finger on it drags. Two fingers anywhere scale and rotate the selected one.
+  // Three fingers anywhere turn it in depth.
   // A tap on empty space deselects. Nothing moves without a selection.
   const onDown = (e: PointerEvent) => {
     setDock(false);
@@ -69,6 +77,7 @@ export function Editor() {
     const p = toImage(e);
     pointers.current.set(e.pointerId, p);
     if (pointers.current.size === 2) { twoTap.current.downAt = performance.now(); twoTap.current.fingers = 2; twoTap.current.move = 0; }
+    if (pointers.current.size === 3) twoTap.current.fingers = 3; // not a two-finger tap
     if (pointers.current.size === 1) {
       twoTap.current.fingers = 1;
       const hit = hitTest(stickers, p);
@@ -91,7 +100,13 @@ export function Editor() {
         const can = fabRef.current?.getBoundingClientRect();
         setDrag(can && inside(can, e.clientX, e.clientY, 24) ? 'hot' : 'on');
       }
-    } else if (ps.length >= 2 && selected !== null) {
+    } else if (ps.length >= 3 && selected !== null && photo) {
+      const three = ps.slice(0, 3);
+      const c0 = centre(three.map(([id, now]) => prev.get(id) ?? now)), c1 = centre(three.map(([, now]) => now));
+      gesture.current.pinched = true;
+      const span = Math.min(photo.width, photo.height);
+      setStickers((list) => list.map((s) => (s.id === selected ? tilt(s, c1.x - c0.x, c1.y - c0.y, span) : s)));
+    } else if (ps.length === 2 && selected !== null) {
       const [[ia, a1], [ib, b1]] = ps;
       const a0 = prev.get(ia) ?? a1, b0 = prev.get(ib) ?? b1;
       twoTap.current.move += Math.hypot(a1.x - a0.x, a1.y - a0.y) + Math.hypot(b1.x - b0.x, b1.y - b0.y);
@@ -120,11 +135,14 @@ export function Editor() {
   };
 
   const leave = () => (screen.value = 'viewer');
+  // For scripts/smoke.mjs: size, turn in the plane, yaw and pitch of the selected sticker
+  const sel = stickers.find((s) => s.id === selected);
+  const numbers = sel ? [sel.scale, sel.rot, sel.yaw ?? 0, sel.pitch ?? 0].map((n) => n.toFixed(2)).join(' ') : '';
 
   const save = async () => {
     const c = canvasRef.current;
     if (!c || !store.value || !photo) return;
-    renderEditor(c.getContext('2d')!, photo, stickers, images, null); // the file never carries the glow
+    renderEditor(c.getContext('2d')!, photo, stickers, images, null, shots.current?.draw); // the file never carries the glow
     const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.92));
     if (!blob) return;
     const file = new File([blob], `facemaker-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`, { type: 'image/jpeg' });
@@ -134,7 +152,7 @@ export function Editor() {
   };
 
   return (
-    <div class="sheet editor" role="dialog" aria-label={t('editor.title')} data-stickers={stickers.length}>
+    <div class="sheet editor" role="dialog" aria-label={t('editor.title')} data-stickers={stickers.length} data-selected={numbers}>
       <button class="close" aria-label={t('gallery.back')} onClick={() => (stickers.length > 0 ? setAsk(true) : leave())}>✖</button>
       <canvas ref={canvasRef} class="edit-canvas" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
       <aside class={'dock single' + (dock ? ' open' : '')} aria-label={t('editor.title')}>
@@ -142,7 +160,7 @@ export function Editor() {
         <div class="dock-body">
           <div class="strip palette" aria-label={t('editor.title')}>
             {EDITOR_STICKERS.map((s) => (
-              <button key={s.id} class="chip" aria-label={s.id} onClick={() => add(s.src)}><img src={s.src} alt="" /></button>
+              <button key={s.id} class="chip" aria-label={s.id} onClick={() => add(s)}><img src={s.src} alt="" /></button>
             ))}
           </div>
         </div>

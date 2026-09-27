@@ -24,6 +24,13 @@ export function likeTheCamera(root: THREE.Object3D): void {
   });
 }
 
+// The light of every 3D prop, on the camera and in the photo editor
+export function lights(): THREE.Light[] {
+  const sun = new THREE.DirectionalLight(0xffffff, 1.7);
+  sun.position.set(0.4, 1, 2);
+  return [new THREE.HemisphereLight(0xffffff, 0x9090b0, 1.3), sun];
+}
+
 type Instance = { root: THREE.Group; mixer: THREE.AnimationMixer | null; playing: string | null; clips: THREE.AnimationClip[] };
 
 // 3D props in the first render pass, after the camera picture, the makeup and the stickers: the warp pass
@@ -39,10 +46,7 @@ export class Props3dLayer {
   private hidden = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true });
 
   constructor(private load: LoadModel = loadGlb, private now: () => number = () => performance.now()) {
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x9090b0, 1.3));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.7);
-    sun.position.set(0.4, 1, 2);
-    this.scene.add(sun);
+    this.scene.add(...lights());
   }
 
   private model(file: string): Model | null {

@@ -221,10 +221,14 @@ const BUILT_IN: Look[] = [
 const PAINTED: Look[] = (painted as { id: string; icon: string; img: string; chip: string }[]).map((p) => ({ ...p, smooth: 0, layers: [] }));
 export const LOOKS: Look[] = [...BUILT_IN, ...PAINTED];
 
-// The chips: none, the painted looks, then the drawn looks. A drawn look that has a painted twin is not
-// in the list (its code stays: take the id out of TWINS to show it again).
-const TWINS = new Set(['tiger', 'butterfly', 'clown', 'rainbow', 'hero']);
-export const MAKEUP: { id: LookId; icon: string; img?: string }[] = [BUILT_IN[0], ...PAINTED, ...BUILT_IN.slice(1).filter((l) => !TWINS.has(l.id))].map(({ id, icon, chip }) => ({ id, icon, img: chip }));
+// The chips: none, the painted looks, then the drawn looks. A drawn look is not in the list while its
+// painted twin is there (its code stays: take the line out of TWINS to show both).
+const TWINS: Record<string, string> = { tiger: 'paint-tiger', butterfly: 'paint-butterfly', clown: 'paint-clown', rainbow: 'paint-rainbow', hero: 'paint-superhero-mask' };
+export function makeupChips(painted: Look[]): { id: LookId; icon: string; img?: string }[] {
+  const there = new Set(painted.map((p) => p.id));
+  return [BUILT_IN[0], ...painted, ...BUILT_IN.slice(1).filter((l) => !there.has(TWINS[l.id]))].map(({ id, icon, chip }) => ({ id, icon, img: chip }));
+}
+export const MAKEUP = makeupChips(PAINTED);
 const BY_ID = new Map(LOOKS.map((l) => [l.id, l]));
 export const lookById = (id: LookId): Look => BY_ID.get(id) ?? LOOKS[0];
 

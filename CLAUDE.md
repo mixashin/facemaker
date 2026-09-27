@@ -9,13 +9,13 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 3. `TODO.md`: backlog and every decision from grill-me. Add operator requests here as they arrive.
 4. `research/01-tech-stack-2026-09-26.md`, `02-filters-2026-09-26.md`, `03-mediapipe-telemetry-audit-2026-09-26.md`, `04-sticker-art-alternatives-2026-09-26.md`, `06-asset-sources-2026-09-27.md` (Etsy and paid packs fail: no free redistribution; use Kenney CC0, FreeSVG, Quaternius, Piranesi set in `docs/piranesi-props.json`): verified research with sources.
 
-## State (2026-09-27, night)
+## State (2026-09-27, after M4)
 
-Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b, m3).
+Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b, m3). M4 is live and has no tag yet: the operator's phone checks are open (list in `TODO.md`).
 
-Shipped and live: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations; Fluent Emoji Color packs (PR #11); M3 video + voice (PR #12, #13); several face filters at once (PR #14), several sticker packs at once (PR #15), stickers follow the warp (PR #16).
+Shipped and live: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations; Fluent Emoji Color packs (PR #11); M3 video + voice (PR #12, #13); several face filters at once (PR #14), several sticker packs at once (PR #15), stickers follow the warp (PR #16); M4a makeup (PR #17), M4b face on a picture (PR #18), M4c backgrounds (PR #19), makeup looks from a picture (PR #20), the fixes after the first phone check of M4 (PR #21), seven places with floating bits (PR #22).
 
-In progress: M4, as three pull requests (grill 2026-09-27). M4a makeup is built and reviewed on branch `m4a-makeup` (PR #17, plan: `docs/superpowers/plans/2026-09-27-m4a-makeup.md`). It waits for the operator's phone check, then merge. M4b face on a picture is built on branch `m4b-face-on`, stacked on `m4a-makeup` (plan: `docs/superpowers/plans/2026-09-27-m4b-face-on-picture.md`). It waits for its phone check too. M4b is PR #18 (base `m4a-makeup`). M4c backgrounds: the core is built and reviewed on branch `m4c-backgrounds`, stacked on `m4b-face-on`, PR #19 (plan: `docs/superpowers/plans/2026-09-27-m4c-backgrounds.md`). Seven scenes by Astra are in (branch `m4c-scenes`): `scripts/import-art.mjs backgrounds` converts a delivery and writes `src/filters/scenes.json`, `src/filters/scenes.ts` adds icons, order and the motion of the floating bits (`bitSprites`, drawn through the sticker layer). Makeup looks from a picture (for the face paint art, request R4) are on branch `m4-face-paint`, PR #20, stacked on `m4c-backgrounds`. The four pull requests form one stack: #17, #18, #19, #20. After a merge of the lowest one, set the base of the next one to `main`. The project folder is on `m4-face-paint`, which holds all of it.
+Built, not live: branch `art-r1-r3` with eight more face-on pictures (13), the 33 flat props by Astra in the photo editor and as live sticker packs, ten more painted makeup looks (12). It waits for the operator's word.
 
 Headless verification: `scripts/smoke.mjs` with the operator selfie (test/face.jpg, gitignored), every verdict OK on the branch.
 
@@ -61,4 +61,4 @@ Next session: read `TODO.md` from "M4 decisions" to the end. Check `astra/out` f
     node scripts/attributions.mjs   # after dependency changes (About screen list)
     node scripts/fetch-fluent.mjs   # only when the Fluent sticker list changes; files are committed under public/stickers/fluent
     node scripts/fetch-facemesh.mjs # only when the face mesh source changes; writes src/render/faceMesh.json (committed)
-    node scripts/import-art.mjs targets   # after an art delivery in astra/out: converts to public/targets (committed). Also: facepaint, backgrounds
+    node scripts/import-art.mjs targets   # after an art delivery in astra/out: converts to public/targets (committed). Also: facepaint, backgrounds, props

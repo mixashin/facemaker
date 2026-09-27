@@ -328,4 +328,13 @@ Phone checks owed for these:
 
 ## Install size (2026-09-27)
 
-The precache grew with the art: 2.2 MB before M4, 5.6 MB with 13 targets, 7 scenes, 33 props and 2 face paint looks. The ML models and the MediaPipe runtime come on top (runtime cache). If the first load gets too slow on mobile data: move targets, scenes and props from the precache to a runtime cache that fills in the background after the first start.
+The precache grew with the art: 2.2 MB before M4, 5.6 MB with 13 targets, 7 scenes, 33 props and 2 face paint looks, 6.8 MB with 12 face paint looks (branch `art-r1-r3`). The ML models and the MediaPipe runtime come on top (runtime cache). If the first load gets too slow on mobile data: move targets, scenes and props from the precache to a runtime cache that fills in the background after the first start.
+
+## Deferred from the review of `art-r1-r3` (2026-09-27)
+
+One fresh reviewer: ready to merge, no critical and no important finding. Fixed on the branch: a drawn look comes back when its painted twin is gone (`makeupChips`), tests from the files on disk to the lists (no orphan file), bounds for the places of the props, chips load when they come into view.
+
+- [ ] Hardening of `scripts/import-art.mjs` for flat art (check all files first, then convert; fail when a file is left out; read the alpha of the corners, not the pixel format): done on branch `props3d`, where the script has tests.
+- [ ] Live props draw from a 256 px texture (`spriteLayer.ts`). A hat of 1.4 to 1.8 face widths can look soft. Look on the phone.
+- [ ] Tall phone screen (9 by 19.5): the visible part of a square target is about 46 % of its width. Teddy bear, potato, pumpkin and toast are about 50 % wide, their sides can be cut. Look on the phone.
+- [ ] Makeup pictures at quality 90: about 30 % smaller at quality 82. Only if the install size hurts.

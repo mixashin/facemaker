@@ -80,7 +80,7 @@ describe('prop packs (art by Astra)', () => {
   const propPacks = STICKER_PACKS.filter((p) => p.id.startsWith('prop-'));
 
   it('every prop of props.json has exactly one pack, and no pack is without a prop', () => {
-    expect(names.length).toBe(33);
+    expect(names.length).toBeGreaterThanOrEqual(33);
     for (const n of names) expect(STICKER_PACKS.filter((p) => p.id === `prop-${n}`), n).toHaveLength(1);
     expect(propPacks).toHaveLength(names.length);
   });
@@ -94,6 +94,17 @@ describe('prop packs (art by Astra)', () => {
       expect(first.src, p.id).toBe(`/props/${p.id.slice('prop-'.length)}.webp`);
       expect(p.img, p.id).toBe(first.src);
       expect(existsSync('public' + first.src), p.id).toBe(true);
+    }
+  });
+
+  it('every picture in public/props is a prop of the list: no file ships for nothing', () => {
+    expect(readdirSync('public/props').sort()).toEqual(names.map((n) => `${n}.webp`).sort());
+  });
+
+  it('the places are sane: a typing error in a size or an offset fails here', () => {
+    for (const p of propPacks) for (const i of p.items) {
+      expect(i.scale, p.id).toBeGreaterThan(0.05); expect(i.scale, p.id).toBeLessThanOrEqual(2);
+      expect(Math.abs(i.dx ?? 0), p.id).toBeLessThanOrEqual(1); expect(Math.abs(i.dy ?? 0), p.id).toBeLessThanOrEqual(1);
     }
   });
 

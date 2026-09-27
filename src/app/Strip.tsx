@@ -11,7 +11,7 @@ export function Strip({ items, value, onPick, label }: { items: { id: string; ic
           aria-pressed={on(p.id)}
           onClick={() => onPick(p.id)}
         >
-          {p.img ? <img src={p.img} alt="" decoding="async" /> : p.icon}
+          {p.img ? <img src={p.img} alt="" decoding="async" loading="lazy" /> : p.icon}
         </button>
       ))}
     </nav>

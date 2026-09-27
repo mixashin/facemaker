@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { faceFrame, toFace, windows, coverScale, coverOffset, pickTarget, photoTarget, fitSize, TARGETS, FACEON, SPAN, SLOTS, SWING, type Frame } from './faceon';
 import { handlesForAll } from './presets';
 import { coverCrop } from '../capture/snapshot';
@@ -200,11 +200,16 @@ describe('targets', () => {
     for (const t of TARGETS) {
       expect(existsSync('public' + t.img), t.img).toBe(true);
       expect(existsSync('public' + t.chip), t.chip).toBe(true);
-      expect(t.nose[0]).toBeGreaterThan(0.3); expect(t.nose[0]).toBeLessThan(0.7);
+      expect(t.nose[0], t.id).toBeGreaterThan(0.3); expect(t.nose[0], t.id).toBeLessThan(0.7);
+      expect(t.nose[1], t.id).toBeGreaterThan(0.3); expect(t.nose[1], t.id).toBeLessThan(0.7);
       expect(t.width).toBeGreaterThan(0.2); expect(t.width).toBeLessThan(0.6);
     }
     expect(FACEON[0].id).toBe('none');
     expect(FACEON.at(-1)!.id).toBe('photo');
+  });
+  it('every picture in public/targets belongs to a target: no file ships for nothing', () => {
+    const want = TARGETS.flatMap((t) => [t.img, t.chip!]).map((f) => f.replace('/targets/', '')).sort();
+    expect(readdirSync('public/targets').sort()).toEqual(want);
   });
   it('a second tap turns the target off', () => {
     expect(pickTarget('none', 'cat')).toBe('cat');

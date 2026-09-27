@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { FaceLandmarker } from '@mediapipe/tasks-vision';
-import { LOOKS, MAKEUP, OVAL, LIPS, MOUTH, EYE_R, EYE_L, BROW_R, BROW_L, lookById, pickLook, paintLook, paintSkin, toLayout, grown, type Layer, type Pt } from './makeup';
+import { LOOKS, MAKEUP, makeupChips, OVAL, LIPS, MOUTH, EYE_R, EYE_L, BROW_R, BROW_L, lookById, pickLook, paintLook, paintSkin, toLayout, grown, type Layer, type Pt } from './makeup';
 
 type Call = { op: string; args: unknown[] };
 function recorder() {
@@ -108,6 +108,18 @@ describe('looks', () => {
     for (const id of ['glam', 'soft', 'zombie', 'vampire', 'cucumber']) expect(chips).toContain(id);
     expect(new Set(chips).size).toBe(chips.length);
     expect(LOOKS.filter((l) => !l.img).length).toBe(11);
+  });
+  it('a drawn look comes back when its painted twin is gone', () => {
+    const painted = LOOKS.filter((l) => l.img);
+    const chips = makeupChips(painted.filter((l) => l.id !== 'paint-clown')).map((m) => m.id);
+    expect(chips).toContain('clown');
+    expect(chips).not.toContain('paint-clown');
+    expect(chips).not.toContain('tiger'); // its twin is there
+    expect(makeupChips([]).map((m) => m.id)).toEqual(LOOKS.filter((l) => !l.img).map((l) => l.id)); // no paint at all: every drawn look
+  });
+  it('every picture in public/makeup belongs to a look: no file ships for nothing', () => {
+    const want = LOOKS.filter((l) => l.img).flatMap((l) => [l.img!, l.chip!]).map((f) => f.replace('/makeup/', '')).sort();
+    expect(readdirSync('public/makeup').sort()).toEqual(want);
   });
   it('a second tap turns the look off', () => {
     expect(pickLook('none', 'glam')).toBe('glam');

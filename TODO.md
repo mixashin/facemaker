@@ -217,7 +217,9 @@ Astra is OpenAI Codex with image generation and Blender, run by the operator. As
 - [x] R4 face paint on the flat face layout: the experiment passed 2026-09-27. Tiger and butterfly arrived, fit the face (front, tilted, under filters), and are in the app as picture looks (branch `m4-face-paint`, PR #20). The brief (version 4) releases the other looks.
 - [ ] R4, the other looks: open. After each delivery: `node scripts/import-art.mjs facepaint`, build, look at the fit.
 - [ ] Phone check of the picture looks: blink, open mouth, head turned to the side. Two tigers are in the list now (the drawn one and the painted one): decide which stays.
-- [ ] R5 3D props, R6 3D avatars: wait for the operator.
+- [x] R5 3D props: released by the operator, eleven files arrived 2026-09-27 (fly, mosquito, spider, bee, butterfly, ladybug, party hat, pirate hat, crown, witch hat, sunglasses) and passed the file check (`glb-check`: format, triangles, size, origin, clips). They stay in `astra/out/R5-props-3d` until the app has a 3D prop feature: no unused files in the install.
+- [ ] 3D props in the app (new feature, not planned yet): GLTFLoader, a prop scene over the second render pass, head pose from the face matrix, pests that fly around the head. Ask the operator when.
+- [ ] R6 3D avatars: wait for the operator.
 - [ ] After each delivery: check the files (size, transparency, names, no text), import into `public/`, add the row to LICENSE-ASSETS.md and the entry to scripts/attributions.mjs (CC0, released by the operator).
 
 ## M4a makeup: phone checks owed by the operator

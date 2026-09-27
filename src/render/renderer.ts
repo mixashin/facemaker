@@ -10,7 +10,8 @@ import type { Sprite } from '../filters/stickers';
 import { MakeupLayer } from './makeupLayer';
 import { FaceOnLayer, type FaceOnView } from './faceOnLayer';
 import { BackdropLayer, backdropUniforms } from './backdropLayer';
-import type { Scene } from '../filters/scenes';
+import type { Scene, View } from '../filters/scenes';
+import { coverCrop } from '../capture/snapshot';
 import type { LookId } from '../filters/makeup';
 import type { Face } from '../tracking/faceTracker';
 
@@ -90,6 +91,10 @@ export class FaceRenderer {
   setMask(mask: Uint8Array, width: number, height: number): void { this.backdrop.setMask(mask, width, height); }
   rest(): void { this.backdrop.rest(); }
   private sceneOn = false;
+  private seen: View = { x0: 0, x1: 1, y0: 0, y1: 1 };
+
+  // The part of the camera picture that the screen shows (the stage is shown with object-fit: cover). From the last frame.
+  visible(): View { return this.seen; }
 
   setText(s: TextState | null): void { this.textState = s; }
 
@@ -115,6 +120,8 @@ export class FaceRenderer {
     this.sprites.update(this.spriteList, this.mirror, this.mat.uniforms.uAspect.value as number);
     this.makeup.update(this.look, this.faces, this.canvas.width, this.canvas.height);
     const el = this.canvas.getBoundingClientRect();
+    const crop = coverCrop(this.canvas.width, this.canvas.height, el.width, el.height);
+    this.seen = { x0: crop.x / this.canvas.width, x1: (crop.x + crop.w) / this.canvas.width, y0: crop.y / this.canvas.height, y1: (crop.y + crop.h) / this.canvas.height };
     this.textLayer.update(this.textState, this.mat.uniforms.uAspect.value as number, el.width > 0 ? el.width / el.height : 16 / 9);
     this.sceneOn = this.backdrop.update(this.place, this.mirror, this.time, [this.canvas.width, this.canvas.height], [el.width, el.height]);
     this.renderer.setRenderTarget(this.target);

@@ -1,0 +1,58 @@
+[
+  {
+    "id": "candy-land",
+    "plate": "/scenes/candy-land/plate.webp",
+    "chip": "/scenes/candy-land/chip.webp",
+    "bits": [
+      "candy"
+    ]
+  },
+  {
+    "id": "clouds",
+    "plate": "/scenes/clouds/plate.webp",
+    "chip": "/scenes/clouds/chip.webp",
+    "bits": [
+      "cloud"
+    ]
+  },
+  {
+    "id": "grassland",
+    "plate": "/scenes/grassland/plate.webp",
+    "chip": "/scenes/grassland/chip.webp",
+    "bits": [
+      "butterfly"
+    ]
+  },
+  {
+    "id": "snow",
+    "plate": "/scenes/snow/plate.webp",
+    "chip": "/scenes/snow/chip.webp",
+    "bits": [
+      "snowflake"
+    ]
+  },
+  {
+    "id": "space",
+    "plate": "/scenes/space/plate.webp",
+    "chip": "/scenes/space/chip.webp",
+    "bits": [
+      "star"
+    ]
+  },
+  {
+    "id": "spooky",
+    "plate": "/scenes/spooky/plate.webp",
+    "chip": "/scenes/spooky/chip.webp",
+    "bits": [
+      "ghost"
+    ]
+  },
+  {
+    "id": "underwater",
+    "plate": "/scenes/underwater/plate.webp",
+    "chip": "/scenes/underwater/chip.webp",
+    "bits": [
+      "bubble"
+    ]
+  }
+]

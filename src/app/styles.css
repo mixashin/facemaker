@@ -119,6 +119,7 @@ video.full { background: #000; height: calc(100% - (var(--tap) + 32px + env(safe
 .mirror.play { background: var(--accent); }
 
 /* A dragged sticker in the photo editor: the floating button is a trash can (operator, 2026-09-27) */
+.dots { width: 44px; height: 44px; fill: rgba(0, 0, 0, .62); pointer-events: none; }
 .trash { background: #c62828; box-shadow: 0 0 0 4px #c62828; font-size: 34px; transition: transform .12s; }
 .trash.hot { transform: scale(1.35); background: #ff5252; box-shadow: 0 0 0 6px #ff5252; }
 /* Leave the editor without saving? */

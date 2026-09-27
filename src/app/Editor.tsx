@@ -12,6 +12,9 @@ function load(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = src; cache.set(src, img); });
 }
 
+// Three dots: "more". The button opens save and clear. An empty button looked like the camera shutter (operator, 2026-09-27).
+const DOTS = <svg class="dots" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.3" /><circle cx="12" cy="12" r="2.3" /><circle cx="19" cy="12" r="2.3" /></svg>;
+
 export function Editor() {
   const name = current.value!;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -150,7 +153,7 @@ export function Editor() {
         ) : (
           <>
             {fab === 'open' && <button class="round" aria-label={selected !== null ? t('editor.remove') : t('editor.clear')} onClick={clearOrRemove}>🧹</button>}
-            <button class="round shutter save" aria-label={fab === 'open' ? t('editor.save') : t('editor.done')} onClick={() => (fab === 'open' ? save() : setFab('open'))}>{fab === 'open' ? '💾' : ''}</button>
+            <button class="round shutter save" aria-label={fab === 'open' ? t('editor.save') : t('editor.done')} onClick={() => (fab === 'open' ? save() : setFab('open'))}>{fab === 'open' ? '💾' : DOTS}</button>
           </>
         )}
       </div>

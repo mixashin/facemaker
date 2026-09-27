@@ -315,6 +315,7 @@ All four pull requests (#17 to #20) went live on the operator's word. Verdict: "
 - [x] Phone on its side: the buttons for recording, gallery and camera flip stand at the right edge.
 - [x] Photo editor: a dragged sticker can be dropped on a trash can (the floating button turns into it).
 - [x] Photo editor: the close button asks before it throws unsaved work away.
+- [x] Photo editor: the floating action button shows three dots (it was empty and looked like the shutter).
 
 Phone checks owed for these:
 - [ ] Eyes and mouth stay on the orange and on each animal while the head turns, nods and moves.

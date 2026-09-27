@@ -306,6 +306,8 @@ if (process.env.SMOKE_GALLERY) {
   await page.waitForTimeout(800);
   await click('moustache'); await page.waitForTimeout(400);
   if (out) writeFileSync(`${out}/page-editor.png`, await page.screenshot());
+  const dots = await page.locator('.fab .shutter.save svg.dots circle').count();
+  console.log('the action button of the editor shows three dots:', dots === 3 ? 'OK' : 'FAIL');
   // Unsaved work: the close button asks first
   await closeSheet();
   const asked = await page.locator('[role=alertdialog]').count();

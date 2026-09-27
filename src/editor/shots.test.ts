@@ -215,6 +215,18 @@ describe('Shots', () => {
     expect(s.shots.covers(sticker(500), 0.5, 0.1)).toBe(true);
     expect(s.read[2][1] + s.read[2][3] / 2).toBeCloseTo(0.9 * 1024, -1); // the rows of the picture buffer count from the bottom
   });
+  it('reads a square as wide as the finger', async () => {
+    const s = setup();
+    const a = s.shots.model('crown');
+    s.pending.get('/props3d/crown.glb')!.done(model());
+    await a;
+    s.shots.covers(sticker(500), 0.75, 0.5, 0.05);
+    expect(s.read[0][2]).toBe(Math.round(0.1 * 1024));
+    expect(s.shots.covers(sticker(500), 0.53, 0.5, 0.05)).toBe(true); // the point is clear, the finger reaches the pixels beside it
+    expect(s.shots.covers(sticker(500), 0.53, 0.5)).toBe(false);
+    s.shots.covers(sticker(500), 0.5, 0.5, 5);
+    expect(s.read.at(-1)![2]).toBeLessThanOrEqual(1024); // not larger than the picture
+  });
   it('a place outside the picture has no pixel, and the square stays inside the picture', async () => {
     const s = setup();
     const a = s.shots.model('crown');

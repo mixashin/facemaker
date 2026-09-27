@@ -79,6 +79,16 @@ describe('voice session', () => {
     expect(t.s.current()).not.toBeNull();
     lease.release();
   });
+  it('the page hides after an audio engine that failed: the mic goes off at once', async () => {
+    const t = setup({ throwOnMake: true });
+    const lease = await t.s.acquire('none');
+    expect(lease.engine).toBeNull();
+    expect(t.log).toEqual([]); // the mic answered, it is on until the idle time ends
+    t.s.rest();
+    expect(t.log).toEqual(['releaseMic']);
+    await vi.advanceTimersByTimeAsync(IDLE_MS);
+    expect(t.log).toEqual(['releaseMic']);
+  });
   it('the page hides with no mic in use: nothing to do', async () => {
     const t = setup();
     t.s.rest();

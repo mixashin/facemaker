@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { forceUpdate, type UpdateEnv } from './update';
+import { forceUpdate, browserEnv, type UpdateEnv } from './update';
+import { FELL_KEY, PREFER_KEY } from '../tracking/health';
 
 function env(online: boolean) {
   const log: string[] = [];
@@ -48,5 +49,18 @@ describe('forceUpdate', () => {
     e.dropCache = async (k) => { log.push('drop ' + k); throw new Error('quota'); };
     expect(await forceUpdate(e)).toBe('done');
     expect(log.at(-1)).toBe('reload');
+  });
+});
+
+describe('browserEnv', () => {
+  it('forgets the mark of a failed GPU and nothing else: a tracker that somebody forced stays forced', () => {
+    const kept = new Map<string, string>([[FELL_KEY, '1790000000000 agent'], [PREFER_KEY, 'CPU'], ['fm.tutorialSeen', '1']]);
+    (globalThis as { localStorage?: unknown }).localStorage = { removeItem: (k: string) => kept.delete(k) };
+    try {
+      browserEnv().forget();
+    } finally {
+      delete (globalThis as { localStorage?: unknown }).localStorage;
+    }
+    expect([...kept.keys()].sort()).toEqual(['fm.tracker', 'fm.tutorialSeen']);
   });
 });

@@ -593,11 +593,45 @@ describe('FaceTracker health', () => {
     s.t.stop();
   });
 
+  it('a worker that is slow at its first frame is no worker that hangs: the model starts with the first frame', async () => {
+    const s = setup(undefined, 20000);
+    s.t.start(); await tick(8);
+    s.t.push(video, 0); await tick(2);
+    s.at(6000); s.t.push(video, 6000); await tick(2);
+    expect(s.w().frames()).toHaveLength(2);
+    s.at(11000); s.t.push(video, 11000); await tick(8);
+    s.at(13000); s.t.push(video, 13000); await tick(8);
+    expect(W.all).toHaveLength(1); // no new worker
+    expect(s.t.health.restarts).toBe(0);
+    expect(s.fell).toEqual([]); // and no mark of a failed GPU
+    s.w().say({ type: 'result', result: result(1), ts: 0 });
+    s.w().say({ type: 'result', result: result(1), ts: 6000 });
+    s.t.push(video, 13033); await tick(2);
+    expect(s.w().frames()).toHaveLength(3); // the frames go on
+    s.t.stop();
+  });
+
+  it('a worker that gives no answer to its first frames in the time of a start gets a new worker', async () => {
+    const s = setup(undefined, 20000);
+    s.t.start(); await tick(8);
+    const first = s.w();
+    s.t.push(video, 0); await tick(2);
+    s.at(6000); s.t.push(video, 6000); await tick(2);
+    s.at(25000); s.t.push(video, 25000); await tick(8);
+    expect(s.alive()).toEqual([first]);
+    s.at(26100); s.t.push(video, 26100); await tick(8);
+    expect(first.ended).toBe(true);
+    expect(s.alive()).toHaveLength(1);
+    expect(s.t.health.restarts).toBe(1);
+    s.t.stop();
+  });
+
   it('no start is left and the worker hangs: one error for every wait, not one for every frame', async () => {
     const s = setup('CPU');
     s.t.start(); await tick(8);
     for (let i = 0; i < 6; i++) { s.at(i * 5000); s.w().onerror?.({ message: 'x' }); await tick(8); }
     expect(W.all).toHaveLength(7); // the first one and six new starts
+    s.w().say({ type: 'result', result: result(1), ts: 0 }); // the worker ran, then it hangs
     s.at(40000); s.t.push(video, 40000); await tick(2);
     s.at(46000); s.t.push(video, 46000); await tick(2);
     const errors = s.t.health.errors;

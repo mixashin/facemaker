@@ -37,6 +37,7 @@ export class FaceTracker {
   private stills = new Map<number, (lm: Float32Array | null) => void>();
   private stillId = 0;
   private sentAt = 0;
+  private answered = false; // the worker that runs gave a result
   private timer: ReturnType<typeof setTimeout> | undefined;
   readonly health: Health;
 
@@ -85,6 +86,7 @@ export class FaceTracker {
   start(prefer: Prefer = this.opts.first ?? this.health.prefer): void {
     const w = (this.worker = new Worker(new URL('./face.worker.ts', import.meta.url)));
     this.asked = prefer;
+    this.answered = false;
     const limit = this.opts.startLimitMs ?? START_LIMIT_MS;
     w.onmessage = (e: MessageEvent<WorkerOut>) => {
       if (this.worker !== w) return; // a worker that was ended can still have a message on its way
@@ -97,7 +99,7 @@ export class FaceTracker {
         this.open = Math.max(0, this.open - 1);
         if (!this.ready) clearTimeout(this.timer); // the error is the cause, the limit would write over it
         this.fail(m.message, this.ready ? this.health.error(m.message, this.now()) : this.health.failed(m.message, this.now()));
-      } else if (m.type === 'result') { this.open = Math.max(0, this.open - 1); this.health.result(this.sized(m.result).length); this.opts.onFaces(this.smooth(m.result, m.ts)); }
+      } else if (m.type === 'result') { this.answered = true; this.open = Math.max(0, this.open - 1); this.health.result(this.sized(m.result).length); this.opts.onFaces(this.smooth(m.result, m.ts)); }
       else if (m.type === 'still') { this.stills.get(m.id)?.(usable(m.landmarks) ? m.landmarks : null); this.stills.delete(m.id); }
     };
     w.onerror = (e) => {
@@ -120,10 +122,13 @@ export class FaceTracker {
       if (tMs - this.sentAt < STALL_MS) return;
       const text = `no answer to a frame in ${STALL_MS / 1000} s`, w = this.worker;
       if (this.open > 1) {
-        // The second frame has no answer too: the worker hangs. It is handled as a worker that died: no more
-        // frames, and a new worker. With no start left the worker stays, with one error for every wait.
+        // The second frame has no answer too: the worker hangs. It is handled as a worker that died: a new
+        // worker. With no start left the worker stays, with one error for every wait.
+        // A worker that gave no result yet is not judged that fast: the model starts with the first frame, and
+        // on a slow device that takes longer than the wait. It has the time of a start. Seen in a test: a first
+        // frame of 11 s ended every worker, six times, and the app left a GPU that worked.
+        if (!this.answered && tMs - this.sentAt < (this.opts.startLimitMs ?? START_LIMIT_MS)) return;
         this.sentAt = tMs;
-        if (this.health.wait(this.now()) !== null) this.ready = false;
         this.fail(text, this.health.failed(text, this.now()));
         return;
       }

@@ -25,9 +25,11 @@ export function createVoiceSession(deps: Deps) {
   let engine: Engine | null = null;
   let engineMic: MediaStream | null = null;
   let users = 0;
+  let open = false; // the mic gave a stream, and nobody closed it after that
   let idle: ReturnType<typeof setTimeout> | undefined;
 
   const drop = () => {
+    open = false;
     engine?.dispose();
     engine = null;
     engineMic = null;
@@ -49,6 +51,7 @@ export function createVoiceSession(deps: Deps) {
 
     const mic = await deps.getMic();
     if (!mic) return none();
+    open = true;
     try {
       if (engine && engineMic !== mic) { engine.dispose(); engine = null; } // the old stream died
       if (!engine) { engine = deps.makeEngine(mic, id); engineMic = mic; }
@@ -66,7 +69,7 @@ export function createVoiceSession(deps: Deps) {
   // The page went to the background. With no user the mic goes off now. A user that holds the mic decides for
   // itself: a clip that ends there saves its sound first, and lets go then.
   function rest(): void {
-    if (users > 0 || !engine) return;
+    if (users > 0 || !open) return; // open with no engine: the engine failed, and the mic is on until the idle time ends
     clearTimeout(idle);
     drop();
   }

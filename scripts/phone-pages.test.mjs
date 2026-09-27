@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ownPages, ownAddress, staleForwards } from './phone-pages.mjs';
+import { ownPages, ownAddress, staleForwards, liveEntries } from './phone-pages.mjs';
 
 // The tool reads a family phone. It must take the pages of the app and no other page, whatever their address holds.
 describe('ownPages', () => {
@@ -58,16 +58,25 @@ describe('staleForwards', () => {
     'R5CX123 tcp:9222 localabstract:chrome_devtools_remote',
     'R5CX123 tcp:51003 tcp:8080',
   ].join('\r\n');
+  const gone = () => false, runs = (pid) => pid === 4242;
+  const by = (port, pid = 1000) => ({ port, pid });
   it('gives the forwards that the tool made and that are still there', () => {
-    expect(staleForwards(list, [51001, 51002, 60000])).toEqual([51001, 51002]);
+    expect(staleForwards(list, [by(51001), by(51002), by(60000)], gone)).toEqual([51001, 51002]);
+  });
+  it('leaves the forward of a run of the tool that still works', () => {
+    expect(staleForwards(list, [by(51001, 4242), by(51002, 1000)], runs)).toEqual([51002]);
   });
   it('leaves the forwards of other tools, and a port of the tool that leads somewhere else now', () => {
-    expect(staleForwards(list, [])).toEqual([]);
-    expect(staleForwards(list, [51003])).toEqual([]);
-    expect(staleForwards(list, [9222])).toEqual([9222]); // only when the record of the tool holds it
+    expect(staleForwards(list, [], gone)).toEqual([]);
+    expect(staleForwards(list, [by(51003)], gone)).toEqual([]);
+    expect(staleForwards(list, [by(9222)], gone)).toEqual([9222]); // only when the record of the tool holds it
   });
-  it('takes a record that is no list as an empty record', () => {
-    for (const bad of [null, undefined, 'x', { a: 1 }, ['51001', 1.5, -3, 70000]]) expect(staleForwards(list, bad)).toEqual([]);
-    expect(staleForwards('', [51001])).toEqual([]);
+  it('takes a record that is no list as an empty record, and leaves out what is no entry', () => {
+    for (const bad of [null, undefined, 'x', { a: 1 }, [51001, '51001', { port: 1.5, pid: 1 }, { port: -3, pid: 1 }, { port: 70000, pid: 1 }, { port: 51001 }, { port: 51001, pid: 'x' }, null]]) expect(staleForwards(list, bad, gone)).toEqual([]);
+    expect(staleForwards('', [by(51001)], gone)).toEqual([]);
+  });
+  it('keeps the entries of the runs that work, for the new record', () => {
+    expect(liveEntries([by(51001, 4242), by(51002, 1000), 'x', { port: 1 }], runs)).toEqual([by(51001, 4242)]);
+    expect(liveEntries(null, runs)).toEqual([]);
   });
 });

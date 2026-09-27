@@ -30,7 +30,7 @@ export function cardSize(w: number, h: number): [number, number] {
 }
 
 export type ShotRenderer = Pick<THREE.WebGLRenderer, 'domElement' | 'setSize' | 'render' | 'dispose' | 'forceContextLoss'> & { getContext(): Pick<WebGLRenderingContext, 'readPixels'> };
-const FINGER = 0.03; // of the side of the picture: the square that a finger covers
+const POINT = 0.015; // of the side of the picture: half the square that is read when nobody gives the width of a finger
 const RGBA = 0x1908, BYTES = 0x1401;
 const webgl = (): ShotRenderer => {
   const r = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -133,12 +133,13 @@ export class Shots {
 
   // Has the sticker a pixel at this place of its picture (u from the left, v from the top, 0 to 1)? For the
   // finger that selects a sticker: a 3D prop has a form, and a part of a costume has room for a head in it.
-  // The answer is for a small square, a finger is wide. null: there is no picture to look at.
-  covers = (s: EditorSticker, u: number, v: number): boolean | null => {
+  // The answer is for a square as wide as the finger (pad: half of it, in parts of the picture). null: there
+  // is no picture to look at.
+  covers = (s: EditorSticker, u: number, v: number, pad = POINT): boolean | null => {
     if (!(u >= 0 && u <= 1 && v >= 0 && v <= 1)) return false;
     const gl = this.draw(s) ? this.renderer : null;
     if (!gl) return null;
-    const n = gl.domElement.width, side = Math.max(1, Math.round(n * FINGER));
+    const n = gl.domElement.width, side = Math.min(n, Math.max(1, Math.round(n * 2 * (pad > 0 ? pad : POINT))));
     const from = (at: number) => Math.min(n - side, Math.max(0, Math.round(at * n - side / 2)));
     const px = new Uint8Array(side * side * 4);
     gl.getContext().readPixels(from(u), from(1 - v), side, side, RGBA, BYTES, px); // the rows count from the bottom

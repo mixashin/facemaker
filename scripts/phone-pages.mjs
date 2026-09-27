@@ -17,11 +17,17 @@ export function ownPages(targets, host) {
   });
 }
 
+// The record of the tool: one entry for every port that a run forwards, with the process of that run
+const entries = (record) => (Array.isArray(record) ? record.filter((e) => e && Number.isInteger(e.port) && e.port > 0 && e.port < 65536 && Number.isInteger(e.pid) && e.pid > 0) : []);
+
 // Port forwards that an earlier run of the tool made and did not remove (the tool was killed).
-// list: the text of `adb forward --list`. record: the ports that the tool wrote down. A forward of another tool
-// is not in the record, and a port of the record that leads somewhere else now belongs to somebody else.
-export function staleForwards(list, record) {
-  const ports = Array.isArray(record) ? record.filter((p) => Number.isInteger(p) && p > 0 && p < 65536) : [];
+// list: the text of `adb forward --list`. record: what the tool wrote down. runs: is a process with this
+// number there? A forward of another tool is not in the record, a port of the record that leads somewhere
+// else now belongs to somebody else, and the forward of a run that still works stays.
+export function staleForwards(list, record, runs) {
   const open = new Set(String(list ?? '').split(/\r?\n/).map((l) => /\stcp:(\d+)\s+localabstract:chrome_devtools_remote\s*$/.exec(l)?.[1]).filter(Boolean).map(Number));
-  return ports.filter((p) => open.has(p));
+  return entries(record).filter((e) => open.has(e.port) && !runs(e.pid)).map((e) => e.port);
 }
+
+// The entries of the runs that still work: they stay in the record
+export const liveEntries = (record, runs) => entries(record).filter((e) => runs(e.pid)).map((e) => ({ port: e.port, pid: e.pid }));

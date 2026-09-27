@@ -1,10 +1,14 @@
-import { useMemo } from 'preact/hooks';
+import { useEffect, useMemo } from 'preact/hooks';
 import { busy, galleryThumb, recording } from './state';
 import { createHold, type HoldEvent } from './hold';
+import { pauseWhenHidden } from './background';
 
 // Shutter: a tap takes a photo, a hold records a video until release. onShutter must be a stable function.
 export function CaptureButton({ onShutter, onFlip, onGallery }: { onShutter: (e: HoldEvent) => void; onFlip: () => void; onGallery: () => void }) {
   const hold = useMemo(() => createHold(onShutter), []);
+  // The page goes to the background with the finger on the button, and no finger-up comes there: the press
+  // ends. The buttons stay over a return now, and an open press took the next tap.
+  useEffect(() => pauseWhenHidden(() => ({ pause: hold.cancel })), []);
   const rec = recording.value;
   return (
     <div class="bar">

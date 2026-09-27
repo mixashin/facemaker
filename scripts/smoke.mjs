@@ -12,7 +12,7 @@
 //   SMOKE_GALLERY   1: take a photo, open the gallery, edit it with a sticker, save, expect one more photo
 //   SMOKE_VIEWPORT  "412x915": browser viewport (default 800x600)
 //   SMOKE_RECORD    1: pick a makeup look and the robot voice, hold the shutter 2.5 s, expect one video in the gallery with a video and an audio stream
-import { existsSync, statSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, statSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -23,7 +23,10 @@ const out = process.env.SMOKE_OUT;
 const face = process.env.FACE ?? (existsSync('test/face.png') ? 'test/face.png' : null);
 const args = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--enable-unsafe-swiftshader'];
 if (face) {
-  const y4m = join(mkdtempSync(join(tmpdir(), 'facemaker-')), 'face.y4m');
+  const feed = mkdtempSync(join(tmpdir(), 'facemaker-')), y4m = join(feed, 'face.y4m');
+  // The feed is a copy of a private photo: it goes when the check ends, in every way that a check can end
+  process.on('exit', () => { try { rmSync(feed, { recursive: true, force: true }); } catch { /* the browser holds the file */ } });
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) process.on(sig, () => process.exit(130));
   const rot = Number(process.env.FACE_ROTATE ?? 0);
   const size = process.env.FACE_FIT === 'crop' ? 'scale=640:480:force_original_aspect_ratio=increase,crop=640:480' : 'scale=640:480';
   const vf = rot ? `rotate=${rot}*PI/180:c=black,${size}` : size;
@@ -635,6 +638,29 @@ if (process.env.SMOKE_GALLERY) {
       };
       // a photo with no sticker: the taps below must meet the parts only
       await click('Done'); await click('Remove all stickers'); await page.waitForTimeout(300);
+      // A small 3D sticker takes a tap near its middle, also where it has no pixel: a butterfly from the front
+      // is a thin line. Seen: one tap of five took it on a phone.
+      {
+        await page.locator('.pull').first().click(); await page.waitForTimeout(400);
+        await click('3d-butterfly'); await page.waitForTimeout(2500);
+        const right = photo.x + photo.width - 150, row = photo.y + photo.height - 80; // two fingers beside the palette make it small, as on a phone
+        await touch('touchStart', [[right - 60, row], [right + 60, row]]);
+        for (let i = 1; i <= 8; i++) { await touch('touchMove', [[right - 60 + i * 3.75, row], [right + 60 - i * 3.75, row]]); await page.waitForTimeout(30); }
+        await touch('touchEnd', []); await page.waitForTimeout(400);
+        const small = (await chosen()).split(' ').map(Number);
+        await tapOff();
+        const fit0 = Math.min(photo.width / (await page.evaluate(() => document.querySelector('.edit-canvas').width)), photo.height / (await page.evaluate(() => document.querySelector('.edit-canvas').height)));
+        const mid = [photo.x + photo.width / 2 + (small[4] - (await page.evaluate(() => document.querySelector('.edit-canvas').width)) / 2) * fit0, photo.y + photo.height / 2 + (small[5] - (await page.evaluate(() => document.querySelector('.edit-canvas').height)) / 2) * fit0];
+        const taps = [];
+        for (const [dx, dy] of [[0, -28], [0, 28], [-20, -20], [20, 20]]) {
+          await touch('touchStart', [[mid[0] + dx, mid[1] + dy]]); await page.waitForTimeout(60); await touch('touchEnd', []); await page.waitForTimeout(400);
+          taps.push(Number((await chosen()).split(' ')[0]) || 0);
+          await tapOff();
+        }
+        await touch('touchStart', [mid]); await page.waitForTimeout(60); await touch('touchEnd', []); await page.waitForTimeout(400); // select it, then remove it
+        await click('Done'); await click('Remove sticker'); await page.waitForTimeout(300);
+        console.log('a small 3D sticker takes a tap near its middle: size on the screen', Math.round(small[0] * fit0), '| four taps beside its body took', taps.join(' '), '| stickers after it', await stickers(), small[0] * fit0 < 120 && taps.every((t) => t === small[0]) && (await stickers()) === 0 ? 'OK' : 'FAIL');
+      }
       const bare = await pixels(), had = await stickers();
       const hat = await put('3d-witch-hat-hair'), withHat = await pixels();
       const nose = await put('3d-witch-nose'), withNose = await pixels();
@@ -773,16 +799,26 @@ if (process.env.SMOKE_RECORD) {
   // The finger goes down, the page goes to the background before the clip starts, and no finger-up comes
   // there: no clip and no mic in the background.
   const h0 = await page.evaluate(() => globalThis.__fm.clips);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
+  // The finger-down is a made event: the browser of the check always sends the end of a real press
+  await page.evaluate(() => {
+    const b = document.querySelector('[aria-label="take photo"]'), r = b.getBoundingClientRect();
+    const keep = Element.prototype.setPointerCapture;
+    Element.prototype.setPointerCapture = function () {}; // a made event has no pointer that the element can take
+    b.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, pointerId: 7, bubbles: true, isPrimary: true, pointerType: 'touch' }));
+    Element.prototype.setPointerCapture = keep;
+  });
   await page.waitForTimeout(100);
   await hide(true); await page.waitForTimeout(1500);
   const inBack = await page.evaluate(() => ({ rec: !!document.querySelector('.shutter.rec'), mic: globalThis.__fm.mic(), cam: globalThis.__cam.live() }));
   await hide(false);
-  await page.mouse.up();
   await page.waitForTimeout(4500);
   const h1 = await page.evaluate(() => ({ clips: globalThis.__fm.clips, rec: !!document.querySelector('.shutter.rec'), mic: globalThis.__fm.mic(), cam: globalThis.__cam.live() }));
   console.log('a hold that meets the background makes no clip and takes no mic:', JSON.stringify(inBack), '| back', JSON.stringify(h1), !inBack.rec && inBack.mic === 'idle' && inBack.cam === 0 && h1.clips === h0 && !h1.rec && h1.mic === 'idle' && h1.cam === 1 ? 'OK' : 'FAIL');
+  // The press had no end. The buttons stay over a return, so the next tap meets the same button: it is a photo.
+  const p0 = await page.evaluate(() => globalThis.__fm.shots);
+  await page.getByRole('button', { name: 'take photo' }).click(); await page.waitForTimeout(1500);
+  const p1 = await page.evaluate(() => globalThis.__fm.shots);
+  console.log('the first tap after that return is a photo: photos', p0, 'then', p1, p1 === p0 + 1 ? 'OK' : 'FAIL');
 }
 // Shutter: a double tap must produce exactly one file.
 const shutter = page.getByRole('button', { name: 'take photo' });

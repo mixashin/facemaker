@@ -60,6 +60,12 @@ const closeSheet = async () => { const c = page.locator('.close'); if (await c.c
 // First launch: the tutorial covers the screen. Record it, then dismiss it.
 const tutorial = page.locator('[role="dialog"][aria-label="tutorial"]');
 const tutorialShown = (await tutorial.count()) > 0;
+// The progress dots of the tutorial are round and 10 px wide. Seen: another rule for the same class name made
+// their row 44 px high and the dots 2.4 px wide.
+if (tutorialShown) {
+  const dot = await page.evaluate(() => [...document.querySelectorAll('.tutorial .dot, [aria-label="tutorial"] .dot')].map((d) => { const r = d.getBoundingClientRect(); return [Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]; }));
+  console.log('the progress dots of the tutorial are round:', dot.length, JSON.stringify(dot[0] ?? null), dot.length >= 2 && dot.every(([w, h]) => w === 10 && h === 10) ? 'OK' : 'FAIL');
+}
 if (tutorialShown && out) writeFileSync(`${out}/page-tutorial.png`, await page.screenshot());
 if (tutorialShown) await closeSheet();
 console.log('tutorial on first launch:', tutorialShown ? 'shown' : 'not shown');
@@ -404,8 +410,9 @@ if (process.env.SMOKE_GALLERY) {
   await page.waitForTimeout(800);
   await click('moustache-handlebar'); await page.waitForTimeout(400);
   if (out) writeFileSync(`${out}/page-editor.png`, await page.screenshot());
-  const dots = await page.locator('.fab .shutter.save svg.dots circle').count();
-  console.log('the action button of the editor shows three dots:', dots === 3 ? 'OK' : 'FAIL');
+  const dots = await page.locator('.fab .shutter.save svg.more circle').count();
+  const icon = await page.locator('.fab .shutter.save svg.more').first().boundingBox();
+  console.log('the action button of the editor shows three dots:', dots, '| size of the icon', icon ? Math.round(icon.width) + 'x' + Math.round(icon.height) : '-', dots === 3 && !!icon && Math.round(icon.width) === 44 && Math.round(icon.height) === 44 ? 'OK' : 'FAIL');
   // Unsaved work: the close button asks first
   await closeSheet();
   const asked = await page.locator('[role=alertdialog]').count();

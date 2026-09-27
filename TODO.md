@@ -577,8 +577,18 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [x] A part is made around a head and is larger than a prop (the hat is three face widths high). In the editor its long side is one unit, as the long side of a prop is. Its colours have the same factor as on the live camera (`COSTUME_GAIN`).
 - [x] The face paint of a costume is not in the editor: paint needs the face mesh, and the editor has no face tracker.
 - [x] The two-finger hold: the defect does not occur any more. The flag for a gesture with more than one finger (`many`, from the review of the 3D props, commit `44428db`) cured it. New headless verdict as a guard. It fails when the flag is taken out of the condition.
+- [x] Review by a fresh reviewer: ready after fixes. Fixed after it:
+  - [x] The hat with the hair covered the face of the photo (79 % of it): the editor had no hidden head. Now a part that goes around the head holds the hidden shapes of the head, in its own frame. They write depth and no colour, so the head of the photo shows there. A part in front of the face (the nose) has none.
+  - [x] The parts start in the size of one head (a face of a quarter of the photo width): the hat is three face widths high, the nose is small, and they fit each other. Before, the child had to scale the hat by 6.
+  - [x] At the size of a head the hit circle of the hat covered the photo: a finger on the nose took the hat, and the first finger of every gesture took the hat. Now a 3D sticker is hit where it has a pixel (the editor reads its picture at the place of the finger), and the smallest sticker under the finger is taken.
+  - [x] The import job took a render that was no picture (ffprobe gives the size 0 and no error) and left a half result. Now `checkRender` refuses it before a file is written, with tests.
+  - [x] The headless verdict of the part passed on the glow of the selection alone. Now: pictures with no selection, the nose too, the place of the head in the hat is free, and three taps (in the place of the head, on the hat, on the nose).
+  - [x] The picture of a large sticker was soft: the limit of the picture buffer is 2048 px now.
+  - [x] The colour factor of a costume goes on a material one time, whatever the number of calls is. A test covers the costume files in the live layer.
 - [ ] Operator, on the phone: put the hat of the witch and the nose on a photo, scale them, turn them with three fingers, save.
-- Install size: precache 202 entries, 8.3 MB (two chips more).
+- [ ] Seen by the reviewer, older than this work: on a phone upright a new sticker lands under the open palette, and the chips of the palette are 58 px wide there, not 64 px.
+- [ ] A picture buffer of 2048 px on a phone with little memory: not tried on a device.
+- Install size: precache 202 entries, 8.3 MB.
 
 ### Known defects, not fixed yet
 

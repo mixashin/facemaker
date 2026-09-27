@@ -1,7 +1,7 @@
-import { dockOpen, dockTab, presets, sticker, sliders, type DockTab } from './state';
+import { dockOpen, dockTab, presets, stickers, sliders, type DockTab } from './state';
 import { DEFAULT_SLIDERS } from '../filters/sliders';
 import { PRESETS, togglePreset, type PresetId } from '../filters/presets';
-import { STICKER_PACKS } from '../filters/stickers';
+import { STICKER_PACKS, toggleSticker } from '../filters/stickers';
 import { Strip } from './Strip';
 import { TextEditor } from './TextEditor';
 import { LabRows } from './FaceLab';
@@ -36,7 +36,7 @@ export function Dock() {
       </div>
       <div class="dock-body">
         {tab === 'warp' && <Strip items={PRESETS} value={presets.value} onPick={(id) => { presets.value = togglePreset(presets.value, id as PresetId); if (presets.value.length > 0) sliders.value = DEFAULT_SLIDERS; }} label={t('tabs.warp')} />}
-        {tab === 'sticker' && <Strip items={STICKER_PACKS} value={sticker.value} onPick={(id) => (sticker.value = id)} label={t('tabs.sticker')} />}
+        {tab === 'sticker' && <Strip items={STICKER_PACKS} value={stickers.value} onPick={(id) => (stickers.value = toggleSticker(stickers.value, id))} label={t('tabs.sticker')} />}
         {tab === 'text' && <TextEditor />}
         {tab === 'voice' && <VoicePanel />}
         {tab === 'lab' && <LabRows />}

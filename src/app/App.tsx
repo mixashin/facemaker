@@ -3,7 +3,7 @@ import { startCamera, stopCamera } from '../camera/camera';
 import { FaceTracker, type Face } from '../tracking/faceTracker';
 import { FaceRenderer } from '../render/renderer';
 import { handlesForAll } from '../filters/presets';
-import { spritesFor } from '../filters/stickers';
+import { spritesForAll } from '../filters/stickers';
 import { snapshot } from '../capture/snapshot';
 import { shareOrDownload } from '../capture/share';
 import { Dock } from './Dock';
@@ -24,7 +24,7 @@ import { RecordCanvas } from '../capture/recordCanvas';
 import { acquireVoice, currentEngine, type Lease } from '../audio/session';
 import { micState } from '../audio/mic';
 import { isRealClip, type HoldEvent } from './hold';
-import { presets, facing, camState, flash, busy, dockOpen, sticker, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice } from './state';
+import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -57,7 +57,7 @@ export function App() {
       const aspect = video.videoWidth / video.videoHeight;
       const level = presets.value.includes('shout') ? currentEngine()?.level() ?? 0 : 0; // mic volume drives the shout preset
       r.setHandles([...handlesForAll(presets.value, faces, aspect, level), ...sliderHandles(sliders.value, faces, aspect, now)]);
-      r.setSprites(spritesFor(sticker.value, faces, aspect));
+      r.setSprites(spritesForAll(stickers.value, faces, aspect));
       r.setText(text.value);
       r.render();
       recCanvas.current?.draw(canvas); // while recording: copy the visible crop for the recorder

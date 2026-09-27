@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { STICKER_PACKS, emojiFile, spritesFor } from './stickers';
+import { STICKER_PACKS, MAX_STICKERS, emojiFile, isMask, spritesFor, spritesForAll, toggleSticker } from './stickers';
 import type { Face } from '../tracking/faceTracker';
 // @ts-expect-error plain node script, no types; one copy of the scan for the fetch script and this test
 import { unsafeSvg } from '../../scripts/fetch-fluent.mjs';
@@ -130,5 +130,77 @@ describe('spritesFor', () => {
 
   it('two faces get stickers each', () => {
     expect(spritesFor('stars', [face(), face()], ASPECT)).toHaveLength(4);
+  });
+});
+
+describe('isMask', () => {
+  it('a pack that covers the whole face is a mask, a hat or glasses is a prop', () => {
+    for (const id of ['cat', 'dog', 'ghost', 'disguise', 'fluent-tiger', 'fluent-nerd', 'fluent-cowboy']) expect(isMask(id), id).toBe(true);
+    for (const id of ['crown', 'sunglasses', 'stars', 'hearts', 'tongue', 'fluent-rainbow', 'fluent-gradcap', 'none', 'unknown']) expect(isMask(id), id).toBe(false);
+  });
+});
+
+describe('toggleSticker', () => {
+  it('props combine: a tap turns one on, a second tap turns it off, the order of the picks is kept', () => {
+    let a = toggleSticker([], 'crown');
+    a = toggleSticker(a, 'sunglasses');
+    a = toggleSticker(a, 'stars');
+    expect(a).toEqual(['crown', 'sunglasses', 'stars']);
+    expect(toggleSticker(a, 'sunglasses')).toEqual(['crown', 'stars']);
+  });
+
+  it('a mask replaces the mask that is on and keeps the props: two masks would only cover each other', () => {
+    expect(toggleSticker(['cat', 'crown', 'sunglasses'], 'fluent-tiger')).toEqual(['crown', 'sunglasses', 'fluent-tiger']);
+    expect(toggleSticker(['crown'], 'cat')).toEqual(['crown', 'cat']);
+    expect(toggleSticker(['cat', 'crown'], 'cat')).toEqual(['crown']);
+  });
+
+  it('none clears everything and is never in the list', () => {
+    expect(toggleSticker(['cat', 'crown'], 'none')).toEqual([]);
+    expect(toggleSticker([], 'none')).toEqual([]);
+  });
+
+  it('holds five at most: the oldest pick makes room', () => {
+    expect(MAX_STICKERS).toBe(5);
+    const five = ['crown', 'sunglasses', 'stars', 'hearts', 'tongue'];
+    expect(toggleSticker(five, 'bow')).toEqual(['sunglasses', 'stars', 'hearts', 'tongue', 'bow']);
+    expect(toggleSticker(five, 'cat')).toEqual(['sunglasses', 'stars', 'hearts', 'tongue', 'cat']);
+  });
+
+  it('an unknown id changes nothing, and the given list is never changed', () => {
+    const a = ['crown'];
+    expect(toggleSticker(a, 'nope')).toEqual(['crown']);
+    toggleSticker(a, 'stars');
+    toggleSticker(a, 'crown');
+    expect(a).toEqual(['crown']);
+  });
+});
+
+describe('spritesForAll', () => {
+  const srcs = (ids: string[], faces = [face()]) => spritesForAll(ids, faces, ASPECT).map((x) => x.src);
+
+  it('returns nothing without packs or without faces', () => {
+    expect(spritesForAll([], [face()], ASPECT)).toEqual([]);
+    expect(spritesForAll(['cat'], [], ASPECT)).toEqual([]);
+    expect(spritesForAll(['unknown'], [face()], ASPECT)).toEqual([]);
+  });
+
+  it('one pack gives the same sprites as before', () => {
+    expect(spritesForAll(['hearts'], [face()], ASPECT)).toEqual(spritesFor('hearts', [face()], ASPECT));
+  });
+
+  it('draws the mask first and the props on top, whatever the order of the picks', () => {
+    const cat = '/stickers/1f431.svg', crown = '/stickers/1f451.svg', shades = '/stickers/1f576.svg';
+    expect(srcs(['crown', 'cat', 'sunglasses'])).toEqual([cat, crown, shades]);
+    expect(srcs(['sunglasses', 'crown', 'cat'])).toEqual([cat, shades, crown]);
+  });
+
+  it('keeps the sprites of each face together, so the mask of the second face does not cover the hat of the first', () => {
+    const one = srcs(['crown', 'cat']);
+    expect(srcs(['crown', 'cat'], [face(), face()])).toEqual([...one, ...one]);
+  });
+
+  it('five packs on two faces give every sprite', () => {
+    expect(spritesForAll(['cat', 'crown', 'sunglasses', 'stars', 'hearts'], [face(), face()], ASPECT)).toHaveLength(2 * (1 + 1 + 1 + 2 + 2));
   });
 });

@@ -108,6 +108,20 @@ if (state.fm?.faces > 0) {
   await click('none');
   const zero = await pressed();
   console.log('a second tap turns one off, none clears all:', four.length, zero.join('+'), four.length === 4 && !four.includes('bigEars') && zero.length === 1 && zero[0] === 'none' ? 'OK' : 'FAIL');
+  // Several stickers at once: props combine, a mask replaces a mask.
+  await click('sticker'); await click('none');
+  const bare = await shot([]);
+  const dressed = await shot(['cat', 'crown', 'sunglasses']);
+  const worn = await pressed();
+  let d3 = 0; for (let i = 0; i < bare.length; i++) if (bare[i] !== dressed[i]) d3++;
+  console.log('mask with two props:', worn.join('+'), 'changes the picture:', d3 > 0, worn.length === 3 && d3 > 0 ? 'OK' : 'FAIL');
+  await click('dog');
+  const swapped = await pressed();
+  console.log('a mask replaces a mask, props stay:', swapped.join('+'), swapped.length === 3 && swapped.includes('dog') && !swapped.includes('cat') && swapped.includes('crown') && swapped.includes('sunglasses') ? 'OK' : 'FAIL');
+  await click('none');
+  const cleared = await pressed();
+  console.log('none clears the stickers:', cleared.join('+'), cleared.length === 1 && cleared[0] === 'none' ? 'OK' : 'FAIL');
+  await click('warp');
 }
 if (process.env.SMOKE_SHOTS && out) {
   for (const group of process.env.SMOKE_SHOTS.split(';')) {

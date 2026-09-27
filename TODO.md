@@ -160,4 +160,4 @@ Hold to record with the mic prompt, clip playback, voice effects in the clip, sh
 
 ## Several filters at once (operator, 2026-09-27): done
 
-Up to 5 face filters together (big head + big eyes + big mouth and so on). One constant, `MAX_ACTIVE` in `src/filters/presets.ts`, changes the limit; 10 also fits the handle budget of 32 for one face, and for two faces only when the picks are small ones. Not done, ask if wanted: several sticker packs at once (hat + glasses).
+Up to 5 face filters together (big head + big eyes + big mouth and so on). One constant, `MAX_ACTIVE` in `src/filters/presets.ts`, changes the limit; 10 also fits the handle budget of 32 for one face, and for two faces only when the picks are small ones. Several sticker packs at once: done 2026-09-27 (up to 5, props combine, one mask at a time, `MAX_STICKERS` in `src/filters/stickers.ts`).

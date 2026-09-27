@@ -87,3 +87,31 @@ export function spritesFor(packId: string, faces: Face[], aspect: number): Sprit
   if (!pack || pack.items.length === 0 || faces.length === 0) return [];
   return faces.flatMap((f) => faceSprites(pack.items, pack.art, f.landmarks, aspect));
 }
+
+// Several packs at once (operator, 2026-09-27). Five is the limit: a sixth pick replaces the oldest.
+export const MAX_STICKERS = 5;
+const PACK = new Map(STICKER_PACKS.map((p) => [p.id, p]));
+
+// A mask covers the whole face. Props (hat, glasses, stars) sit on one spot.
+export function isMask(id: string): boolean {
+  const p = PACK.get(id);
+  return !!p && p.items.length === 1 && p.items[0].anchor === 'face';
+}
+
+// Props combine. A mask replaces the mask that is on: two masks would only cover each other.
+export function toggleSticker(active: string[], id: string, max = MAX_STICKERS): string[] {
+  if (id === 'none') return [];
+  if (!PACK.has(id)) return active;
+  if (active.includes(id)) return active.filter((p) => p !== id);
+  const kept = isMask(id) ? active.filter((p) => !isMask(p)) : active;
+  const next = [...kept, id];
+  return next.length > max ? next.slice(next.length - max) : next;
+}
+
+// Per face: the mask first, the props on top in the order of the picks. Sprites draw in list order.
+export function spritesForAll(active: string[], faces: Face[], aspect: number): Sprite[] {
+  if (active.length === 0 || faces.length === 0) return [];
+  const packs = active.map((id) => PACK.get(id)).filter((p): p is StickerPack => !!p && p.items.length > 0);
+  const ordered = [...packs.filter((p) => isMask(p.id)), ...packs.filter((p) => !isMask(p.id))];
+  return faces.flatMap((f) => ordered.flatMap((p) => faceSprites(p.items, p.art, f.landmarks, aspect)));
+}

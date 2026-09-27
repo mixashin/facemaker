@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { screen, store, current, refreshGallery } from './state';
 import { safePut } from '../storage/gallery';
 import { shareOrDownload } from '../capture/share';
-import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker, type P } from '../editor/editor';
+import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, inside, type EditorSticker, type P } from '../editor/editor';
 import { t } from '../i18n/i18n';
 
 const cache = new Map<string, HTMLImageElement>();
@@ -11,6 +11,9 @@ function load(src: string): Promise<HTMLImageElement> {
   if (hit && hit.complete) return Promise.resolve(hit);
   return new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = src; cache.set(src, img); });
 }
+
+// Three dots: "more". The button opens save and clear. An empty button looked like the camera shutter (operator, 2026-09-27).
+const DOTS = <svg class="dots" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.3" /><circle cx="12" cy="12" r="2.3" /><circle cx="19" cy="12" r="2.3" /></svg>;
 
 export function Editor() {
   const name = current.value!;
@@ -21,6 +24,9 @@ export function Editor() {
   const [images, setImages] = useState(new Map<string, CanvasImageSource>());
   const [dock, setDock] = useState(true); // stickers in view on entry, a tap on the photo hides them
   const [fab, setFab] = useState<'idle' | 'open'>('idle'); // floating button: one tap opens save and clear
+  const [drag, setDrag] = useState<'none' | 'on' | 'hot'>('none'); // a sticker is dragged: the floating button is a trash can. hot: the finger is on it
+  const [ask, setAsk] = useState(false); // leave without saving?
+  const fabRef = useRef<HTMLDivElement>(null);
   const twoTap = useRef({ downAt: 0, lastAt: 0, fingers: 1, move: 0 });
   const nextId = useRef(1);
   const pointers = useRef(new Map<number, P>());
@@ -80,7 +86,11 @@ export function Editor() {
     if (ps.length === 1) {
       if (Math.hypot(p.x - gesture.current.x, p.y - gesture.current.y) > 6) gesture.current.moved = true;
       const id = grabbed.current;
-      if (id !== null && gesture.current.moved) setStickers((list) => list.map((s) => (s.id === id ? moveTo(s, p) : s)));
+      if (id !== null && gesture.current.moved) {
+        setStickers((list) => list.map((s) => (s.id === id ? moveTo(s, p) : s)));
+        const can = fabRef.current?.getBoundingClientRect();
+        setDrag(can && inside(can, e.clientX, e.clientY, 24) ? 'hot' : 'on');
+      }
     } else if (ps.length >= 2 && selected !== null) {
       const [[ia, a1], [ib, b1]] = ps;
       const a0 = prev.get(ia) ?? a1, b0 = prev.get(ib) ?? b1;
@@ -92,6 +102,11 @@ export function Editor() {
   };
   const onUp = (e: PointerEvent) => {
     pointers.current.delete(e.pointerId);
+    if (drag !== 'none') {
+      const id = grabbed.current;
+      if (drag === 'hot' && id !== null) { setStickers((list) => list.filter((s) => s.id !== id)); setSelected(null); } // dropped in the trash can
+      setDrag('none');
+    }
     if (pointers.current.size === 0) {
       const t = twoTap.current, now = performance.now();
       if (t.fingers === 2 && !gesture.current.pinched && now - t.downAt < 300) {
@@ -103,6 +118,8 @@ export function Editor() {
       t.fingers = 1;
     }
   };
+
+  const leave = () => (screen.value = 'viewer');
 
   const save = async () => {
     const c = canvasRef.current;
@@ -117,8 +134,8 @@ export function Editor() {
   };
 
   return (
-    <div class="sheet editor" role="dialog" aria-label={t('editor.title')}>
-      <button class="close" aria-label={t('gallery.back')} onClick={() => (screen.value = 'viewer')}>✖</button>
+    <div class="sheet editor" role="dialog" aria-label={t('editor.title')} data-stickers={stickers.length}>
+      <button class="close" aria-label={t('gallery.back')} onClick={() => (stickers.length > 0 ? setAsk(true) : leave())}>✖</button>
       <canvas ref={canvasRef} class="edit-canvas" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
       <aside class={'dock single' + (dock ? ' open' : '')} aria-label={t('editor.title')}>
         <button class="pull" aria-label="effects" aria-expanded={dock} onClick={() => setDock(!dock)}>{dock ? '◀' : '✨'}</button>
@@ -130,10 +147,27 @@ export function Editor() {
           </div>
         </div>
       </aside>
-      <div class={'fab' + (fab === 'open' ? ' open' : '')}>
-        {fab === 'open' && <button class="round" aria-label={selected !== null ? t('editor.remove') : t('editor.clear')} onClick={clearOrRemove}>🧹</button>}
-        <button class="round shutter save" aria-label={fab === 'open' ? t('editor.save') : t('editor.done')} onClick={() => (fab === 'open' ? save() : setFab('open'))}>{fab === 'open' ? '💾' : ''}</button>
+      <div ref={fabRef} class={'fab' + (fab === 'open' ? ' open' : '')}>
+        {drag !== 'none' ? (
+          <div class={'round shutter trash' + (drag === 'hot' ? ' hot' : '')} role="img" aria-label={t('editor.trash')}>🗑️</div>
+        ) : (
+          <>
+            {fab === 'open' && <button class="round" aria-label={selected !== null ? t('editor.remove') : t('editor.clear')} onClick={clearOrRemove}>🧹</button>}
+            <button class="round shutter save" aria-label={fab === 'open' ? t('editor.save') : t('editor.done')} onClick={() => (fab === 'open' ? save() : setFab('open'))}>{fab === 'open' ? '💾' : DOTS}</button>
+          </>
+        )}
       </div>
+      {ask && (
+        <div class="ask" role="alertdialog" aria-label={t('editor.unsaved')}>
+          <p class="huge">💾❓</p>
+          <p class="line">{t('editor.unsaved')}</p>
+          <div class="row">
+            <button class="round wide" aria-label={t('editor.save')} onClick={save}>💾</button>
+            <button class="round wide danger" aria-label={t('editor.leave')} onClick={leave}>🗑️</button>
+            <button class="round wide" aria-label={t('editor.stay')} onClick={() => setAsk(false)}>↩️</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

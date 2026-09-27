@@ -67,7 +67,7 @@ export function App() {
       // Face-on mode: a picture with the live eyes and mouth of the first face. The filters work on them.
       const tg = target.value === 'photo' ? photo.value : TARGETS.find((x) => x.id === target.value);
       const lm = faces[0]?.landmarks;
-      r.setFaceOn(tg ? { target: tg, frame: lm ? faceFrame(lm, aspect) : null, wins: lm ? windows(lm, handles, aspect) : [] } : null);
+      r.setFaceOn(tg ? { target: tg, frame: lm ? faceFrame(lm, aspect) : null, wins: lm ? windows(lm, handles, aspect, tg) : [] } : null);
       r.setSprites(spritesForAll(stickers.value, faces, aspect));
       r.setMakeup(makeup.value, faces);
       const place = screen.value === 'camera' && !tg && !document.hidden ? sceneById(scene.value, tryScene.value) : null; // a face-on picture has no camera view

@@ -306,10 +306,48 @@ if (process.env.SMOKE_GALLERY) {
   await page.waitForTimeout(800);
   await click('moustache'); await page.waitForTimeout(400);
   if (out) writeFileSync(`${out}/page-editor.png`, await page.screenshot());
-  await closeSheet(); // editor -> viewer (Playwright fails here if the button is covered)
+  const dots = await page.locator('.fab .shutter.save svg.dots circle').count();
+  console.log('the action button of the editor shows three dots:', dots === 3 ? 'OK' : 'FAIL');
+  // Unsaved work: the close button asks first
+  await closeSheet();
+  const asked = await page.locator('[role=alertdialog]').count();
+  if (out) writeFileSync(`${out}/page-editor-ask.png`, await page.screenshot());
+  await click('Keep editing');
+  const stayed = (await page.locator('.editor').count()) === 1 && (await page.locator('[role=alertdialog]').count()) === 0;
+  console.log('close with unsaved work asks first:', asked === 1 ? 'OK' : 'FAIL', '| keep editing stays in the editor:', stayed ? 'OK' : 'FAIL');
+  // Drag the sticker to the trash can. While it is dragged, the floating button is the can.
+  const stickers = () => page.evaluate(() => Number(document.querySelector('.editor')?.getAttribute('data-stickers')));
+  const photo = await page.locator('.edit-canvas').boundingBox();
+  await page.mouse.click(photo.x + photo.width - 12, photo.y + photo.height / 2); // a tap on the photo hides the palette
+  await page.waitForTimeout(400);
+  const can = await page.locator('.fab').boundingBox();
+  const n0 = await stickers();
+  const mx = photo.x + photo.width / 2, my = photo.y + photo.height / 2; // a new sticker sits in the middle
+  await page.mouse.move(mx, my);
+  await page.mouse.down();
+  await page.mouse.move(mx + 30, my + 30, { steps: 4 });
+  const shows = await page.locator('.trash').count();
+  if (out) writeFileSync(`${out}/page-editor-trash.png`, await page.screenshot());
+  await page.mouse.move(can.x + can.width / 2, can.y + can.height - 30, { steps: 8 });
+  const lights = await page.locator('.trash.hot').count();
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const n1 = await stickers();
+  console.log('drag to the trash can: stickers', n0, 'then', n1, '| the can shows', shows === 1, '| it lights up', lights === 1, n0 === 1 && n1 === 0 && shows === 1 && lights === 1 ? 'OK' : 'FAIL');
+  // A drag that ends somewhere else keeps the sticker
+  await page.locator('.pull').first().click(); await page.waitForTimeout(400);
+  await click('moustache'); await page.waitForTimeout(300);
+  await page.mouse.click(photo.x + photo.width - 12, photo.y + photo.height / 2); await page.waitForTimeout(300);
+  await page.mouse.move(mx, my); await page.mouse.down(); await page.mouse.move(mx + 40, my - 120, { steps: 6 }); await page.mouse.up();
+  await page.waitForTimeout(300);
+  const kept = await stickers(), canGone = (await page.locator('.trash').count()) === 0;
+  console.log('a drag that ends on the photo keeps the sticker:', kept === 1 && canGone ? 'OK' : 'FAIL');
+  await closeSheet();
+  await click('Leave without saving'); await page.waitForTimeout(300); // editor -> viewer
+  const left = (await page.locator('.editor').count()) === 0;
   await closeSheet(); // viewer -> gallery
   const backInGallery = (await page.locator('.viewer, .editor').count()) === 0 && (await page.locator('.gallery').count()) === 1;
-  console.log('close buttons in viewer and editor:', backInGallery ? 'OK' : 'FAIL');
+  console.log('leave without saving, then close the viewer:', left && backInGallery ? 'OK' : 'FAIL');
   await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
   await click('Edit'); await page.waitForTimeout(800);
   await click('moustache'); await page.waitForTimeout(400);
@@ -412,6 +450,25 @@ if (await shutter.count()) {
   const shots = (await page.evaluate(() => globalThis.__fm?.shots ?? 0)) - shots0;
   const made = downloads.length - before;
   console.log('double tap: saved shots', shots, 'downloads', made, shots + made === 1 ? 'OK' : 'FAIL');
+}
+// A phone on its side: the capture buttons stand at the right edge, one above the other
+{
+  await page.setViewportSize({ width: 860, height: 380 });
+  await page.waitForTimeout(500);
+  const land = await page.evaluate(() => {
+    const box = (s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r ? { l: r.left, r: r.right, t: r.top, b: r.bottom } : null; };
+    return { flip: box('[aria-label="flip camera"]'), shutter: box('[aria-label="take photo"]'), gallery: box('[aria-label="gallery"]'), gear: box('[aria-label="settings"]'), w: innerWidth, h: innerHeight };
+  });
+  const three = [land.flip, land.shutter, land.gallery];
+  const right = three.every((b) => b && b.l > land.w - 120 && b.r <= land.w);
+  const stacked = three.every((b, i) => b && b.t >= 0 && b.b <= land.h && (i === 0 || b.t >= three[i - 1].b));
+  const gearFree = !land.gear || three.every((b) => land.gear.r <= b.l || land.gear.b <= b.t);
+  console.log('phone on its side: buttons at the right edge', right, '| one above the other, all on the screen', stacked, '| the gear is free', gearFree, right && stacked && gearFree ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/page-landscape.png`, await page.screenshot());
+  await page.setViewportSize({ width: vw, height: vh });
+  await page.waitForTimeout(300);
+  const back = await page.evaluate(() => { const r = document.querySelector('[aria-label="take photo"]').getBoundingClientRect(); return { y: r.bottom, x: (r.left + r.right) / 2, w: innerWidth, h: innerHeight }; });
+  console.log('upright again: the shutter is at the bottom in the middle', back.y > back.h - 140 && Math.abs(back.x - back.w / 2) < 8 ? 'OK' : 'FAIL');
 }
 if (out) writeFileSync(`${out}/page-end.png`, await page.screenshot()); // final state: gallery button shows the newest photo
 console.log('--- third-party requests:', egress.length ? '' : 'none');

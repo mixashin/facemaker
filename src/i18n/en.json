@@ -68,5 +68,6 @@
   "privacy.p5": "The microphone is on only while you record a video, try a voice, or use the shout face. It turns off a few seconds later. The sound stays on this device.",
   "tabs.voice": "Voice",
   "voice.try": "Hold and talk",
-  "voice.denied": "Microphone is off. Allow it in the browser settings."
+  "voice.denied": "Microphone is off. Allow it in the browser settings.",
+  "tabs.makeup": "Makeup"
 }

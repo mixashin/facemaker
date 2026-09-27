@@ -72,9 +72,13 @@ A camera toy for children aged 6 to 12. It warps faces, adds masks and stickers,
 
 ### M4: Makeup, face-onto-image, backgrounds
 
-- Makeup: lipstick, blush, eyeliner, skin smoothing (frequency separation). Mask texture from landmark rings.
-- Face-onto-image: pick a target image (bundled set: orange, apple, cat, dog, lion, plus user photo). Detect landmarks in the target once (IMAGE mode). Live face mesh (468 vertices, tfjs triangulation) textured with the camera, positioned on the target's landmarks, feathered edge. Annoying-orange style.
-- Animated backgrounds: ImageSegmenter selfie model (square 256), mask blur + sigmoid + 3-frame temporal smoothing, person over looping video or procedural shader. Sets: underwater, grasslands, spooky, space.
+Ships as three pull requests, each with its own phone check (operator, 2026-09-27): M4a makeup, M4b face on a picture, M4c backgrounds.
+
+**M4a Makeup.** One-tap looks in a dock tab (💄): glam, soft, rainbow, clown, zombie, vampire, tiger, butterfly, hero mask, cucumber mask. One look at a time. A second tap turns the look off. A look works together with warps, stickers, text and voice. A face mesh (468 vertices, 898 triangles, MediaPipe canonical face model, Apache-2.0) is drawn in the first render pass, over the camera picture and under the stickers, so the warp bends the makeup with the face. A look is a list of shapes (fill, blob, stroke, erase) in the flat face layout, painted once on a 512 px canvas (`src/filters/makeup.ts`). The mesh is drawn without the triangles that fill the mouth and the eyes, so paint has no surface on teeth and eyeballs, also with the mouth wide open. The cucumber look covers the eyes on purpose and keeps the eye triangles. Skin smoothing runs in the same shader: one pass, 12 taps, strong detail stays, skin only.
+
+**M4b Face on a picture.** The target picture fills the screen. The live eyes and the live mouth go on it with a soft edge, on every target (operator: eyes and mouth always). Targets: orange, apple, cat, dog, lion and more, from Astra (request R1 in `astra/BRIEF.md`). Fluent Emoji art serves until they arrive. "My photo" comes through the device file picker. The face model finds human faces only, so the place of eyes and mouth on each bundled target is set by hand.
+
+**M4c Animated backgrounds.** ImageSegmenter selfie model (square 256), mask blur + sigmoid + 3-frame temporal smoothing. The scene sits behind the person. An optional layer sits in front of the person. Scenes: underwater, grassland, spooky, space. Art from Astra (request R2): layers that the app moves, or a loop video.
 
 ### M5: Body and costumes
 

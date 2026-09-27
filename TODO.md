@@ -177,12 +177,12 @@ Done on 2026-09-27:
 - Several face filters at once (PR #14), several sticker packs at once (PR #15), stickers follow the warp (PR #16).
 
 Open, operator side:
-- [ ] Frame rate on the Fold with several filters and several stickers on (one more full-size render pass per frame since PR #16). If it stutters: run the first pass only while a sticker and a warp are both on.
+- [x] Frame rate with several filters and several stickers on (one more full-size render pass per frame since PR #16). Operator, 2026-09-27: tested on a tablet with 5 to 6 effects and stickers together, no drops, no lag.
 - [ ] M3 checks still open: file extension of a saved clip (mp4 expected), a long recording at full camera resolution, denied microphone gives a silent video and the lock hint.
 - [ ] Fluent mask sizes on the Fold.
 - [ ] Decide: allow SIL OFL fonts (Fredoka or Baloo 2) for the Serbian letter đ. Needs OFL-1.1 on the allowed list.
 - [ ] Decide: pin `effort: high` in `~/projects/web-research/agents/deep-researcher.md` and `claim-verifier.md` (they pin only the model, Opus 5.5), then run install.sh.
-- [ ] Generate the custom props on Piranesi from docs/piranesi-props.json (CC0, into public/editor/gen/). Then Claude wires them into the editor palette and the sticker packs.
+- [ ] Custom props: now request R3 in `astra/BRIEF.md` (Astra makes them, same 33 items as docs/piranesi-props.json). Then Claude wires them into the editor palette and the sticker packs.
 
 Open, code side (none blocks M4):
 - "Deferred from the M3 review" in this file (12 minors). The two with the most user impact: rotation or Fold open during a recording keeps the old crop; a recorder error late in a clip loses the clip.
@@ -200,3 +200,40 @@ Process rules that cost time when forgotten:
 - Smoke: `SMOKE_RECORD=1 SMOKE_GALLERY=1 SMOKE_VIEWPORT=380x860 FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs http://localhost:4173` against `npm run build && npx vite preview --port 4173 --strictPort`. A label `-` in `SMOKE_SHOTS` closes the dock before the shot. Headless Chromium has no AAC encoder: the recorder falls back, the warning in the console is expected.
 - The installed PWA takes a new version on the launch after it downloaded it: open, close fully, open again.
 
+## M4 decisions (grill, 2026-09-27)
+
+- Order: makeup (M4a), face on a picture (M4b), backgrounds (M4c). Three pull requests, a phone check for each.
+- Makeup: one-tap looks, and they must work together with filters, stickers and the rest.
+- Face on a picture: eyes and mouth only, on every target.
+- Backgrounds and all other art: from Astra. See the next section.
+
+## Art workflow with Astra (operator, 2026-09-27)
+
+Astra is OpenAI Codex with image generation and Blender, run by the operator. Astra makes art. Claude writes code. One file holds what the app needs: `astra/BRIEF.md` (requests R1 to R6, formats, folders, rules). The start prompt for Astra is `astra/PROMPT.md`. The folder `astra/` is not in git.
+
+- [x] R1 face-on targets (for M4b): the required five arrived 2026-09-27 (orange, apple, cat, dog, lion; 2048 px, opaque, no eyes, no mouth) and passed the check. Import into `public/` comes with M4b. Extras: open, the operator picks the subjects.
+- [ ] R2 background scenes (for M4c): open.
+- [ ] R3 sticker props (33): open.
+- [ ] R4 face paint on the flat face layout (experiment): open. When the first two files arrive: add image looks to the makeup engine (load a PNG into the look canvas, then erase the openings) and check the fit on the face.
+- [ ] R5 3D props, R6 3D avatars: wait for the operator.
+- [ ] After each delivery: check the files (size, transparency, names, no text), import into `public/`, add the row to LICENSE-ASSETS.md and the entry to scripts/attributions.mjs (CC0, released by the operator).
+
+## M4a makeup: phone checks owed by the operator
+
+- [ ] Every look on a real face: paint sits on lips, lids, cheeks. No paint on eyes or teeth with the mouth open.
+- [ ] A look with two or three filters and stickers.
+- [ ] A recording with a look on.
+- [ ] Frame rate with a look, filters and stickers together.
+- [ ] Head turned far to the side: note artefacts at the edge of the face (no depth buffer yet).
+
+## Deferred from the M4a review (2026-09-27)
+
+Fixed in the branch: paint on teeth with the mouth open (mesh holes), eyeliner erased, dark rim at hard edges (premultiplied paint), blur radius on a head that leans, rail tabs that shrink in landscape, two smoke checks that could not fail, stale faces while the camera restarts.
+
+- [ ] Decision for the operator: makeup, stickers and warps stay for about half a second after a face leaves the picture (the tracker holds the last faces through 9 empty results, so nothing flickers in a short dropout). Shorter hold for all three, or keep.
+- [ ] The zombie look has a seam with three stitches (charcoal, no red). Remove the seam entries in `LOOKS` if stitches are not wanted.
+- [ ] The smoke check of the lips counts red pixels in the whole picture and needs a bright selfie. Count in the mouth region, with a limit that follows the brightness.
+- [ ] `scripts/fetch-facemesh.mjs` and `scripts/fetch-fluent.mjs` need Node 24.2 or later (`import.meta.main`). On an older Node they do nothing and say nothing. The download has no hash check: the commit in the URL and the vertex and triangle counts are the guards.
+- [ ] Blobs have no rotation (`sx` stretches along x only). Add it when a look needs it.
+- [ ] The mesh ends at mid forehead. Shapes that must join the hair are not possible.
+- [ ] Depth buffer for the makeup mesh, when overlap artefacts show on a head turned far to the side.

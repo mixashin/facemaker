@@ -68,5 +68,6 @@
   "privacy.p5": "Mikrofon radi samo dok snimaš video, isprobavaš glas ili koristiš lice koje raste od vike. Isključuje se nekoliko sekundi kasnije. Zvuk ostaje na ovom uređaju.",
   "tabs.voice": "Glas",
   "voice.try": "Drži i pričaj",
-  "voice.denied": "Mikrofon je isključen. Dozvoli ga u podešavanjima pregledača."
+  "voice.denied": "Mikrofon je isključen. Dozvoli ga u podešavanjima pregledača.",
+  "tabs.makeup": "Šminka"
 }

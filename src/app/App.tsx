@@ -24,7 +24,7 @@ import { RecordCanvas } from '../capture/recordCanvas';
 import { acquireVoice, currentEngine, type Lease } from '../audio/session';
 import { micState } from '../audio/mic';
 import { isRealClip, type HoldEvent } from './hold';
-import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice } from './state';
+import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -58,6 +58,7 @@ export function App() {
       const level = presets.value.includes('shout') ? currentEngine()?.level() ?? 0 : 0; // mic volume drives the shout preset
       r.setHandles([...handlesForAll(presets.value, faces, aspect, level), ...sliderHandles(sliders.value, faces, aspect, now)]);
       r.setSprites(spritesForAll(stickers.value, faces, aspect));
+      r.setMakeup(makeup.value, faces);
       r.setText(text.value);
       r.render();
       recCanvas.current?.draw(canvas); // while recording: copy the visible crop for the recorder
@@ -66,6 +67,7 @@ export function App() {
     let started = false;
     const start = () => {
       camState.value = 'starting';
+      faces = []; // no effect of the old picture stays while the camera restarts
       startCamera(video, facing.value)
         .then(() => {
           camState.value = 'live';

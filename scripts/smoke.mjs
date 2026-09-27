@@ -10,7 +10,7 @@
 //   SMOKE_TEXT      "Čćžšđ 🐱": type it in text mode, save text.png of the canvas
 //   SMOKE_GALLERY   1: take a photo, open the gallery, edit it with a sticker, save, expect one more photo
 //   SMOKE_VIEWPORT  "412x915": browser viewport (default 800x600)
-//   SMOKE_RECORD    1: pick the robot voice, hold the shutter 2.5 s, expect one video in the gallery with a video and an audio stream
+//   SMOKE_RECORD    1: pick a makeup look and the robot voice, hold the shutter 2.5 s, expect one video in the gallery with a video and an audio stream
 import { existsSync, statSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -45,7 +45,7 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
-const RAIL = new Set(['warp', 'sticker', 'text', 'voice', 'lab']);
+const RAIL = new Set(['warp', 'sticker', 'makeup', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
 const click = async (label) => {
   if (RAIL.has(label)) await openDock();
@@ -137,6 +137,41 @@ if (state.fm?.faces > 0) {
   const red1 = await redPixels();
   console.log('stickers follow the warp: heart pixels', red0, 'with big head and big eyes', red1, 'ratio', (red1 / Math.max(1, red0)).toFixed(2), red0 > 50 && red1 > red0 * 1.3 ? 'OK' : 'FAIL');
   await click('none'); await click('sticker'); await click('none');
+  // Makeup: a look paints the face, follows the warp, and works together with a filter and a sticker.
+  const tinted = (test) => page.evaluate((body) => {
+    const hit = new Function('r', 'g', 'b', `return ${body};`);
+    const src = document.querySelector('canvas.stage');
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let n = 0; for (let i = 0; i < d.length; i += 4) if (hit(d[i], d[i + 1], d[i + 2])) n++;
+    return n;
+  }, test);
+  const RED = 'r > 120 && g < 70 && b < 90';
+  await click('warp'); await click('none');
+  await click('makeup'); await click('none'); await page.waitForTimeout(500);
+  const bareFace = await shot([]);
+  const lip0 = await tinted(RED);
+  const glam = await shot(['glam']);
+  const lip1 = await tinted(RED);
+  console.log('makeup paints the lips: red pixels', lip0, 'with the look', lip1, lip1 > lip0 + 150 ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/glam.png`, glam);
+  await click('warp'); await click('bigMouth'); await page.waitForTimeout(600);
+  const lip2 = await tinted(RED);
+  console.log('makeup follows the warp: red pixels', lip1, 'with big mouth', lip2, 'ratio', (lip2 / Math.max(1, lip1)).toFixed(2), lip2 > lip1 * 1.3 ? 'OK' : 'FAIL');
+  await click('sticker'); await click('crown'); await page.waitForTimeout(600);
+  const lip3 = await tinted(RED); // the look, the filter and the sticker together. tinted reads the stage, not the page
+  if (out) writeFileSync(`${out}/glam-combo.png`, await page.locator('canvas').screenshot());
+  await click('makeup');
+  const on = await pressed();
+  await click('glam'); await page.waitForTimeout(500); // second tap: off. The filter and the sticker stay on
+  const off = await pressed();
+  const lip4 = await tinted(RED);
+  console.log('look with filter and sticker:', on.join('+'), 'red pixels', lip3, '| second tap:', off.join('+'), 'red pixels', lip4, on[0] === 'glam' && off[0] === 'none' && lip3 - lip4 > lip1 * 0.8 ? 'OK' : 'FAIL'); // the sticker has red of its own: the look must add its share
+  await click('sticker'); await click('none'); await click('warp'); await click('none'); await page.waitForTimeout(500);
+  const red3 = await tinted(RED);
+  console.log('no look, no trace: red pixels as before', lip0, red3, Math.abs(red3 - lip0) <= Math.max(20, lip0 * 0.1) ? 'OK' : 'FAIL');
+  if (out) { writeFileSync(`${out}/makeup-none-before.png`, bareFace); writeFileSync(`${out}/makeup-none-after.png`, await shot([])); }
   await click('warp');
 }
 if (process.env.SMOKE_SHOTS && out) {
@@ -212,6 +247,7 @@ if (process.env.SMOKE_RECORD) {
   await click('none'); await closeDock(); await page.waitForTimeout(4000);
   const micNone = await micNow();
   console.log('mic with the shout preset:', micShout, '| a few seconds after it is off:', micNone, micShout === 'live' && micNone === 'idle' ? 'OK' : 'FAIL');
+  await click('makeup'); await click('none'); await click('glam'); // the clip is recorded with a look on
   await click('voice'); await click('robot');
   await page.waitForTimeout(800); // mic prompt (auto-accepted) and the audio graph
   const mic = await page.evaluate(() => document.querySelector('[aria-label="voice mirror"]') ? 'mirror button' : document.querySelector('.voice [role=status]') ? 'denied hint' : 'nothing');

@@ -31,3 +31,6 @@ public/stickers/*.svg
 
 # local test assets (operator selfie for scripts/smoke.mjs)
 test/
+
+# art workshop shared with Astra (brief, drafts, deliveries): never in git, Claude imports finished files
+astra/

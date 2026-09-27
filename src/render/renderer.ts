@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import vert from './quad.vert?raw';
+import chain from './warpChain.glsl?raw';
 import frag from './warp.frag?raw';
 import copyFrag from './copy.frag?raw';
 import { MAX_HANDLES, type Handle } from '../filters/presets';
@@ -10,7 +11,7 @@ import { MakeupLayer } from './makeupLayer';
 import type { LookId } from '../filters/makeup';
 import type { Face } from '../tracking/faceTracker';
 
-const MAX_H = MAX_HANDLES; // must equal MAX_H in warp.frag (a test checks it)
+const MAX_H = MAX_HANDLES; // must equal MAX_H in warpChain.glsl (a test checks it)
 
 export class FaceRenderer {
   private renderer: THREE.WebGLRenderer;
@@ -43,7 +44,7 @@ export class FaceRenderer {
     this.pre.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.copy));
     this.mat = new THREE.ShaderMaterial({
       vertexShader: vert,
-      fragmentShader: frag,
+      fragmentShader: chain + frag,
       uniforms: {
         uTex: { value: this.target.texture },
         uAspect: { value: 16 / 9 },

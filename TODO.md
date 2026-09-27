@@ -425,25 +425,16 @@ Open:
 - [ ] A reload from the computer (`phone-inspect.mjs reload`) with the phone locked leaves the app on the camera error screen: the camera cannot start on a locked phone. Unlock first.
 - [ ] Icons differ between devices: the rail and the buttons use the emoji font of the device (old art on an old Android). Option: own icon art for the rail and the buttons, as the chips have.
 
-## Handoff 2026-09-27 evening (next session starts here)
+## Handoff 2026-09-27, after the release (next session starts here)
 
-### The release
+### The release: done
 
-The operator asked for the release on 2026-09-27 ("push live please we all test on devices"). The merge to main was stopped by the permission system of the session (auto mode). Nothing is live yet.
-
-Branch `release-witch` holds all four pull requests, merged and tested together:
-
-| Number | Branch | Content |
-|---|---|---|
-| #23 | `tracker-health` | Face tracker that starts again after errors, geometry step off, version label, update button, device report, gear in its corner |
-| #24 | `art-r1-r3` | More face-on pictures, 33 props as stickers, more painted looks |
-| #25 | `props3d` | 3D props, three fingers turn a sticker in depth |
-| #26 | `costume-witch` | The witch costume, the turn of the head from the landmarks |
-
-- [ ] The operator merges the release pull request #27 (head `release-witch`, base main). In the terminal of Claude Code: `! gh pr merge 27 --merge`. GitHub then shows #23 to #26 as merged too, because main holds their commits.
-- [ ] After the merge: watch the deploy (`gh run list --branch main --limit 1`), then run the headless check on the live site: `FACE=test/face.jpg SMOKE_WAIT_MS=25000 SMOKE_GALLERY=1 SMOKE_RECORD=1 node scripts/smoke.mjs https://face.mxa.sh`. Expect every verdict OK and zero third-party requests.
+- [x] The operator merged pull request #27 on 2026-09-27 at 13:21 UTC. It holds #23 (tracker fix, version label, update button, device report), #24 (art), #25 (3D props), #26 (the witch). Version on the live site: `2026-09-27 13:21 928bcd2`.
+- [x] Deploy: success. Headless check on the live site with gallery and record: 66 verdicts OK, zero third-party requests.
+- [x] Merged branches deleted, local and on GitHub. Only `main` is left. #25 and #26 are closed with a note (their commits are on main through #27).
 - [ ] Devices get a release at their second start after it. From this release on the settings show the version and have the update button.
-- [ ] Delete the merged branches after the release (local and on GitHub): `tracker-health`, `art-r1-r3`, `props3d`, `costume-witch`, `release-witch`.
+
+Process note: the session (auto mode) was not allowed to merge to main. The operator ran the merge. To let a session merge, the operator can add an allow rule for `gh pr merge` to the Claude Code settings. A session does not change permission settings, and it does not work around a denial.
 
 ### Review of #26 (the witch)
 
@@ -462,11 +453,12 @@ Deferred:
 - [ ] A costume is outside the limit of four props: up to 6 models per face, 22 600 triangles in the worst case. Frame rate check on the tablet with witch plus four props on two faces.
 - [ ] Paint, nose and hat appear one after the other while the files load.
 
-Not reviewed by a second reader: the last commit of #23 (geometry step off, faces with no size, kept GPU failure), the merge of the four branches, and the fixes above.
+Not reviewed by a second reader, and live: the last commit of #23 (geometry step off, faces with no size, kept GPU failure), the merge of the four branches, and the fixes above.
+- [ ] One fresh reviewer for these three parts, on main (range `daee59e..928bcd2`, files `src/tracking`, `src/filters/props3d.ts`, `src/filters/costumes.ts`, `src/render/props3dLayer.ts`, `src/app/App.tsx`).
 
 ### The phone where the face was not tracked
 
-Solved in #23, tested on the phone over USB, the operator saw it work. Facts: section "A phone where the face is not tracked". The phone is back with its owner. Her installed app gets the fix at its second start after the release.
+Solved in #23, tested on the phone over USB, the operator saw it work. Live since the release. Facts: section "A phone where the face is not tracked". The phone is back with its owner. Her installed app gets the fix at its second start.
 
 - [ ] Ask the owner after the release whether the face effects work. If not: About, 🩺, 📋 gives the report.
 - [ ] USB debugging on that phone: off, and the authorizations revoked (the operator was told).

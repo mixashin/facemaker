@@ -195,7 +195,8 @@ describe('cover offset', () => {
 
 describe('targets', () => {
   it('have a picture and a chip on disk, and a face place inside the picture', () => {
-    expect(TARGETS.map((t) => t.id)).toEqual(['orange', 'apple', 'cat', 'dog', 'lion']);
+    expect(TARGETS.map((t) => t.id)).toEqual(['orange', 'apple', 'cat', 'dog', 'lion', 'teddy-bear', 'potato', 'egg', 'pumpkin', 'toast', 'robot', 'moon', 'cloud']);
+    expect(new Set(TARGETS.map((t) => t.icon)).size).toBe(TARGETS.length);
     for (const t of TARGETS) {
       expect(existsSync('public' + t.img), t.img).toBe(true);
       expect(existsSync('public' + t.chip), t.chip).toBe(true);

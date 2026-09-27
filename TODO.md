@@ -182,7 +182,7 @@ Open, operator side:
 - [ ] Fluent mask sizes on the Fold.
 - [ ] Decide: allow SIL OFL fonts (Fredoka or Baloo 2) for the Serbian letter đ. Needs OFL-1.1 on the allowed list.
 - [ ] Decide: pin `effort: high` in `~/projects/web-research/agents/deep-researcher.md` and `claim-verifier.md` (they pin only the model, Opus 5.5), then run install.sh.
-- [ ] Custom props: now request R3 in `astra/BRIEF.md` (Astra makes them, same 33 items as docs/piranesi-props.json). Then Claude wires them into the editor palette and the sticker packs.
+- [x] Custom props: request R3, delivered and wired in 2026-09-27.
 
 Open, code side (none blocks M4):
 - "Deferred from the M3 review" in this file (12 minors). The two with the most user impact: rotation or Fold open during a recording keeps the old crop; a recorder error late in a clip loses the clip.
@@ -211,9 +211,9 @@ Process rules that cost time when forgotten:
 
 Astra is OpenAI Codex with image generation and Blender, run by the operator. Astra makes art. Claude writes code. One file holds what the app needs: `astra/BRIEF.md` (requests R1 to R6, formats, folders, rules). The start prompt for Astra is `astra/PROMPT.md`. The folder `astra/` is not in git.
 
-- [x] R1 face-on targets (for M4b): the required five arrived 2026-09-27 (orange, apple, cat, dog, lion; 2048 px, opaque, no eyes, no mouth) and passed the check. Imported into `public/targets` with M4b (WebP, 1280 px, about 75 KB each). Extras: open.
+- [x] R1 face-on targets (for M4b): the required five arrived 2026-09-27 (orange, apple, cat, dog, lion; 2048 px, opaque, no eyes, no mouth) and passed the check. Imported into `public/targets` with M4b (WebP, 1280 px, about 75 KB each). Eight extras arrived 2026-09-27 (potato, egg, pumpkin, toast, teddy bear, robot, moon, cloud) and are in the app: 13 targets.
 - [x] R2 background scenes (for M4c): seven scenes arrived 2026-09-27 (four required, three extra), passed the check, and are in the app (branch `m4c-scenes`). The brief (version 5) asks for more bits and for near and far layers, all optional.
-- [ ] R3 sticker props (33): open.
+- [x] R3 sticker props: all 33 arrived 2026-09-27 and passed the check. They are in the palette of the photo editor (the five hand-drawn SVG props are gone) and become live sticker packs (branch `art-r1-r3`).
 - [x] R4 face paint on the flat face layout: the experiment passed 2026-09-27. Tiger and butterfly arrived, fit the face (front, tilted, under filters), and are in the app as picture looks (branch `m4-face-paint`, PR #20). The brief (version 4) releases the other looks.
 - [ ] R4, the other looks: open. After each delivery: `node scripts/import-art.mjs facepaint`, build, look at the fit.
 - [ ] Phone check of the picture looks: blink, open mouth, head turned to the side. Two tigers are in the list now (the drawn one and the painted one): decide which stays.
@@ -322,3 +322,7 @@ Phone checks owed for these:
 - [ ] Buttons on the right in landscape, on the phone and on the tablet. The gallery fly animation ends at the gallery button.
 - [ ] Drag a sticker to the trash can with a finger. The can must be easy to hit.
 - [ ] The question on close: all three answers.
+
+## Install size (2026-09-27)
+
+The precache grew with the art: 2.2 MB before M4, 5.6 MB with 13 targets, 7 scenes, 33 props and 2 face paint looks. The ML models and the MediaPipe runtime come on top (runtime cache). If the first load gets too slow on mobile data: move targets, scenes and props from the precache to a runtime cache that fills in the background after the first start.

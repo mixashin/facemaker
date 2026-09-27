@@ -106,6 +106,14 @@ export const TARGETS: Target[] = [
   art('cat', '🐱', [0.497, 0.542], 0.31),
   art('dog', '🐶', [0.5, 0.5], 0.33),
   art('lion', '🦁', [0.497, 0.523], 0.31),
+  art('teddy-bear', '🧸', [0.5, 0.515], 0.31),
+  art('potato', '🥔', [0.5, 0.51], 0.4),
+  art('egg', '🥚', [0.495, 0.54], 0.34),
+  art('pumpkin', '🎃', [0.5, 0.55], 0.4),
+  art('toast', '🍞', [0.5, 0.52], 0.4),
+  art('robot', '🤖', [0.5, 0.515], 0.4), // eyes and mouth stay inside the mint plate
+  art('moon', '🌕', [0.505, 0.51], 0.36), // and inside the part of the moon that has no crater
+  art('cloud', '☁️', [0.495, 0.55], 0.34),
 ];
 export const FACEON: { id: string; icon: string; img?: string }[] = [{ id: 'none', icon: '🙂' }, ...TARGETS.map((t) => ({ id: t.id, icon: t.icon, img: t.chip })), { id: 'photo', icon: '📷' }];
 

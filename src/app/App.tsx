@@ -61,6 +61,7 @@ export function App() {
       onError: (m) => console.error('tracker', m),
     });
     live.health = t.health;
+    (fm as any).health = t.health; // for scripts/smoke.mjs and scripts/phone-inspect.mjs
     live.video = () => (video.videoWidth ? `${video.videoWidth}x${video.videoHeight}` : '');
     still.detect = (picture) => t.detectStill(picture);
     // The person mask for a place (made before the camera starts: start() resets it). The segmenter runs only while a place is on and the camera view shows.

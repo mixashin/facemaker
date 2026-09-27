@@ -1,10 +1,15 @@
-// State of the face tracker, for the device report and for the way back to the CPU.
-// Found 2026-09-27 on a phone: the place behind the person worked (CPU), the face was not tracked (GPU first),
-// and the app showed nothing about it.
+// State of the face tracker, for the device report and for its new starts.
+// Found 2026-09-27 on a phone: the tracker gave 7 results, then the face geometry step of MediaPipe failed, and
+// after that every frame failed ("Graph has errors"). A graph with an error stays broken. The place behind the
+// person worked (own worker), and the app showed nothing about the tracker.
 export type Prefer = 'auto' | 'GPU' | 'CPU';
+export type Action = 'none' | 'cpu' | 'again'; // cpu: a new start on the CPU. again: a new start on the same tracker
 export const PREFER_KEY = 'fm.tracker';
-export const ERRORS_TO_FALL_BACK = 5;
-export const START_LIMIT_MS = 20000;
+export const ERRORS_TO_RESTART = 5; // errors in a row
+export const RESTART_GAP_MS = 5000; // between two starts
+export const MAX_RESTARTS = 6; // then the tracker rests, until it ran well for a while
+export const GOOD_RESULTS = 300; // results with no restart: about 10 s
+export const START_LIMIT_MS = 20000; // from "the files are on the device" to "ready"
 
 const WORDS: Record<string, Prefer> = { cpu: 'CPU', gpu: 'GPU', auto: 'auto' };
 
@@ -17,38 +22,65 @@ export function preferFrom(search: string, stored: string | null): { prefer: Pre
   return { prefer: stored === 'CPU' || stored === 'GPU' ? stored : 'auto', keep: undefined };
 }
 
+const short = (m: string) => String(m).slice(0, 300);
+
 export class Health {
+  files = false; // model and runtime are on the device
   delegate: 'GPU' | 'CPU' | '' = '';
   note = ''; // why the CPU took over at the start
   results = 0;
   withFace = 0;
   errors = 0;
+  firstError = ''; // of the row of errors that runs or ran last: it names the cause
   lastError = '';
-  private row = 0;
-  private fell = false;
+  restarts = 0;
+  private row = 0; // errors in a row since the last result or the last new start
+  private bad = 0; // errors since the last result
+  private good = 0;
+  private budget = MAX_RESTARTS;
+  private lastStart = -Infinity;
+  private onCpu = false; // the way to the CPU is taken
 
   constructor(readonly prefer: Prefer) {}
 
-  ready(delegate: 'GPU' | 'CPU', note = ''): void { this.delegate = delegate; this.note = note.slice(0, 300); this.row = 0; }
+  loaded(): void { this.files = true; }
 
-  result(faces: number): void { this.results++; if (faces > 0) this.withFace++; this.row = 0; }
+  ready(delegate: 'GPU' | 'CPU', note = ''): void { this.delegate = delegate; this.note = short(note); this.row = 0; }
 
-  private fall(): boolean {
-    if (this.fell || this.prefer !== 'auto' || this.delegate === 'CPU') return false;
-    return (this.fell = true);
+  result(faces: number): void {
+    this.results++;
+    if (faces > 0) this.withFace++;
+    this.row = this.bad = 0;
+    if (++this.good >= GOOD_RESULTS) this.budget = MAX_RESTARTS;
   }
 
-  // True: start the tracker again on the CPU. One time only, and only when nobody forced a tracker.
-  error(message: string): boolean {
+  private note1(message: string): void {
     this.errors++;
-    this.lastError = String(message).slice(0, 300);
-    return this.delegate === 'GPU' && ++this.row >= ERRORS_TO_FALL_BACK && this.fall();
+    this.lastError = short(message);
+    if (this.bad++ === 0) this.firstError = this.lastError;
+    this.row++;
+    this.good = 0;
+  }
+
+  private start(nowMs: number): Action {
+    if (this.budget <= 0 || nowMs - this.lastStart < RESTART_GAP_MS) return 'none';
+    this.budget--;
+    this.restarts++;
+    this.lastStart = nowMs;
+    this.row = 0;
+    if (this.prefer === 'auto' && this.delegate !== 'CPU' && !this.onCpu) { this.onCpu = true; return 'cpu'; }
+    return 'again';
+  }
+
+  // An error for a frame. The answer says what the tracker does now.
+  error(message: string, nowMs: number): Action {
+    this.note1(message);
+    return this.row >= ERRORS_TO_RESTART ? this.start(nowMs) : 'none';
   }
 
   // The tracker did not start, or its worker died
-  failed(message: string): boolean {
-    this.errors++;
-    this.lastError = String(message).slice(0, 300);
-    return this.fall();
+  failed(message: string, nowMs: number): Action {
+    this.note1(message);
+    return this.start(nowMs);
   }
 }

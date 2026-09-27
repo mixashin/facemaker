@@ -332,10 +332,14 @@ What is known: the segmenter runs on the CPU, the face tracker on the GPU first.
 Built on branch `tracker-health`:
 - [x] Version under the title of the settings, with a button that gets the newest version now (two taps).
 - [x] Device report in the About sheet, with a copy button.
-- [x] The tracker goes to the CPU by itself when the worker dies, does not start, or gives five errors in a row. `?tracker=cpu` and the 🐢 button force the CPU.
+- [x] Read over USB on that phone (Fold 7, Android 16, Snapdragon 8 Elite, Adreno 830, Chrome 154, app installed, current version): the tracker starts on the GPU, gives 7 results, then the face geometry step of MediaPipe fails and every next frame fails. The app never started the tracker again.
+- [x] The tracker starts again with a new worker after five errors in a row, when the worker dies, or when it does not start. The first new start goes to the CPU. `?tracker=cpu` and the 🐢 button force the CPU.
 - [x] `scripts/phone-inspect.mjs` reads the state of the app on a phone over USB.
 
 Open:
-- [ ] Read the report on that phone (About, 🩺, 📋) or attach the phone by USB and run `node scripts/phone-inspect.mjs reload`.
-- [ ] Try the 🐢 button on that phone. If the face works with it, the GPU path of MediaPipe fails on that phone. Then: a rule that finds this case by itself (results with no face for some seconds on the GPU, one try on the CPU, keep what finds a face).
+- [ ] The cause of the first error on that phone. Two suspects: the GPU path gives bad numbers on that graphics chip (then the CPU cures it for good), or one face in the picture gives numbers that the geometry step refuses (then it comes back from time to time on every device, and the new start cures it each time). The report on the phone tells: `tracker: CPU`, `new starts: 1` and faces that work mean the first one.
+- [ ] If the geometry step fails often: leave it out (`outputFacialTransformationMatrixes: false`) and take the turn of the head from the landmarks. Then this error cannot happen.
+- [ ] The full text of the first error (the USB read cut it). It is in the report after the release: line `first error`.
+- [ ] Known limit of the update button: with the app open in two places (installed app and a Chrome tab) the old service worker can stay, and its cache stays empty until the next release. The app works with a network. Close the other one first.
+- [ ] A reload from the computer (`phone-inspect.mjs reload`) with the phone locked leaves the app on the camera error screen: the camera cannot start on a locked phone. Unlock first.
 - [ ] Icons differ between devices: the rail and the buttons use the emoji font of the device (old art on an old Android). Option: own icon art for the rail and the buttons, as the chips have.

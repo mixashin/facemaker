@@ -13,6 +13,7 @@ export type FaceResult = {
 };
 
 export type WorkerOut =
+  | { type: 'loaded' } // model and runtime are on the device. The start limit counts from here, not from the download
   | { type: 'ready'; delegate: 'GPU' | 'CPU'; note?: string } // note: why the CPU took over
   | { type: 'result'; result: FaceResult; ts: number }
   | { type: 'still'; id: number; landmarks: Float32Array | null } // 478 * 3 of the first face, null without a face

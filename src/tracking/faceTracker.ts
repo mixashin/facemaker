@@ -1,6 +1,6 @@
 import { OneEuroArray } from './oneEuro';
 import type { WorkerIn, WorkerOut, FaceResult } from './types';
-import { Health, START_LIMIT_MS, type Prefer } from './health';
+import { Health, START_LIMIT_MS, type Action, type Prefer } from './health';
 
 export type Face = { landmarks: Float32Array; matrix: Float32Array; blend: Float32Array };
 
@@ -11,6 +11,7 @@ type Opts = {
   onError?: (msg: string) => void;
   prefer?: Prefer; // auto: the GPU first. A forced tracker stays, whatever happens
   startLimitMs?: number;
+  now?: () => number;
 };
 
 const LM = 478 * 3;
@@ -19,7 +20,8 @@ const STALL_MS = 5000; // a frame with no answer for this long: the tracker take
 
 export class FaceTracker {
   private worker: Worker | null = null;
-  private inFlight = false;
+  private open = 0; // frames that are out and have no answer yet
+  private asked: Prefer = 'auto'; // the tracker of the worker that runs
   private ready = false;
   private last: Face[] = [];
   private filters: OneEuroArray[];
@@ -37,43 +39,63 @@ export class FaceTracker {
     this.health = new Health(opts.prefer ?? 'auto');
   }
 
-  // An error, for the report and for the screen. again: the health asks for a new start on the CPU.
-  private fail(message: string, again: boolean): void {
+  private now(): number { return this.opts.now?.() ?? performance.now(); }
+
+  // An error, for the report and the console. what: the answer of the health. A new start takes a new worker:
+  // a graph of MediaPipe that had an error stays broken. The faces go, so no effect stays at an old place.
+  private fail(message: string, what: Action): void {
     this.opts.onError?.(message);
-    if (again) { this.stop(); this.start('CPU'); }
+    if (what === 'none') return;
+    this.stop();
+    this.filters.forEach((f) => f.reset()); this.present.fill(false); this.last = []; this.misses = 0;
+    this.opts.onFaces([]);
+    this.start(what === 'cpu' ? 'CPU' : this.asked);
   }
 
   start(prefer: Prefer = this.health.prefer): void {
-    this.worker = new Worker(new URL('./face.worker.ts', import.meta.url));
-    this.worker.onmessage = (e: MessageEvent<WorkerOut>) => {
+    const w = (this.worker = new Worker(new URL('./face.worker.ts', import.meta.url)));
+    this.asked = prefer;
+    const limit = this.opts.startLimitMs ?? START_LIMIT_MS;
+    w.onmessage = (e: MessageEvent<WorkerOut>) => {
+      if (this.worker !== w) return; // a worker that was ended can still have a message on its way
       const m = e.data;
-      if (m.type === 'ready') { clearTimeout(this.timer); this.ready = true; this.health.ready(m.delegate, m.note); this.opts.onReady?.(m.delegate); }
-      else if (m.type === 'error') { this.inFlight = false; this.fail(m.message, this.ready ? this.health.error(m.message) : this.health.failed(m.message)); }
-      else if (m.type === 'result') { this.inFlight = false; this.health.result(m.result.count); this.opts.onFaces(this.smooth(m.result, m.ts)); }
+      if (m.type === 'loaded') {
+        this.health.loaded();
+        this.timer = setTimeout(() => { if (this.worker === w && !this.ready) { const text = `no start in ${limit / 1000} s`; this.fail(text, this.health.failed(text, this.now())); } }, limit);
+      } else if (m.type === 'ready') { clearTimeout(this.timer); this.ready = true; this.health.ready(m.delegate, m.note); this.opts.onReady?.(m.delegate); }
+      else if (m.type === 'error') {
+        this.open = Math.max(0, this.open - 1);
+        if (!this.ready) clearTimeout(this.timer); // the error is the cause, the limit would write over it
+        this.fail(m.message, this.ready ? this.health.error(m.message, this.now()) : this.health.failed(m.message, this.now()));
+      } else if (m.type === 'result') { this.open = Math.max(0, this.open - 1); this.health.result(m.result.count); this.opts.onFaces(this.smooth(m.result, m.ts)); }
       else if (m.type === 'still') { this.stills.get(m.id)?.(m.landmarks); this.stills.delete(m.id); }
     };
-    this.worker.onerror = (e) => { const text = 'worker: ' + (e.message || 'did not load'); this.fail(text, this.health.failed(text)); };
-    const limit = this.opts.startLimitMs ?? START_LIMIT_MS;
-    this.timer = setTimeout(() => { if (!this.ready) { const text = `no start in ${limit / 1000} s`; this.fail(text, this.health.failed(text)); } }, limit);
+    w.onerror = (e) => {
+      if (this.worker !== w) return;
+      clearTimeout(this.timer);
+      const text = 'worker: ' + (e.message || 'did not load');
+      this.fail(text, this.health.failed(text, this.now()));
+    };
     const msg: WorkerIn = { type: 'init', wasmPath: `/mediapipe/${__MP_VER__}/wasm`, modelPath: '/models/face_landmarker-f16-v1.task', numFaces: this.opts.numFaces, prefer };
     this.worker.postMessage(msg);
   }
 
   push(video: HTMLVideoElement, tMs: number): void {
     if (!this.worker || !this.ready || video.readyState < 2) return;
-    if (this.inFlight) {
-      if (tMs - this.sentAt < STALL_MS) return;
-      this.inFlight = false; // the worker lost a frame or hangs
-      const text = `no answer to a frame in ${STALL_MS / 1000} s`;
-      this.fail(text, this.health.error(text));
-      return;
+    if (this.open > 0) {
+      // One frame at a time. A frame with no answer for a long time: one more try, never a pile of frames.
+      if (this.open > 1 || tMs - this.sentAt < STALL_MS) return;
+      const text = `no answer to a frame in ${STALL_MS / 1000} s`, w = this.worker;
+      this.fail(text, this.health.error(text, this.now()));
+      if (this.worker !== w || !this.ready) return; // a new start is on its way
     }
-    this.inFlight = true;
+    this.open++;
     this.sentAt = tMs;
+    const to = this.worker;
     createImageBitmap(video).then((bitmap) => {
       const msg: WorkerIn = { type: 'frame', bitmap, ts: tMs };
-      this.worker?.postMessage(msg, [bitmap]);
-    }).catch(() => { this.inFlight = false; });
+      if (this.worker === to) to.postMessage(msg, [bitmap]); else bitmap.close(); // the worker changed while the picture was made
+    }).catch(() => { if (this.worker === to) this.open = Math.max(0, this.open - 1); });
   }
 
   // One picture, not a video frame: the device photo of face-on mode. The picture is handed over and closed.
@@ -90,7 +112,7 @@ export class FaceTracker {
 
   stop(): void {
     clearTimeout(this.timer);
-    this.worker?.terminate(); this.worker = null; this.inFlight = false; this.ready = false;
+    this.worker?.terminate(); this.worker = null; this.open = 0; this.ready = false;
     this.stills.forEach((resolve) => resolve(null));
     this.stills.clear();
   }

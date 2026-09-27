@@ -21,8 +21,14 @@ export async function forceUpdate(env: UpdateEnv): Promise<'done' | 'offline'> {
   return 'done';
 }
 
+export const REACH_LIMIT_MS = 8000;
+export const reachAddress = (nowMs: number) => `/index.html?u=${nowMs}`;
+
 export const browserEnv = (): UpdateEnv => ({
-  reach: () => fetch('/index.html', { cache: 'no-store' }).then((r) => r.ok),
+  // The service worker answers /index.html from its cache, with no network too. An address with a word that the
+  // cache does not know goes to the network. The time limit: a network that hangs must not run the update later,
+  // at a moment that nobody chose.
+  reach: () => fetch(reachAddress(Date.now()), { cache: 'no-store', signal: AbortSignal.timeout(REACH_LIMIT_MS) }).then((r) => r.ok),
   workers: async () => [...((await navigator.serviceWorker?.getRegistrations()) ?? [])],
   cacheKeys: () => caches.keys(),
   dropCache: (k) => caches.delete(k),

@@ -496,10 +496,12 @@ if (out) writeFileSync(`${out}/page-end.png`, await page.screenshot()); // final
   if (out) writeFileSync(`${out}/page-version.png`, await page.screenshot());
   await click('about'); await page.waitForTimeout(400);
   await click('Device report'); await page.waitForTimeout(800);
+  const turtle = await page.locator('[aria-label="Slow and safe face tracker"]').count();
   const text = (await page.locator('.report').textContent()) ?? '';
   if (out) { await page.locator('.report').scrollIntoViewIfNeeded(); writeFileSync(`${out}/page-report.png`, await page.screenshot()); }
-  const face = /tracker: (GPU|CPU) \(asked: auto\)/.test(text) && /with a face: [1-9]/.test(text) && text.includes(version.slice(2)) && /graphics: \S/.test(text) && /camera: \d+x\d+/.test(text);
-  console.log('the device report names version, camera, graphics and a tracker that finds the face:', face ? 'OK' : 'FAIL');
+  // GPU and no new start: a tracker that went to the CPU for no reason must not pass here
+  const face = /tracker: GPU \(asked: auto\)/.test(text) && /with a face: [1-9]/.test(text) && /new starts: 0/.test(text) && !/error: /.test(text) && text.includes(version.slice(2)) && /graphics: \S/.test(text) && /camera: \d+x\d+/.test(text);
+  console.log('the device report names version, camera, graphics and a tracker on the GPU that finds the face:', face && turtle === 1 ? 'OK' : 'FAIL');
   if (!face) console.log(text);
   await closeSheet();
   // The slow tracker by the address: the CPU finds the face too, and the choice stays for the next start
@@ -510,6 +512,22 @@ if (out) writeFileSync(`${out}/page-end.png`, await page.screenshot()); // final
   await page.goto(url + '/?tracker=auto', { waitUntil: 'load' }); await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
   const auto = await state();
   console.log('?tracker=auto: tracker', auto.d, 'faces', auto.faces, 'kept', auto.kept, auto.d !== '' && auto.faces === 1 && auto.kept === null ? 'OK' : 'FAIL');
+  // The update button with no network: nothing is dropped, the app stays (with a service worker the page itself
+  // comes from the cache, so the check of the network must pass the service worker)
+  {
+    const cacheCount = () => page.evaluate(async () => { let n = 0; for (const k of await caches.keys()) n += (await (await caches.open(k)).keys()).length; return n; });
+    const had = await cacheCount(), was = page.url();
+    await page.context().setOffline(true);
+    await click('settings'); await page.waitForTimeout(400);
+    await click('Get the newest version'); await click('Get the newest version');
+    await page.waitForTimeout(3000);
+    const sign = (await page.locator('.version button').textContent())?.trim();
+    const has = await cacheCount().catch(() => -1);
+    console.log('the update button with no network: address stays', page.url() === was, '| sign', sign, '| files in the caches', had, 'then', has, page.url() === was && sign === '📴' && has === had ? 'OK' : 'FAIL');
+    await page.context().setOffline(false);
+    await page.waitForTimeout(4500); // the sign goes
+    await closeSheet();
+  }
   // The update button: the app loads again from the network and runs
   await click('settings'); await page.waitForTimeout(400);
   await click('Get the newest version'); await click('Get the newest version'); // two taps

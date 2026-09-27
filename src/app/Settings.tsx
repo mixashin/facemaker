@@ -12,7 +12,12 @@ export function Settings() {
   const mb = (n: number) => (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + ' MB';
   const sure = useMemo(() => createConfirm(3000), []); // two taps: the update loads the ML files again
   const [update, setUpdate] = useState<'idle' | 'busy' | 'offline'>('idle');
-  const getNewest = async () => { setUpdate('busy'); if ((await forceUpdate(browserEnv())) === 'offline') setUpdate('offline'); };
+  const getNewest = async () => {
+    setUpdate('busy');
+    if ((await forceUpdate(browserEnv())) !== 'offline') return;
+    setUpdate('offline');
+    setTimeout(() => setUpdate('idle'), 4000); // the sign for no network goes, the button is as before
+  };
   const clearAll = () => confirm.tap(async () => { await store.value?.clear(); await refreshGallery(); });
   return (
     <div class="sheet" role="dialog" aria-label={t('settings.title')}>

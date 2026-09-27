@@ -10,7 +10,7 @@ export type Facts = {
   video: string;
   webgl: string;
   worker: string; // state of the service worker
-  tracker: Pick<Health, 'prefer' | 'delegate' | 'results' | 'withFace' | 'errors' | 'lastError' | 'note'>;
+  tracker: Pick<Health, 'prefer' | 'delegate' | 'results' | 'withFace' | 'errors' | 'firstError' | 'lastError' | 'note' | 'files' | 'restarts'>;
 };
 
 export function report(f: Facts): string {
@@ -22,9 +22,10 @@ export function report(f: Facts): string {
     `screen: ${f.screen || 'none'}`,
     `camera: ${f.video || 'none'}`,
     `graphics: ${f.webgl || 'none'}`,
-    `tracker: ${t.delegate || 'not started'} (asked: ${t.prefer})`,
-    `tracker results: ${t.results}, with a face: ${t.withFace}, errors: ${t.errors}`,
+    `tracker: ${t.delegate || (t.files ? 'not started' : 'not started, its files are not on the device yet')} (asked: ${t.prefer})`,
+    `tracker results: ${t.results}, with a face: ${t.withFace}, errors: ${t.errors}, new starts: ${t.restarts}`,
     ...(t.note ? [`note: ${t.note}`] : []),
+    ...(t.firstError && t.firstError !== t.lastError ? [`first error: ${t.firstError}`] : []),
     ...(t.lastError ? [`last error: ${t.lastError}`] : []),
     `offline copy: ${f.worker || 'none'}`,
   ].join('\n');
@@ -48,6 +49,6 @@ export async function gather(): Promise<Facts> {
     video: live.video(),
     webgl,
     worker: reg?.active?.state ?? '',
-    tracker: h ?? { prefer: 'auto', delegate: '', results: 0, withFace: 0, errors: 0, lastError: '', note: '' },
+    tracker: h ?? { prefer: 'auto', delegate: '', results: 0, withFace: 0, errors: 0, firstError: '', lastError: '', note: '', files: false, restarts: 0 },
   };
 }

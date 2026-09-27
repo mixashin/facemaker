@@ -32,7 +32,7 @@ const { FilesetResolver, FaceLandmarker } = Vision;
 let landmarker: import('@mediapipe/tasks-vision').FaceLandmarker | null = null;
 let numFaces = 2;
 let fileset: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>> | null = null;
-let model = '';
+let model: Uint8Array | null = null; // the bytes of the face model
 
 const post = (m: WorkerOut, transfer: Transferable[] = []) => (self as unknown as Worker).postMessage(m, transfer);
 
@@ -40,10 +40,17 @@ async function init(wasmPath: string, modelPath: string, faces: number, prefer: 
   numFaces = faces;
   const vision = await FilesetResolver.forVisionTasks(wasmPath);
   fileset = vision;
-  model = modelPath;
+  // The files first. The model is kept as bytes: MediaPipe takes them, and no second download follows. The
+  // runtime is read to its end and dropped: it is in the cache then, and MediaPipe loads it from there.
+  const [bytes] = await Promise.all([
+    fetch(modelPath).then((r) => { if (!r.ok) throw new Error(`model: HTTP ${r.status}`); return r.arrayBuffer(); }),
+    fetch(vision.wasmBinaryPath).then(async (r) => { if (!r.ok) throw new Error(`runtime: HTTP ${r.status}`); const body = r.body?.getReader(); while (body && !(await body.read()).done); }),
+  ]);
+  model = new Uint8Array(bytes);
+  post({ type: 'loaded' });
   const make = (delegate: 'GPU' | 'CPU') =>
     FaceLandmarker.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: modelPath, delegate },
+      baseOptions: { modelAssetBuffer: model!, delegate },
       runningMode: 'VIDEO',
       numFaces,
       outputFaceBlendshapes: true,
@@ -100,7 +107,8 @@ async function still(bitmap: ImageBitmap, id: number) {
   let lm: Float32Array | null = null;
   try {
     if (!fileset) throw new Error('not ready');
-    stillOne ??= FaceLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: model, delegate: 'CPU' }, runningMode: 'IMAGE', numFaces: 1 });
+    if (!model) throw new Error('not ready');
+    stillOne ??= FaceLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetBuffer: model, delegate: 'CPU' }, runningMode: 'IMAGE', numFaces: 1 });
     const one = await stillOne.catch((err) => { stillOne = null; throw err; });
     const f = one.detect(bitmap).faceLandmarks[0];
     if (f) {

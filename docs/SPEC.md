@@ -80,6 +80,15 @@ Ships as three pull requests, each with its own phone check (operator, 2026-09-2
 
 **M4c Animated backgrounds.** Dock tab 🏝️ (shown when scenes exist). The selfie segmenter (square model, float16, Apache-2.0) runs in its own worker on the CPU, on a copy of the camera frame with a long side of 256 px, and only while a scene is on. It gives one person mask per frame. The main thread smooths the mask over time (40 % of the mask before stays) and uploads it as a small texture. The camera quad of the first render pass reads the mask soft (5 taps) with a steep edge and mixes scene and camera picture, so makeup, stickers, filters, photos and recordings work as before. A scene has a plate (or a loop video in its place), a far layer that drifts behind the person, and a near layer that sways in front of the person. The scene covers the visible part of the stage and reads the right way round with the front camera. Until plate and first mask are there, the camera picture stays. The same holds after a return from the background, a camera flip, and a turn of the phone: the mask from before is dropped. A place and a face-on picture do not show together: the last pick wins. The model is in the precache, so a place works offline at its first use. Scenes: underwater, grassland, spooky, space, snow, candy-land, clouds, art by Astra (CC0, `public/scenes`, plates of 1280 px). Small bits float in front of the person (bubbles rise, snow falls, a ghost drifts, stars pulse): they are drawn like stickers, their place depends on the time only, and they stay in the part of the picture that the screen shows. The motion of a bit follows its file name (`MOVES` in `src/filters/scenes.ts`).
 
+### 3D props (after M4, operator 2026-09-27)
+
+Dock tab 🎩 on the live camera, and the first 11 entries of the palette in the photo editor. Models by Astra (CC0, `public/props3d`, glTF binary, plain materials, 5 000 triangles at most): party hat, pirate hat, crown, witch hat, sunglasses, bee, fly, mosquito, butterfly, ladybug, spider.
+
+- Live: hats and sunglasses sit on the head and turn with it. Pests fly around the head and go behind it, the ladybug walks on the forehead, the spider hangs beside the head. Up to two faces, each with its own props. One hat and one pair of glasses at a time, pests combine, four props at most. The props are part of the picture before the warp, so filters bend them, and photos and videos hold them.
+- Photo editor: one finger drags a sticker, two fingers scale it and turn it in the plane, three fingers turn it in depth. A 3D prop turns all the way round. A flat sticker tilts like a card, 75 degrees at most. The saved photo holds the sticker as it shows.
+- No perspective on the live camera (a prop keeps its size when it goes behind the head). Mild perspective in the editor.
+- Zero requests to other hosts: the models are files of the app, the import refuses a model that names a file outside itself.
+
 ### M5: Body and costumes
 
 - PoseLandmarker (Lite or Full) with `outputSegmentationMasks`, or HolisticLandmarker when face + pose both needed. Worker.

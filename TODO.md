@@ -218,8 +218,8 @@ Astra is OpenAI Codex with image generation and Blender, run by the operator. As
 - [x] R4 face paint on the flat face layout: the experiment passed 2026-09-27. Tiger and butterfly arrived, fit the face (front, tilted, under filters), and are in the app as picture looks (branch `m4-face-paint`, PR #20). The brief (version 4) releases the other looks.
 - [x] R4, the other looks: ten more arrived 2026-09-27 (cat, puppy, clown, flowers, rainbow, robot, dragon scales, ladybug, unicorn, superhero mask), fit the face, and are in the app. 12 painted looks.
 - [ ] Phone check of the picture looks: blink, open mouth, head turned to the side. The painted tiger, butterfly, clown, rainbow and superhero mask took the place of the drawn ones in the list (`TWINS` in `src/filters/makeup.ts`, one line brings a drawn look back). The operator can overrule.
-- [x] R5 3D props: released by the operator, eleven files arrived 2026-09-27 (fly, mosquito, spider, bee, butterfly, ladybug, party hat, pirate hat, crown, witch hat, sunglasses) and passed the file check (`glb-check`: format, triangles, size, origin, clips). They stay in `astra/out/R5-props-3d` until the app has a 3D prop feature: no unused files in the install.
-- [ ] 3D props in the app (new feature, not planned yet): GLTFLoader, a prop scene over the second render pass, head pose from the face matrix, pests that fly around the head. Ask the operator when.
+- [x] R5 3D props: released by the operator, eleven files arrived 2026-09-27 (fly, mosquito, spider, bee, butterfly, ladybug, party hat, pirate hat, crown, witch hat, sunglasses) and passed the file check (format, triangles, size, origin, clips). They are in the app (branch `props3d`, 1.1 MB).
+- [x] 3D props in the app: built 2026-09-27 on the operator's word. See the section "3D props" at the end.
 - [ ] R6 3D avatars: wait for the operator.
 - [ ] After each delivery: check the files (size, transparency, names, no text), import into `public/`, add the row to LICENSE-ASSETS.md and the entry to scripts/attributions.mjs (CC0, released by the operator).
 
@@ -338,3 +338,44 @@ One fresh reviewer: ready to merge, no critical and no important finding. Fixed 
 - [ ] Live props draw from a 256 px texture (`spriteLayer.ts`). A hat of 1.4 to 1.8 face widths can look soft. Look on the phone.
 - [ ] Tall phone screen (9 by 19.5): the visible part of a square target is about 46 % of its width. Teddy bear, potato, pumpkin and toast are about 50 % wide, their sides can be cut. Look on the phone.
 - [ ] Makeup pictures at quality 90: about 30 % smaller at quality 82. Only if the install size hurts.
+
+The precache grew with the art: 2.2 MB before M4, 5.6 MB with 13 targets, 7 scenes, 33 props and 2 face paint looks. The ML models and the MediaPipe runtime come on top (runtime cache). If the first load gets too slow on mobile data: move targets, scenes and props from the precache to a runtime cache that fills in the background after the first start.
+
+## 3D props (operator, 2026-09-27): built on branch `props3d`, not live
+
+Operator: "build the 3d props feature", on the live camera and in the photo editor, own tab, three fingers turn in 3D, a flat sticker tilts like a card. Design record: `docs/superpowers/plans/2026-09-27-props3d.md`.
+
+- [x] Live camera: dock tab 🎩 with 4 hats, sunglasses and 6 pests. One hat and one pair of glasses at a time, pests combine, 4 props at most. Hats and glasses turn with the head. Pests fly around the head and go behind it, the ladybug walks on the forehead, the spider hangs beside the head.
+- [x] Photo editor: the 11 props lead the palette. One finger drags, two fingers scale and turn, three fingers turn in depth. A flat sticker tilts like a card, 75 degrees at most.
+- [x] Headless checks on the dev server and on the production build: all verdicts OK, zero third-party requests.
+
+Phone checks owed by the operator:
+- [ ] Hats sit on the head of a child (the numbers are set on one adult face): size, height, when the head turns left and right, nods, and tilts.
+- [ ] Sunglasses sit on the nose, the arms go behind the head when the head turns.
+- [ ] Pests: size, speed, they go behind the head. Two faces: each has its own pests.
+- [ ] Frame rate on the tablet with 4 props plus filters and stickers (4 samples are on while a prop is on).
+- [ ] Photo editor: three fingers turn a prop, two fingers still scale, one finger still drags. Three fingers of a child fit on the phone screen.
+- [ ] A video with a bee: the bee moves in the recording as on the screen.
+
+Open, for the operator to decide:
+- Flat twins. Pirate hat, party hat, witch hat, fly, mosquito and spider exist as flat sticker packs and as 3D props. Both are in now. Option: the 3D prop takes the place of the flat twin on the live camera, as the painted looks did.
+- No way to turn in depth with a mouse (desktop). Two fingers have no mouse way either.
+- In the photo editor a pest has no motion and shows its rest pose.
+
+Known limits:
+- Textures in a model: the import refuses them. When Astra needs textures (avatars, R6): load pictures without fetch from a `blob:` address, or verify a CSP change, then lift the rule in `inspectGlb`.
+- The turn of the head comes from the pose matrix of MediaPipe, with no smoothing of its own. If a hat shakes on the phone: smooth the quaternion (One Euro, as the landmarks).
+- A two-finger hold of more than 0.3 s with no move clears the selection in the editor (old behaviour, seen in the headless check).
+
+## Flat props as live stickers (2026-09-27): built on branch `art-r1-r3`, not live
+
+33 packs from the props by Astra, first in the sticker strip. Places are set on a face with true proportions.
+
+- [ ] Headphones sit badly: the art has the cups far apart, a flat picture cannot go around a head. New art or a 3D model (request to Astra).
+- [ ] Bunny ears: the band is narrow for a wide head.
+- [ ] Anchors that the sticker layer lacks: ears, chin, top of the skull.
+- [ ] `faceSprites` takes the width from the x distance of the cheeks only: a sticker shrinks when the head tilts. Use the distance in the plane.
+
+## Install size after the 3D props (2026-09-27)
+
+Precache on `props3d`: 194 entries, 7.9 MB (the 3D props are 1.1 MB of it). The option of a runtime cache in the background stands (see "Install size").

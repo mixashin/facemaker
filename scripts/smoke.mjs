@@ -393,7 +393,9 @@ if (process.env.SMOKE_GALLERY) {
   // Three fingers turn the sticker in depth. Touch comes through the DevTools protocol: the mouse is one finger only.
   {
     const cdp = await page.context().newCDPSession(page);
-    const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+    // A point is x, y and the number of the finger (by default its place in the list). An end event with points
+    // lifts those fingers, an end event with no point lifts all. A move event with fewer points lifts nothing.
+    const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y, id], i) => ({ x, y, id: id ?? i })) });
     const fingers = async (from, dx, dy) => {
       await touch('touchStart', from);
       for (let i = 1; i <= 8; i++) { await touch('touchMove', from.map(([x, y]) => [x + (dx * i) / 8, y + (dy * i) / 8])); await page.waitForTimeout(30); }
@@ -441,7 +443,7 @@ if (process.env.SMOKE_GALLERY) {
     await touch('touchStart', on);
     for (let i = 1; i <= 6; i++) { await touch('touchMove', on.map(([x, y]) => [x + i * 10, y])); await page.waitForTimeout(30); }
     const last = [on[0][0] + 60, on[0][1]];
-    await touch('touchEnd', [last]); // the first finger stays
+    await touch('touchEnd', [[on[1][0] + 60, on[1][1], 1], [on[2][0] + 60, on[2][1], 2]]); // two fingers lift, the first one stays
     await page.waitForTimeout(60);
     for (let i = 1; i <= 5; i++) { await touch('touchMove', [[last[0] + i * 8, last[1] + i * 8]]); await page.waitForTimeout(30); }
     const canShown = await page.locator('.trash').count();

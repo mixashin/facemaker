@@ -47,7 +47,7 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
-const RAIL = new Set(['warp', 'sticker', 'makeup', 'faceon', 'scene', 'text', 'voice', 'lab']);
+const RAIL = new Set(['warp', 'sticker', 'props3d', 'makeup', 'faceon', 'scene', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
 const click = async (label) => {
   if (RAIL.has(label)) await openDock();
@@ -139,6 +139,61 @@ if (state.fm?.faces > 0) {
   const red1 = await redPixels();
   console.log('stickers follow the warp: heart pixels', red0, 'with big head and big eyes', red1, 'ratio', (red1 / Math.max(1, red0)).toFixed(2), red0 > 50 && red1 > red0 * 1.3 ? 'OK' : 'FAIL');
   await click('none'); await click('sticker'); await click('none');
+  // 3D props: a hat changes the picture above the face, a bee moves by itself, one hat at a time
+  {
+    const snap = () => page.evaluate(() => {
+      const src = document.querySelector('canvas.stage');
+      const c = document.createElement('canvas'); c.width = 160; c.height = 120;
+      const g = c.getContext('2d'); g.drawImage(src, 0, 0, 160, 120);
+      return [...g.getImageData(0, 0, 160, 120).data];
+    });
+    const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 40) n++; return n; };
+    await click('warp'); await click('none'); await click('sticker'); await click('none');
+    await click('props3d'); await click('none'); await page.waitForTimeout(400);
+    const bare3 = await snap();
+    await click('crown'); await page.waitForTimeout(2500); // the model loads
+    const crowned = await snap();
+    console.log('3D crown on the head: pixels that changed', differ(bare3, crowned), differ(bare3, crowned) > 150 ? 'OK' : 'FAIL');
+    await click('pirate-hat'); await page.waitForTimeout(2000);
+    const worn = await pressed();
+    console.log('a hat takes the place of a hat:', worn.join('+'), worn.length === 1 && worn[0] === 'pirate-hat' ? 'OK' : 'FAIL');
+    await click('none'); await click('bee'); await page.waitForTimeout(2500);
+    const bee0 = await snap(); await page.waitForTimeout(900);
+    const bee1 = await snap();
+    console.log('the bee flies by itself: pixels that changed in 0.9 s', differ(bee0, bee1), differ(bee0, bee1) > 20 ? 'OK' : 'FAIL');
+    await click('sunglasses'); await click('crown'); await page.waitForTimeout(1500);
+    const three = await pressed();
+    console.log('glasses, hat and pest together:', three.join('+'), three.length === 3 ? 'OK' : 'FAIL');
+    if (out) writeFileSync(`${out}/props3d.png`, await page.locator('canvas').screenshot());
+    await click('none'); await page.waitForTimeout(500);
+    const gone = await snap();
+    console.log('none takes the 3D props off:', differ(bare3, gone) < 30 ? 'OK' : 'FAIL');
+    await click('warp');
+  }
+  // Costume: one chip of the makeup list puts on the paint and its 3D parts. The hat of the costume takes the
+  // place of the hat that the child chose, and the chosen hat comes back when the costume goes.
+  {
+    const snap = () => page.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 160; c.height = 120;
+      const g = c.getContext('2d'); g.drawImage(document.querySelector('canvas.stage'), 0, 0, 160, 120);
+      return [...g.getImageData(0, 0, 160, 120).data];
+    });
+    const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 40) n++; return n; };
+    const placed = () => page.evaluate(() => [...globalThis.__fm.placed()].sort().join('+')); // what the 3D layer draws, not what was asked for
+    await click('props3d'); await click('none'); await click('crown'); await click('bee');
+    await click('makeup'); await click('none'); await page.waitForTimeout(2500);
+    const before = await snap(), had = await placed();
+    await click('paint-witch'); await page.waitForTimeout(3500); // the two parts load
+    const dressed = await snap(), wears = await placed();
+    if (out) writeFileSync(`${out}/costume-witch.png`, await page.locator('canvas').screenshot());
+    // the hat is above the face, where no paint is: the top fifth of the picture must change too
+    const top = (a) => a.slice(0, 160 * 24 * 4);
+    console.log('the witch puts on paint, hat with hair and nose: parts', wears, '| pixels that changed', differ(before, dressed), '| above the face', differ(top(before), top(dressed)), had === 'bee+crown' && wears === 'bee+witch-hat-hair+witch-nose' && differ(before, dressed) > 2500 && differ(top(before), top(dressed)) > 300 ? 'OK' : 'FAIL');
+    await click('paint-witch'); await page.waitForTimeout(800); // a second tap takes the costume off
+    const after = await placed();
+    console.log('the costume goes, the chosen hat comes back:', after, after === 'bee+crown' ? 'OK' : 'FAIL');
+    await click('props3d'); await click('none'); await click('warp');
+  }
   // Makeup: a look paints the face, follows the warp, and works together with a filter and a sticker.
   const tinted = (test) => page.evaluate((body) => {
     const hit = new Function('r', 'g', 'b', `return ${body};`);
@@ -321,7 +376,7 @@ if (process.env.SMOKE_GALLERY) {
   }
   await click('Edit');
   await page.waitForTimeout(800);
-  await click('moustache'); await page.waitForTimeout(400);
+  await click('moustache-handlebar'); await page.waitForTimeout(400);
   if (out) writeFileSync(`${out}/page-editor.png`, await page.screenshot());
   const dots = await page.locator('.fab .shutter.save svg.dots circle').count();
   console.log('the action button of the editor shows three dots:', dots === 3 ? 'OK' : 'FAIL');
@@ -353,12 +408,75 @@ if (process.env.SMOKE_GALLERY) {
   console.log('drag to the trash can: stickers', n0, 'then', n1, '| the can shows', shows === 1, '| it lights up', lights === 1, n0 === 1 && n1 === 0 && shows === 1 && lights === 1 ? 'OK' : 'FAIL');
   // A drag that ends somewhere else keeps the sticker
   await page.locator('.pull').first().click(); await page.waitForTimeout(400);
-  await click('moustache'); await page.waitForTimeout(300);
+  await click('moustache-handlebar'); await page.waitForTimeout(300);
   await page.mouse.click(photo.x + photo.width - 12, photo.y + photo.height / 2); await page.waitForTimeout(300);
   await page.mouse.move(mx, my); await page.mouse.down(); await page.mouse.move(mx + 40, my - 120, { steps: 6 }); await page.mouse.up();
   await page.waitForTimeout(300);
   const kept = await stickers(), canGone = (await page.locator('.trash').count()) === 0;
   console.log('a drag that ends on the photo keeps the sticker:', kept === 1 && canGone ? 'OK' : 'FAIL');
+  // Three fingers turn the sticker in depth. Touch comes through the DevTools protocol: the mouse is one finger only.
+  {
+    const cdp = await page.context().newCDPSession(page);
+    // A point is x, y and the number of the finger (by default its place in the list). An end event with points
+    // lifts those fingers, an end event with no point lifts all. A move event with fewer points lifts nothing.
+    const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y, id], i) => ({ x, y, id: id ?? i })) });
+    const fingers = async (from, dx, dy) => {
+      await touch('touchStart', from);
+      for (let i = 1; i <= 8; i++) { await touch('touchMove', from.map(([x, y]) => [x + (dx * i) / 8, y + (dy * i) / 8])); await page.waitForTimeout(30); }
+      await touch('touchEnd', []);
+      await page.waitForTimeout(400);
+    };
+    const three = [[mx - 60, my + 150], [mx, my + 170], [mx + 60, my + 150]];
+    const pixels = () => page.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 200; c.height = 150;
+      const g = c.getContext('2d'); g.drawImage(document.querySelector('.edit-canvas'), 0, 0, 200, 150);
+      return [...g.getImageData(0, 0, 200, 150).data];
+    });
+    const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 40) n++; return n; };
+    // size, turn in the plane, yaw, pitch, x, y of the selected sticker
+    const numbers = () => page.evaluate(() => (document.querySelector('.editor')?.getAttribute('data-selected') ?? '').split(' ').map(Number));
+    const flat0 = await pixels();
+    await fingers(three, 120, 0);
+    const flat1 = await pixels();
+    if (out) writeFileSync(`${out}/page-editor-card.png`, await page.screenshot());
+    const card = await numbers();
+    console.log('three fingers tilt a flat sticker like a card: yaw', card[2], 'pitch', card[3], '| pixels that changed', differ(flat0, flat1), '| stickers', await stickers(), card[2] > 0.2 && Math.abs(card[3]) < 0.05 && differ(flat0, flat1) > 20 && (await stickers()) === 1 ? 'OK' : 'FAIL');
+    await page.locator('.pull').first().click(); await page.waitForTimeout(400);
+    await click('3d-crown'); await page.waitForTimeout(2500); // the model loads
+    const solid0 = await pixels();
+    console.log('a 3D prop lands on the photo: stickers', await stickers(), '| pixels that changed', differ(flat1, solid0), (await stickers()) === 2 && differ(flat1, solid0) > 100 ? 'OK' : 'FAIL');
+    if (out) writeFileSync(`${out}/page-editor-3d.png`, await page.screenshot());
+    await fingers(three, 90, 60);
+    const solid1 = await pixels();
+    if (out) writeFileSync(`${out}/page-editor-3d-turned.png`, await page.screenshot());
+    const turned = await numbers();
+    console.log('three fingers turn the 3D prop: yaw', turned[2], 'pitch', turned[3], '| pixels that changed', differ(solid0, solid1), turned[2] > 0.2 && turned[3] > 0.1 && differ(solid0, solid1) > 60 ? 'OK' : 'FAIL');
+    // Two fingers still scale, and the turn in depth stays
+    const two = [[mx - 40, my + 160], [mx + 40, my + 160]];
+    await touch('touchStart', two);
+    for (let i = 1; i <= 8; i++) { await touch('touchMove', [[mx - 40 - i * 8, my + 160], [mx + 40 + i * 8, my + 160]]); await page.waitForTimeout(30); }
+    await touch('touchEnd', []); await page.waitForTimeout(400);
+    const grown = await pixels();
+    if (out) writeFileSync(`${out}/page-editor-3d-grown.png`, await page.screenshot());
+    const big = await numbers();
+    console.log('two fingers scale the 3D prop: size', turned[0], 'then', big[0], '| yaw stays', big[2] === turned[2], '| pixels that changed', differ(solid1, grown), big[0] > turned[0] * 1.8 && big[2] === turned[2] && big[3] === turned[3] && differ(solid1, grown) > 100 ? 'OK' : 'FAIL');
+    // Three fingers, the first one on the sticker. Two fingers lift, the last one moves on and lifts: the sticker
+    // turned, and it did not jump under the last finger.
+    const on = [[mx - 30, my + 20], [mx + 40, my + 60], [mx + 90, my + 20]];
+    const before = await numbers();
+    await touch('touchStart', on);
+    for (let i = 1; i <= 6; i++) { await touch('touchMove', on.map(([x, y]) => [x + i * 10, y])); await page.waitForTimeout(30); }
+    const last = [on[0][0] + 60, on[0][1]];
+    await touch('touchEnd', [[on[1][0] + 60, on[1][1], 1], [on[2][0] + 60, on[2][1], 2]]); // two fingers lift, the first one stays
+    await page.waitForTimeout(60);
+    for (let i = 1; i <= 5; i++) { await touch('touchMove', [[last[0] + i * 8, last[1] + i * 8]]); await page.waitForTimeout(30); }
+    const canShown = await page.locator('.trash').count();
+    await touch('touchEnd', []); await page.waitForTimeout(400);
+    const after = await numbers();
+    const still = after[4] === before[4] && after[5] === before[5];
+    console.log('the last finger of three does not drag the sticker: place', before[4], before[5], 'then', after[4], after[5], '| yaw', before[2], 'then', after[2], '| trash can', canShown, '| stickers', await stickers(), still && after[2] !== before[2] && canShown === 0 && (await stickers()) === 2 ? 'OK' : 'FAIL');
+    await cdp.detach();
+  }
   await closeSheet();
   await click('Leave without saving'); await page.waitForTimeout(300); // editor -> viewer
   const left = (await page.locator('.editor').count()) === 0;
@@ -367,10 +485,12 @@ if (process.env.SMOKE_GALLERY) {
   console.log('leave without saving, then close the viewer:', left && backInGallery ? 'OK' : 'FAIL');
   await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
   await click('Edit'); await page.waitForTimeout(800);
-  await click('moustache'); await page.waitForTimeout(400);
+  await click('moustache-handlebar'); await page.waitForTimeout(400);
+  await click('3d-party-hat'); await page.waitForTimeout(2500);
   await click('Done'); await click('Save as new photo'); await page.waitForTimeout(1200);
   const after = await page.locator('.thumb').count();
   console.log('gallery photos before/after edit:', before, after, before >= 1 && after === before + 1 ? 'OK' : 'FAIL');
+  if (out) { await page.locator('.thumb').first().click(); await page.waitForTimeout(800); writeFileSync(`${out}/page-viewer-saved.png`, await page.screenshot()); await closeSheet(); }
   await closeSheet();
 }
 // SMOKE_RECORD=1: hold the shutter, expect a playable clip with sound (the fake device has a microphone)
@@ -482,12 +602,83 @@ if (await shutter.count()) {
   const gearFree = !land.gear || three.every((b) => land.gear.r <= b.l || land.gear.b <= b.t);
   console.log('phone on its side: buttons at the right edge', right, '| one above the other, all on the screen', stacked, '| the gear is free', gearFree, right && stacked && gearFree ? 'OK' : 'FAIL');
   if (out) writeFileSync(`${out}/page-landscape.png`, await page.screenshot());
+  // A tablet on its side: the buttons at the right edge too, and the gear in its corner (the column of buttons
+  // does not reach the corner on a high screen). Touch is switched on, so the page sees a finger as its pointer.
+  {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    await cdp.send('Emulation.setEmitTouchEventsForMouse', { enabled: true, configuration: 'mobile' });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.waitForTimeout(500);
+    const tab = await page.evaluate(() => {
+      const box = (s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r ? { l: r.left, r: r.right, t: r.top, b: r.bottom } : null; };
+      return { finger: matchMedia('(pointer: coarse)').matches, flip: box('[aria-label="flip camera"]'), shutter: box('[aria-label="take photo"]'), gallery: box('[aria-label="gallery"]'), gear: box('[aria-label="settings"]'), w: innerWidth, h: innerHeight };
+    });
+    const col = [tab.flip, tab.shutter, tab.gallery];
+    const atRight = col.every((b) => b && b.l > tab.w - 120 && b.r <= tab.w);
+    const corner = !!tab.gear && tab.w - tab.gear.r <= 24 && tab.gear.t <= 24;
+    const free = !!tab.gear && col.every((b) => tab.gear.b <= b.t || tab.gear.r <= b.l);
+    console.log('tablet on its side: finger as pointer', tab.finger, '| buttons at the right edge', atRight, '| the gear in its corner', corner, tab.gear ? Math.round(tab.w - tab.gear.r) : '-', '| the gear is free', free, tab.finger && atRight && corner && free ? 'OK' : 'FAIL');
+    if (out) writeFileSync(`${out}/page-landscape-tablet.png`, await page.screenshot());
+    await cdp.send('Emulation.setEmitTouchEventsForMouse', { enabled: false });
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    await cdp.detach();
+  }
   await page.setViewportSize({ width: vw, height: vh });
   await page.waitForTimeout(300);
   const back = await page.evaluate(() => { const r = document.querySelector('[aria-label="take photo"]').getBoundingClientRect(); return { y: r.bottom, x: (r.left + r.right) / 2, w: innerWidth, h: innerHeight }; });
   console.log('upright again: the shutter is at the bottom in the middle', back.y > back.h - 140 && Math.abs(back.x - back.w / 2) < 8 ? 'OK' : 'FAIL');
 }
 if (out) writeFileSync(`${out}/page-end.png`, await page.screenshot()); // final state: gallery button shows the newest photo
+// Version, device report, the slow tracker, the update button. Last: the update button loads the app again.
+{
+  await click('settings'); await page.waitForTimeout(400);
+  const version = (await page.locator('.version span').textContent()) ?? '';
+  console.log('the settings show the version:', version, /^v \d{4}-\d\d-\d\d \d\d:\d\d \S+$/.test(version) ? 'OK' : 'FAIL');
+  if (out) writeFileSync(`${out}/page-version.png`, await page.screenshot());
+  await click('about'); await page.waitForTimeout(400);
+  await click('Device report'); await page.waitForTimeout(800);
+  const turtle = await page.locator('[aria-label="Slow and safe face tracker"]').count();
+  const text = (await page.locator('.report').textContent()) ?? '';
+  if (out) { await page.locator('.report').scrollIntoViewIfNeeded(); writeFileSync(`${out}/page-report.png`, await page.screenshot()); }
+  // GPU and no new start: a tracker that went to the CPU for no reason must not pass here
+  const face = /tracker: GPU \(asked: auto\)/.test(text) && /with a face: [1-9]/.test(text) && /new starts: 0/.test(text) && !/error: /.test(text) && text.includes(version.slice(2)) && /graphics: \S/.test(text) && /camera: \d+x\d+/.test(text);
+  console.log('the device report names version, camera, graphics and a tracker on the GPU that finds the face:', face && turtle === 1 ? 'OK' : 'FAIL');
+  if (!face) console.log(text);
+  await closeSheet();
+  // The slow tracker by the address: the CPU finds the face too, and the choice stays for the next start
+  const state = () => page.evaluate(() => ({ d: globalThis.__fm.delegate, faces: globalThis.__fm.faces, frames: globalThis.__fm.frames, kept: localStorage.getItem('fm.tracker') }));
+  await page.goto(url + '/?tracker=cpu', { waitUntil: 'load' }); await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+  const cpu = await state();
+  console.log('?tracker=cpu: tracker', cpu.d, 'faces', cpu.faces, 'kept', cpu.kept, cpu.d === 'CPU' && cpu.faces === 1 && cpu.kept === 'CPU' ? 'OK' : 'FAIL');
+  await page.goto(url + '/?tracker=auto', { waitUntil: 'load' }); await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+  const auto = await state();
+  console.log('?tracker=auto: tracker', auto.d, 'faces', auto.faces, 'kept', auto.kept, auto.d !== '' && auto.faces === 1 && auto.kept === null ? 'OK' : 'FAIL');
+  // The update button with no network: nothing is dropped, the app stays (with a service worker the page itself
+  // comes from the cache, so the check of the network must pass the service worker)
+  {
+    const cacheCount = () => page.evaluate(async () => { let n = 0; for (const k of await caches.keys()) n += (await (await caches.open(k)).keys()).length; return n; });
+    const had = await cacheCount(), was = page.url();
+    await page.context().setOffline(true);
+    await click('settings'); await page.waitForTimeout(400);
+    await click('Get the newest version'); await click('Get the newest version');
+    await page.waitForTimeout(3000);
+    const sign = (await page.locator('.version button').textContent())?.trim();
+    const has = await cacheCount().catch(() => -1);
+    console.log('the update button with no network: address stays', page.url() === was, '| sign', sign, '| files in the caches', had, 'then', has, page.url() === was && sign === '📴' && has === had ? 'OK' : 'FAIL');
+    await page.context().setOffline(false);
+    await page.waitForTimeout(4500); // the sign goes
+    await closeSheet();
+  }
+  // The update button: the app loads again from the network and runs
+  await click('settings'); await page.waitForTimeout(400);
+  await click('Get the newest version'); await click('Get the newest version'); // two taps
+  await page.waitForURL(/\?u=\d+/, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+  const again = await state().catch(() => null);
+  const caches = await page.evaluate(async () => (await caches.keys()).length).catch(() => -1);
+  console.log('the update button loads the app again:', page.url().replace(/\d{6,}/, 'N'), '| tracker frames', again?.frames, '| faces', again?.faces, '| caches', caches, /\?u=\d+/.test(page.url()) && again && again.frames > 0 && again.faces === 1 ? 'OK' : 'FAIL');
+}
 console.log('--- third-party requests:', egress.length ? '' : 'none');
 for (const e of egress) console.log(e);
 console.log('--- console:');

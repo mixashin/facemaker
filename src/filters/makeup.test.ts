@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { FaceLandmarker } from '@mediapipe/tasks-vision';
-import { LOOKS, MAKEUP, OVAL, LIPS, MOUTH, EYE_R, EYE_L, BROW_R, BROW_L, lookById, pickLook, paintLook, paintSkin, toLayout, grown, type Layer, type Pt } from './makeup';
+import { LOOKS, MAKEUP, makeupChips, OVAL, LIPS, MOUTH, EYE_R, EYE_L, BROW_R, BROW_L, lookById, pickLook, paintLook, paintSkin, toLayout, grown, type Layer, type Pt } from './makeup';
 
 type Call = { op: string; args: unknown[] };
 function recorder() {
@@ -65,7 +65,8 @@ describe('looks', () => {
     expect(LOOKS[0].layers).toEqual([]);
     expect(new Set(LOOKS.map((l) => l.id)).size).toBe(LOOKS.length);
     for (const l of LOOKS) expect(l.icon.length).toBeGreaterThan(0);
-    expect(MAKEUP.map((m) => m.id)).toEqual(LOOKS.map((l) => l.id));
+    expect(MAKEUP[0].id).toBe('none');
+    for (const m of MAKEUP) expect(lookById(m.id).id).toBe(m.id);
     expect(lookById('glam').id).toBe('glam');
     expect(lookById('nope' as never).id).toBe('none');
   });
@@ -98,8 +99,27 @@ describe('looks', () => {
       expect(existsSync('public' + l.chip), l.chip).toBe(true);
       expect(l.layers).toEqual([]);
     }
-    expect(MAKEUP.slice(11).map((m) => m.img)).toEqual(painted.map((l) => l.chip)); // the chip shows the paint, not an emoji
+    expect(painted.length).toBeGreaterThanOrEqual(12);
+    const chips = MAKEUP.map((m) => m.id);
+    expect(chips.slice(1, 1 + painted.length)).toEqual(painted.map((l) => l.id)); // after none: the painted looks, then the drawn ones
+    for (const l of painted) expect(MAKEUP.find((m) => m.id === l.id)!.img).toBe(l.chip); // the chip shows the paint, not an emoji
+    // A drawn look with a painted twin leaves the list. The painted one is the better art.
+    for (const id of ['tiger', 'butterfly', 'clown', 'rainbow', 'hero']) expect(chips).not.toContain(id);
+    for (const id of ['glam', 'soft', 'zombie', 'vampire', 'cucumber']) expect(chips).toContain(id);
+    expect(new Set(chips).size).toBe(chips.length);
     expect(LOOKS.filter((l) => !l.img).length).toBe(11);
+  });
+  it('a drawn look comes back when its painted twin is gone', () => {
+    const painted = LOOKS.filter((l) => l.img);
+    const chips = makeupChips(painted.filter((l) => l.id !== 'paint-clown')).map((m) => m.id);
+    expect(chips).toContain('clown');
+    expect(chips).not.toContain('paint-clown');
+    expect(chips).not.toContain('tiger'); // its twin is there
+    expect(makeupChips([]).map((m) => m.id)).toEqual(LOOKS.filter((l) => !l.img).map((l) => l.id)); // no paint at all: every drawn look
+  });
+  it('every picture in public/makeup belongs to a look: no file ships for nothing', () => {
+    const want = LOOKS.filter((l) => l.img).flatMap((l) => [l.img!, l.chip!]).map((f) => f.replace('/makeup/', '')).sort();
+    expect(readdirSync('public/makeup').sort()).toEqual(want);
   });
   it('a second tap turns the look off', () => {
     expect(pickLook('none', 'glam')).toBe('glam');

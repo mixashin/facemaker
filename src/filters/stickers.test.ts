@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { STICKER_PACKS, MAX_STICKERS, emojiFile, isMask, spritesFor, spritesForAll, toggleSticker } from './stickers';
+import { STICKER_PACKS, MAX_STICKERS, emojiFile, isMask, spritesFor, spritesForAll, toggleSticker, faceSprites } from './stickers';
 import type { Face } from '../tracking/faceTracker';
 // @ts-expect-error plain node script, no types; one copy of the scan for the fetch script and this test
 import { unsafeSvg } from '../../scripts/fetch-fluent.mjs';
@@ -42,8 +42,22 @@ describe('STICKER_PACKS', () => {
 
   it('every emoji used has its svg on disk (scripts/copy-twemoji.mjs, scripts/fetch-fluent.mjs)', () => {
     for (const p of STICKER_PACKS) for (const it of p.items) {
-      expect(existsSync('public' + emojiFile(it.emoji, p.art)), `${p.id}: ${it.emoji}`).toBe(true);
+      const file = 'src' in it ? it.src : emojiFile(it.emoji, p.art);
+      expect(existsSync('public' + file), `${p.id}: ${file}`).toBe(true);
     }
+  });
+
+  it('a placement can name its file: the sprite shows that file', () => {
+    const lm = new Float32Array(478 * 3);
+    const set = (i: number, x: number, y: number) => { lm[i * 3] = x; lm[i * 3 + 1] = y; };
+    set(234, 0.3, 0.5); set(454, 0.7, 0.5); set(10, 0.5, 0.2); set(152, 0.5, 0.8); set(4, 0.5, 0.5);
+    for (const i of [468, 469, 470, 471, 472]) set(i, 0.4, 0.4);
+    for (const i of [473, 474, 475, 476, 477]) set(i, 0.6, 0.4);
+    const s = faceSprites([{ src: '/props/clown-nose.webp', anchor: 'nose', scale: 0.25 }, { emoji: '👑', anchor: 'top', scale: 0.7 }], undefined, lm, 1);
+    expect(s[0].src).toBe('/props/clown-nose.webp');
+    expect(s[0].cx).toBeCloseTo(0.5); expect(s[0].cy).toBeCloseTo(0.5);
+    expect(s[0].size).toBeCloseTo(0.25 * 0.4);
+    expect(s[1].src).toBe(emojiFile('👑'));
   });
 
   it('has the Fluent packs next to the Twemoji ones, nothing removed', () => {
@@ -58,6 +72,57 @@ describe('STICKER_PACKS', () => {
   it('shows the real art on every sticker chip (img), the none chip stays a glyph', () => {
     expect(STICKER_PACKS[0].img).toBeUndefined();
     for (const p of STICKER_PACKS.slice(1)) expect(existsSync('public' + p.img!), p.id).toBe(true);
+  });
+});
+
+describe('prop packs (art by Astra)', () => {
+  const names = JSON.parse(readFileSync('src/filters/props.json', 'utf8')) as string[];
+  const propPacks = STICKER_PACKS.filter((p) => p.id.startsWith('prop-'));
+
+  it('every prop of props.json has exactly one pack, and no pack is without a prop', () => {
+    expect(names.length).toBeGreaterThanOrEqual(33);
+    for (const n of names) expect(STICKER_PACKS.filter((p) => p.id === `prop-${n}`), n).toHaveLength(1);
+    expect(propPacks).toHaveLength(names.length);
+  });
+
+  it('the chip shows the prop: img is the file of the first item, and the file is on disk', () => {
+    expect(propPacks).toHaveLength(names.length);
+    for (const p of propPacks) {
+      const first = p.items[0];
+      expect('src' in first, p.id).toBe(true);
+      if (!('src' in first)) continue;
+      expect(first.src, p.id).toBe(`/props/${p.id.slice('prop-'.length)}.webp`);
+      expect(p.img, p.id).toBe(first.src);
+      expect(existsSync('public' + first.src), p.id).toBe(true);
+    }
+  });
+
+  it('every picture in public/props is a prop of the list: no file ships for nothing', () => {
+    expect(readdirSync('public/props').sort()).toEqual(names.map((n) => `${n}.webp`).sort());
+  });
+
+  it('the places are sane: a typing error in a size or an offset fails here', () => {
+    for (const p of propPacks) for (const i of p.items) {
+      expect(i.scale, p.id).toBeGreaterThan(0.05); expect(i.scale, p.id).toBeLessThanOrEqual(2);
+      expect(Math.abs(i.dx ?? 0), p.id).toBeLessThanOrEqual(1); expect(Math.abs(i.dy ?? 0), p.id).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('no prop is a mask', () => {
+    expect(propPacks).toHaveLength(names.length);
+    for (const p of propPacks) expect(isMask(p.id), p.id).toBe(false);
+  });
+
+  it('the props come right after none, before the emoji packs', () => {
+    const ids = STICKER_PACKS.map((p) => p.id);
+    expect(ids[0]).toBe('none');
+    expect(ids.slice(1, 1 + names.length).every((id) => id.startsWith('prop-'))).toBe(true);
+    expect(ids.slice(1 + names.length).some((id) => id.startsWith('prop-'))).toBe(false);
+  });
+
+  it('pack ids are unique', () => {
+    const ids = STICKER_PACKS.map((p) => p.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });
 

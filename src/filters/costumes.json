@@ -1,0 +1,40 @@
+[
+  {
+    "id": "witch",
+    "look": "paint-witch",
+    "parts": [
+      {
+        "id": "witch-hat-hair",
+        "file": "/costumes/witch/witch-hat-hair.glb",
+        "triangles": 7728,
+        "size": [
+          2.058,
+          3.033,
+          1.814
+        ],
+        "centre": [
+          0,
+          0.437,
+          -0.228
+        ],
+        "clips": []
+      },
+      {
+        "id": "witch-nose",
+        "file": "/costumes/witch/witch-nose.glb",
+        "triangles": 1740,
+        "size": [
+          0.403,
+          0.51,
+          0.648
+        ],
+        "centre": [
+          0.027,
+          -0.01,
+          0.71
+        ],
+        "clips": []
+      }
+    ]
+  }
+]

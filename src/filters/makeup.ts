@@ -3,6 +3,7 @@
 // once per look. The mesh layer (src/render/makeupLayer.ts) stretches that canvas over the live face.
 import { UV } from '../render/faceMesh';
 import painted from './paintLooks.json';
+import costumes from './costumes.json';
 
 // Built-in looks: none, glam, soft, rainbow, clown, zombie, vampire, tiger, butterfly, hero, cucumber.
 // Looks from a picture: paint-<name> (src/filters/paintLooks.json, written by scripts/import-art.mjs).
@@ -218,10 +219,19 @@ const BUILT_IN: Look[] = [
   ] },
 ];
 
-const PAINTED: Look[] = (painted as { id: string; icon: string; img: string; chip: string }[]).map((p) => ({ ...p, smooth: 0, layers: [] }));
+// The paint of a costume keeps its colour (flat): the 3D nose of the witch has the colour of the paint around it
+const WORN = new Set((costumes as { look: string }[]).map((c) => c.look));
+const PAINTED: Look[] = (painted as { id: string; icon: string; img: string; chip: string }[]).map((p) => ({ ...p, smooth: 0, layers: [], ...(WORN.has(p.id) ? { flat: 0.85 } : {}) }));
 export const LOOKS: Look[] = [...BUILT_IN, ...PAINTED];
 
-export const MAKEUP: { id: LookId; icon: string; img?: string }[] = LOOKS.map(({ id, icon, chip }) => ({ id, icon, img: chip }));
+// The chips: none, the painted looks, then the drawn looks. A drawn look is not in the list while its
+// painted twin is there (its code stays: take the line out of TWINS to show both).
+const TWINS: Record<string, string> = { tiger: 'paint-tiger', butterfly: 'paint-butterfly', clown: 'paint-clown', rainbow: 'paint-rainbow', hero: 'paint-superhero-mask' };
+export function makeupChips(painted: Look[]): { id: LookId; icon: string; img?: string }[] {
+  const there = new Set(painted.map((p) => p.id));
+  return [BUILT_IN[0], ...painted, ...BUILT_IN.slice(1).filter((l) => !there.has(TWINS[l.id]))].map(({ id, icon, chip }) => ({ id, icon, img: chip }));
+}
+export const MAKEUP = makeupChips(PAINTED);
 const BY_ID = new Map(LOOKS.map((l) => [l.id, l]));
 export const lookById = (id: LookId): Look => BY_ID.get(id) ?? LOOKS[0];
 

@@ -182,7 +182,7 @@ Open, operator side:
 - [ ] Fluent mask sizes on the Fold.
 - [ ] Decide: allow SIL OFL fonts (Fredoka or Baloo 2) for the Serbian letter đ. Needs OFL-1.1 on the allowed list.
 - [ ] Decide: pin `effort: high` in `~/projects/web-research/agents/deep-researcher.md` and `claim-verifier.md` (they pin only the model, Opus 5.5), then run install.sh.
-- [ ] Custom props: now request R3 in `astra/BRIEF.md` (Astra makes them, same 33 items as docs/piranesi-props.json). Then Claude wires them into the editor palette and the sticker packs.
+- [x] Custom props: request R3, delivered and wired in 2026-09-27.
 
 Open, code side (none blocks M4):
 - "Deferred from the M3 review" in this file (12 minors). The two with the most user impact: rotation or Fold open during a recording keeps the old crop; a recorder error late in a clip loses the clip.
@@ -199,6 +199,7 @@ Process rules that cost time when forgotten:
 - Renderer colour: the render target and the sprite textures carry no colour space. After a change there, compare pictures with a baseline from the old build: `ffmpeg -i old.png -i new.png -lavfi psnr -f null -`.
 - Smoke: `SMOKE_RECORD=1 SMOKE_GALLERY=1 SMOKE_VIEWPORT=380x860 FACE=test/face.jpg SMOKE_WAIT_MS=20000 node scripts/smoke.mjs http://localhost:4173` against `npm run build && npx vite preview --port 4173 --strictPort`. A label `-` in `SMOKE_SHOTS` closes the dock before the shot. Headless Chromium has no AAC encoder: the recorder falls back, the warning in the console is expected.
 - The installed PWA takes a new version on the launch after it downloaded it: open, close fully, open again.
+- Before `gh pr merge`: read the result of `gh pr checks <n>` and stop on a failure. A pipe to `tail` hides the exit code, so a chain with `&&` merges anyway (happened with #21 on 2026-09-27). A run that a later push cancelled shows as "fail": confirm with `gh run view <id> --json conclusion`, and make sure that a run of the same commits passed.
 
 ## M4 decisions (grill, 2026-09-27)
 
@@ -211,13 +212,15 @@ Process rules that cost time when forgotten:
 
 Astra is OpenAI Codex with image generation and Blender, run by the operator. Astra makes art. Claude writes code. One file holds what the app needs: `astra/BRIEF.md` (requests R1 to R6, formats, folders, rules). The start prompt for Astra is `astra/PROMPT.md`. The folder `astra/` is not in git.
 
-- [x] R1 face-on targets (for M4b): the required five arrived 2026-09-27 (orange, apple, cat, dog, lion; 2048 px, opaque, no eyes, no mouth) and passed the check. Imported into `public/targets` with M4b (WebP, 1280 px, about 75 KB each). Extras: open.
+- [x] R1 face-on targets (for M4b): the required five arrived 2026-09-27 (orange, apple, cat, dog, lion; 2048 px, opaque, no eyes, no mouth) and passed the check. Imported into `public/targets` with M4b (WebP, 1280 px, about 75 KB each). Eight extras arrived 2026-09-27 (potato, egg, pumpkin, toast, teddy bear, robot, moon, cloud) and are in the app: 13 targets.
 - [x] R2 background scenes (for M4c): seven scenes arrived 2026-09-27 (four required, three extra), passed the check, and are in the app (branch `m4c-scenes`). The brief (version 5) asks for more bits and for near and far layers, all optional.
-- [ ] R3 sticker props (33): open.
+- [x] R3 sticker props: all 33 arrived 2026-09-27 and passed the check. They are in the palette of the photo editor (the five hand-drawn SVG props are gone) and become live sticker packs (branch `art-r1-r3`).
 - [x] R4 face paint on the flat face layout: the experiment passed 2026-09-27. Tiger and butterfly arrived, fit the face (front, tilted, under filters), and are in the app as picture looks (branch `m4-face-paint`, PR #20). The brief (version 4) releases the other looks.
-- [ ] R4, the other looks: open. After each delivery: `node scripts/import-art.mjs facepaint`, build, look at the fit.
-- [ ] Phone check of the picture looks: blink, open mouth, head turned to the side. Two tigers are in the list now (the drawn one and the painted one): decide which stays.
-- [ ] R5 3D props, R6 3D avatars: wait for the operator.
+- [x] R4, the other looks: ten more arrived 2026-09-27 (cat, puppy, clown, flowers, rainbow, robot, dragon scales, ladybug, unicorn, superhero mask), fit the face, and are in the app. 12 painted looks.
+- [ ] Phone check of the picture looks: blink, open mouth, head turned to the side. The painted tiger, butterfly, clown, rainbow and superhero mask took the place of the drawn ones in the list (`TWINS` in `src/filters/makeup.ts`, one line brings a drawn look back). The operator can overrule.
+- [x] R5 3D props: released by the operator, eleven files arrived 2026-09-27 (fly, mosquito, spider, bee, butterfly, ladybug, party hat, pirate hat, crown, witch hat, sunglasses) and passed the file check (format, triangles, size, origin, clips). They are in the app (branch `props3d`, 1.1 MB).
+- [x] 3D props in the app: built 2026-09-27 on the operator's word. See the section "3D props" at the end.
+- [ ] R6 3D avatars: wait for the operator.
 - [ ] After each delivery: check the files (size, transparency, names, no text), import into `public/`, add the row to LICENSE-ASSETS.md and the entry to scripts/attributions.mjs (CC0, released by the operator).
 
 ## M4a makeup: phone checks owed by the operator
@@ -322,3 +325,175 @@ Phone checks owed for these:
 - [ ] Buttons on the right in landscape, on the phone and on the tablet. The gallery fly animation ends at the gallery button.
 - [ ] Drag a sticker to the trash can with a finger. The can must be easy to hit.
 - [ ] The question on close: all three answers.
+
+## Install size (2026-09-27)
+
+The precache grew with the art: 2.2 MB before M4, 5.6 MB with 13 targets, 7 scenes, 33 props and 2 face paint looks, 6.8 MB with 12 face paint looks (branch `art-r1-r3`). The ML models and the MediaPipe runtime come on top (runtime cache). If the first load gets too slow on mobile data: move targets, scenes and props from the precache to a runtime cache that fills in the background after the first start.
+
+## Deferred from the review of `art-r1-r3` (2026-09-27)
+
+One fresh reviewer: ready to merge, no critical and no important finding. Fixed on the branch: a drawn look comes back when its painted twin is gone (`makeupChips`), tests from the files on disk to the lists (no orphan file), bounds for the places of the props, chips load when they come into view.
+
+- [ ] Hardening of `scripts/import-art.mjs` for flat art (check all files first, then convert; fail when a file is left out; read the alpha of the corners, not the pixel format): done on branch `props3d`, where the script has tests.
+- [ ] Live props draw from a 256 px texture (`spriteLayer.ts`). A hat of 1.4 to 1.8 face widths can look soft. Look on the phone.
+- [ ] Tall phone screen (9 by 19.5): the visible part of a square target is about 46 % of its width. Teddy bear, potato, pumpkin and toast are about 50 % wide, their sides can be cut. Look on the phone.
+- [ ] Makeup pictures at quality 90: about 30 % smaller at quality 82. Only if the install size hurts.
+
+The precache grew with the art: 2.2 MB before M4, 5.6 MB with 13 targets, 7 scenes, 33 props and 2 face paint looks. The ML models and the MediaPipe runtime come on top (runtime cache). If the first load gets too slow on mobile data: move targets, scenes and props from the precache to a runtime cache that fills in the background after the first start.
+
+## 3D props (operator, 2026-09-27): built on branch `props3d`, not live
+
+Operator: "build the 3d props feature", on the live camera and in the photo editor, own tab, three fingers turn in 3D, a flat sticker tilts like a card. Design record: `docs/superpowers/plans/2026-09-27-props3d.md`.
+
+- [x] Live camera: dock tab 🎩 with 4 hats, sunglasses and 6 pests. One hat and one pair of glasses at a time, pests combine, 4 props at most. Hats and glasses turn with the head. Pests fly around the head and go behind it, the ladybug walks on the forehead, the spider hangs beside the head.
+- [x] Photo editor: the 11 props lead the palette. One finger drags, two fingers scale and turn, three fingers turn in depth. A flat sticker tilts like a card, 75 degrees at most.
+- [x] Headless checks on the dev server and on the production build: all verdicts OK, zero third-party requests.
+
+Phone checks owed by the operator:
+- [ ] Hats sit on the head of a child (the numbers are set on one adult face): size, height, when the head turns left and right, nods, and tilts.
+- [ ] Sunglasses sit on the nose, the arms go behind the head when the head turns.
+- [ ] Pests: size, speed, they go behind the head. Two faces: each has its own pests.
+- [ ] Frame rate on the tablet with 4 props plus filters and stickers (4 samples are on while a prop is on).
+- [ ] Photo editor: three fingers turn a prop, two fingers still scale, one finger still drags. Three fingers of a child fit on the phone screen.
+- [ ] A video with a bee: the bee moves in the recording as on the screen.
+
+Open, for the operator to decide:
+- Flat twins. Pirate hat, party hat, witch hat, fly, mosquito and spider exist as flat sticker packs and as 3D props. Both are in now. Option: the 3D prop takes the place of the flat twin on the live camera, as the painted looks did.
+- No way to turn in depth with a mouse (desktop). Two fingers have no mouse way either.
+- In the photo editor a pest has no motion and shows its rest pose.
+
+Known limits:
+- Textures in a model: the import refuses them. When Astra needs textures (avatars, R6): load pictures without fetch from a `blob:` address, or verify a CSP change, then lift the rule in `inspectGlb`.
+- The turn of the head comes from the pose matrix of MediaPipe, with no smoothing of its own. If a hat shakes on the phone: smooth the quaternion (One Euro, as the landmarks).
+- A two-finger hold of more than 0.3 s with no move clears the selection in the editor (old behaviour, seen in the headless check).
+
+## Flat props as live stickers (2026-09-27): built on branch `art-r1-r3`, not live
+
+33 packs from the props by Astra, first in the sticker strip. Places are set on a face with true proportions.
+
+- [ ] Headphones sit badly: the art has the cups far apart, a flat picture cannot go around a head. New art or a 3D model (request to Astra).
+- [ ] Bunny ears: the band is narrow for a wide head.
+- [ ] Anchors that the sticker layer lacks: ears, chin, top of the skull.
+- [ ] `faceSprites` takes the width from the x distance of the cheeks only: a sticker shrinks when the head tilts. Use the distance in the plane.
+
+## Install size after the 3D props (2026-09-27)
+
+Precache on `props3d`: 194 entries, 7.9 MB (the 3D props are 1.1 MB of it). The option of a runtime cache in the background stands (see "Install size").
+
+## Costume: the witch (operator, 2026-09-27): built on branch `costume-witch`, not live
+
+Operator: "can we add a witch to the face makeup with a hat and nose with wart and hair". Art by Astra (request R7), all files accepted.
+
+- [x] One chip in the makeup list (the picture of the whole witch). It puts on the face paint, the hat with hair and the nose. A second tap takes all off.
+- [x] The parts sit on the head with no tuning by hand: they are made around the head stand-in, in the head frame.
+- [x] The turn of the head comes from the landmarks (the tracker gives no pose matrix). This holds for all 3D props.
+- [x] The nose and the paint around it have one colour (lights and paint calibrated).
+- [x] The hat of the witch takes the place of a chosen hat. Glasses and pests stay.
+- [x] Headless checks on the production build: all verdicts OK, zero third-party requests.
+
+Phone checks owed by the operator:
+- [ ] The witch on the head of a child: size of the hat, the curls beside the cheeks and the ears, the nose over the nose.
+- [ ] Head turned to the side and nodding: the nose stays on the nose, the join to the paint stays covered.
+- [ ] With face filters (big nose, big head): paint and parts bend together.
+- [ ] Frame rate with the witch (9 500 triangles, 4 samples).
+
+Open:
+- [ ] The photo editor has no costume parts in its palette.
+- [ ] More costumes: the way is ready (template, brief section R7 as the pattern, import job, one line per costume in `COSTUMES` of the import script).
+- [ ] Install size with the witch: precache 198 entries, 8.2 MB.
+## A phone where the face is not tracked (operator, 2026-09-27)
+
+Report: on one Fold 7 (Chrome, installed app) the place behind the person works, the face effects do not (no eyes and mouth on the orange). The same app version runs on the operator's devices with no fault. The live site passes the headless check.
+
+What is known: the segmenter runs on the CPU, the face tracker on the GPU first. The app showed nothing when the tracker failed. Cause on that phone: not known yet.
+
+Built on branch `tracker-health`:
+- [x] Version under the title of the settings, with a button that gets the newest version now (two taps).
+- [x] Device report in the About sheet, with a copy button.
+- [x] Read over USB on that phone (Fold 7, Android 16, Snapdragon 8 Elite, Adreno 830, Chrome 154, app installed, current version): the tracker starts on the GPU, gives 7 results, then the face geometry step of MediaPipe fails and every next frame fails. The app never started the tracker again.
+- [x] The tracker starts again with a new worker after five errors in a row, when the worker dies, or when it does not start. The first new start goes to the CPU. `?tracker=cpu` and the 🐢 button force the CPU.
+- [x] `scripts/phone-inspect.mjs` reads the state of the app on a phone over USB.
+
+- [x] Cause found 2026-09-27 on the phone over USB, with the test build (`adb reverse`, dev server): the GPU path of MediaPipe gives numbers that are no numbers on that phone (Adreno 830, Chrome 154). Full texts: `procrustes_solver.cc:206 design_matrix.norm() > kAbsoluteErrorEps (0 vs. 1e-09)`, and with the geometry step off `ImageToTensorCalculator failed: ROI contains NaN values`. The CPU path works: 30 results per second. The operator saw the face effects work on the phone with the test build.
+- [x] The geometry step is off. Faces with no size are left out. The app keeps the browser on which the GPU failed and starts on the CPU at once there.
+
+Open:
+- [x] The 3D props take the turn of the head from the landmarks (done in #26): with the geometry step off there is no pose matrix.
+- [ ] The app keeps the camera while it is in the background (seen on the phone: the hidden installed app had a live track, and a second page got no picture). Stop the camera when the page is hidden, start it again on return.
+- [ ] Report the GPU fault to MediaPipe? Facts for it are above. Operator's decision.
+- [ ] Known limit of the update button: with the app open in two places (installed app and a Chrome tab) the old service worker can stay, and its cache stays empty until the next release. The app works with a network. Close the other one first.
+- [ ] A reload from the computer (`phone-inspect.mjs reload`) with the phone locked leaves the app on the camera error screen: the camera cannot start on a locked phone. Unlock first.
+- [ ] Icons differ between devices: the rail and the buttons use the emoji font of the device (old art on an old Android). Option: own icon art for the rail and the buttons, as the chips have.
+
+## Handoff 2026-09-27 evening (next session starts here)
+
+### The release
+
+The operator asked for the release on 2026-09-27 ("push live please we all test on devices"). The merge to main was stopped by the permission system of the session (auto mode). Nothing is live yet.
+
+Branch `release-witch` holds all four pull requests, merged and tested together:
+
+| Number | Branch | Content |
+|---|---|---|
+| #23 | `tracker-health` | Face tracker that starts again after errors, geometry step off, version label, update button, device report, gear in its corner |
+| #24 | `art-r1-r3` | More face-on pictures, 33 props as stickers, more painted looks |
+| #25 | `props3d` | 3D props, three fingers turn a sticker in depth |
+| #26 | `costume-witch` | The witch costume, the turn of the head from the landmarks |
+
+- [ ] The operator merges the release pull request #27 (head `release-witch`, base main). In the terminal of Claude Code: `! gh pr merge 27 --merge`. GitHub then shows #23 to #26 as merged too, because main holds their commits.
+- [ ] After the merge: watch the deploy (`gh run list --branch main --limit 1`), then run the headless check on the live site: `FACE=test/face.jpg SMOKE_WAIT_MS=25000 SMOKE_GALLERY=1 SMOKE_RECORD=1 node scripts/smoke.mjs https://face.mxa.sh`. Expect every verdict OK and zero third-party requests.
+- [ ] Devices get a release at their second start after it. From this release on the settings show the version and have the update button.
+- [ ] Delete the merged branches after the release (local and on GitHub): `tracker-health`, `art-r1-r3`, `props3d`, `costume-witch`, `release-witch`.
+
+### Review of #26 (the witch)
+
+One fresh reviewer: ready after fixes, no critical finding, the math of the head turn is right. Fixed on `release-witch`:
+
+- [x] The width of the head followed the chin, the nod and the turn: hat and nose grew by 20 % with a wide open mouth. Now: side to side, or 1.457 of the way from the forehead to the base of the nose, both with depth.
+- [x] Stronger lights made bright parts of the plain props lose their form. The lights are as before. The colours of costume parts get a factor of 1.35 at load instead (every material one time).
+- [x] The back curls showed over the throat: a third hidden shape for the neck.
+- [x] The headless check of the costume read what was asked for, not what is drawn. It reads the 3D layer now, and the picture above the face must change.
+- [x] A tap on a hat while the witch is on takes the witch off (the chip lit and nothing changed).
+
+Deferred:
+- [ ] A face that looks at the camera gives a nod of 5 degrees (the forehead stands before the chin). Four points replace the fit of MediaPipe over 478 points: look for shake and for a wrong turn at 45 to 70 degrees on the phone.
+- [ ] Import job `costumes`: the test of the shipped parts must use `inspectPart`, other files in the folder must be named, a costume id must not take the file of a painted look, a failure of ffmpeg leaves a half result.
+- [ ] The pool key of the 3D layer is the id without the file: a part with the id of a prop would show the wrong model. No such id today.
+- [ ] A costume is outside the limit of four props: up to 6 models per face, 22 600 triangles in the worst case. Frame rate check on the tablet with witch plus four props on two faces.
+- [ ] Paint, nose and hat appear one after the other while the files load.
+
+Not reviewed by a second reader: the last commit of #23 (geometry step off, faces with no size, kept GPU failure), the merge of the four branches, and the fixes above.
+
+### The phone where the face was not tracked
+
+Solved in #23, tested on the phone over USB, the operator saw it work. Facts: section "A phone where the face is not tracked". The phone is back with its owner. Her installed app gets the fix at its second start after the release.
+
+- [ ] Ask the owner after the release whether the face effects work. If not: About, 🩺, 📋 gives the report.
+- [ ] USB debugging on that phone: off, and the authorizations revoked (the operator was told).
+
+### Art
+
+- [x] Request R7 (the witch) is delivered, accepted and built (#26). Brief version 12 has the result and the answers to Astra's two questions.
+- [ ] More costumes: the pattern is section R7 of the brief, the template is `astra/templates/head-standin.obj`, the import job takes one line per costume (`COSTUMES` in `scripts/import-art.mjs`).
+
+### Owed by the operator: checks on devices
+
+Lists are in the sections "3D props", "Costume: the witch", "M4a", "M4b", "M4c" and "Operator phone check of M4". The most useful ones first:
+
+- [ ] The witch on a child: hat, curls, nose, with the head turned to the side.
+- [ ] 3D hats and bugs: fit and frame rate on the tablet.
+- [ ] Three fingers in the photo editor on a phone.
+- [ ] The update button and the version label in the settings.
+
+### Open, for the operator to decide
+
+- Own icon art for the rail and the buttons, so every device shows the same icons (now: the emoji font of the device).
+- Flat twins of the 3D props in the sticker strip (pirate hat, party hat, witch hat, fly, mosquito, spider): keep both or drop the flat ones.
+- Tag `m4` after the phone checks of M4.
+- Install size: precache 8.2 MB with the witch. Option: art in a runtime cache that fills in the background.
+
+### Known defects, not fixed yet
+
+- The app keeps the camera while it is in the background (a second page gets no picture). Stop the camera when the page is hidden.
+- The photo editor has no costume parts in its palette.
+- A two-finger hold of more than 0.3 s with no move clears the selection in the editor.

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { defineConfig } from 'vitest/config';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -6,9 +7,13 @@ import { cspPlugin } from './src/csp.ts';
 
 const MP_VER = JSON.parse(readFileSync('node_modules/@mediapipe/tasks-vision/package.json', 'utf8')).version as string;
 
+// The version that the settings show: time of the build (UTC) and commit. A later build has a later time.
+const commit = (() => { try { return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return 'no-git'; } })();
+const BUILD = `${new Date().toISOString().slice(0, 16).replace('T', ' ')} ${commit}`;
+
 export default defineConfig({
   base: '/',
-  define: { __MP_VER__: JSON.stringify(MP_VER) },
+  define: { __MP_VER__: JSON.stringify(MP_VER), __BUILD__: JSON.stringify(BUILD) },
   plugins: [
     preact(),
     cspPlugin(),
@@ -34,7 +39,7 @@ export default defineConfig({
       },
       workbox: {
         // The segmenter model is in the precache: a place must work offline at its first use (the face model loads at every start)
-        globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2}', 'models/selfie_segmenter-f16.tflite'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2,glb}', 'models/selfie_segmenter-f16.tflite'],
         navigateFallback: '/index.html',
         runtimeCaching: [
           {

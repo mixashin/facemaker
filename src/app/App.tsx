@@ -1,3 +1,5 @@
+import { preferFrom, firstStart, PREFER_KEY, FELL_KEY } from '../tracking/health';
+import { live } from './report';
 import { useEffect, useRef } from 'preact/hooks';
 import { startCamera, stopCamera, cameraLost } from '../camera/camera';
 import { FaceTracker, type Face } from '../tracking/faceTracker';
@@ -19,6 +21,8 @@ import { openStore, safePut } from '../storage/gallery';
 import { sliderHandles } from '../filters/sliders';
 import { TARGETS, faceFrame, windows } from '../filters/faceon';
 import { sceneById, bitSprites } from '../filters/scenes';
+import { placeProps, headPose } from '../filters/props3d';
+import { partsOf, wornWith, placeParts } from '../filters/costumes';
 import { SegTracker } from '../tracking/segTracker';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
@@ -27,7 +31,7 @@ import { RecordCanvas } from '../capture/recordCanvas';
 import { acquireVoice, currentEngine, type Lease } from '../audio/session';
 import { micState } from '../audio/mic';
 import { isRealClip, type HoldEvent } from './hold';
-import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup, target, photo, still, scene, tryScene } from './state';
+import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup, target, photo, still, scene, tryScene, props3d } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -48,13 +52,26 @@ export function App() {
     let raf = 0;
     const r = new FaceRenderer(canvas, video);
     // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
-    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }), masks: 0, mask: [0, 0], nose: () => (faces[0] ? [faces[0].landmarks[4 * 3], faces[0].landmarks[4 * 3 + 1]] : null), scene: (s: import('../filters/scenes').Scene | null) => { tryScene.value = s; scene.value = s ? s.id : 'none'; } });
+    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }), masks: 0, mask: [0, 0], placed: () => r.shown3d(), face: () => (faces[0] ? { landmarks: Array.from(faces[0].landmarks), matrix: Array.from(faces[0].matrix) } : null), nose: () => (faces[0] ? [faces[0].landmarks[4 * 3], faces[0].landmarks[4 * 3 + 1]] : null), scene: (s: import('../filters/scenes').Scene | null) => { tryScene.value = s; scene.value = s ? s.id : 'none'; } });
+    const asked = preferFrom(location.search, (() => { try { return localStorage.getItem(PREFER_KEY); } catch { return null; } })());
+    let fell: string | null = null;
+    try {
+      if (asked.keep) localStorage.setItem(PREFER_KEY, asked.keep);
+      else if (asked.keep === null) { localStorage.removeItem(PREFER_KEY); localStorage.removeItem(FELL_KEY); } // ?tracker=auto: the GPU gets a new try too
+      fell = localStorage.getItem(FELL_KEY);
+    } catch { /* storage unavailable */ }
     const t = new FaceTracker({
       numFaces: 2,
+      prefer: asked.prefer,
+      first: firstStart(asked.prefer, fell, navigator.userAgent),
+      onFall: () => { try { localStorage.setItem(FELL_KEY, navigator.userAgent); } catch { /* storage unavailable */ } },
       onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
       onReady: (d) => { fm.delegate = d; },
       onError: (m) => console.error('tracker', m),
     });
+    live.health = t.health;
+    (fm as any).health = t.health; // for scripts/smoke.mjs and scripts/phone-inspect.mjs
+    live.video = () => (video.videoWidth ? `${video.videoWidth}x${video.videoHeight}` : '');
     still.detect = (picture) => t.detectStill(picture);
     // The person mask for a place (made before the camera starts: start() resets it). The segmenter runs only while a place is on and the camera view shows.
     const seg = new SegTracker({ onMask: (m, w, h) => { fm.masks++; fm.mask = [w, h]; r.setMask(m, w, h); }, onError: (m) => console.warn('segmenter', m) });
@@ -69,6 +86,11 @@ export function App() {
       const lm = faces[0]?.landmarks;
       r.setFaceOn(tg ? { target: tg, frame: lm ? faceFrame(lm, aspect) : null, wins: lm ? windows(lm, handles, aspect, tg) : [] } : null);
       r.setMakeup(makeup.value, faces);
+      // 3D props of the child's choice, and the parts of a costume (a makeup look that wears 3D parts)
+      const parts = partsOf(makeup.value), worn = wornWith(props3d.value, makeup.value);
+      const solid = worn.length + parts.length > 0;
+      const heads = solid ? faces.map((f) => headPose(f, aspect)) : [];
+      r.setProps3d([...placeProps(worn, faces, aspect, now, heads), ...placeParts(parts, heads)], heads, now, solid);
       const place = screen.value === 'camera' && !tg && !document.hidden ? sceneById(scene.value, tryScene.value) : null; // a face-on picture has no camera view
       if (place && !seg.running) seg.start(); else if (!place && seg.running) seg.stop();
       if (place) seg.push(video, now);

@@ -1,7 +1,9 @@
 import type { Face } from '../tracking/faceTracker';
 
 export type Anchor = 'face' | 'eyes' | 'leftEye' | 'rightEye' | 'top' | 'mouth' | 'nose' | 'leftCheek' | 'rightCheek';
-export type Placement = { emoji: string; anchor: Anchor; scale: number; dx?: number; dy?: number }; // face-width units
+// What is placed: an emoji (its file comes from the art of the pack), or a file by its address (props by Astra).
+// Where: anchor, scale and offsets in face-width units.
+export type Placement = ({ emoji: string } | { src: string }) & { anchor: Anchor; scale: number; dx?: number; dy?: number };
 export type Art = 'twemoji' | 'fluent'; // two sticker sources, same emoji keys, different files (see LICENSE-ASSETS.md)
 export type StickerPack = { id: string; icon: string; img?: string; art?: Art; items: Placement[] };
 export type Sprite = { src: string; cx: number; cy: number; size: number; angle: number };
@@ -15,8 +17,56 @@ const mask = (id: string, emoji: string, scale = 1.25): StickerPack => ({ id, ic
 const fmask = (id: string, emoji: string, scale = 1.25): StickerPack => ({ ...mask(`fluent-${id}`, emoji, scale), art: 'fluent' });
 const fluent = (id: string, icon: string, items: Placement[]): StickerPack => ({ id: `fluent-${id}`, icon, art: 'fluent', items });
 
+// Props by Astra (public/props, list in props.json): one line per pack, a spot is [anchor, scale, dx, dy].
+// The chip shows the prop itself, the icon is the fallback. Every prop fills 92 % of its square, centred.
+// The numbers are set on a face with true proportions (FACE_FIT=crop in scripts/smoke.mjs). The screen mirrors the camera:
+// leftEye and leftCheek show on the right side of the screen, a positive dx moves a prop to the left side of the screen.
+type Spot = [anchor: Anchor, scale: number, dx?: number, dy?: number];
+const prop = (name: string, icon: string, ...spots: Spot[]): StickerPack => {
+  const src = `/props/${name}.webp`;
+  return { id: `prop-${name}`, icon, img: src, items: spots.map(([anchor, scale, dx = 0, dy = 0]) => ({ src, anchor, scale, dx, dy })) };
+};
+
 const packs: StickerPack[] = [
   { id: 'none', icon: '🙂', items: [] },
+  // Head
+  prop('pirate-hat', '☠️', ['top', 1.45, 0, -0.2]),
+  prop('party-hat', '🥳', ['top', 1.0, 0, -0.47]),
+  prop('baseball-cap', '🧢', ['top', 1.2, 0, -0.3]),
+  prop('chef-hat', '🍳', ['top', 1.4, 0, -0.57]),
+  prop('witch-hat', '🧙', ['top', 1.5, 0, -0.5]),
+  prop('viking-helmet', '🛡️', ['top', 1.45, 0, -0.26]),
+  prop('tiara', '👸', ['top', 0.8, 0, -0.14]),
+  prop('halo', '😇', ['top', 0.85, 0, -0.6]),
+  prop('devil-horns', '😈', ['top', 1.0, 0, -0.22]),
+  prop('bunny-ears', '🐰', ['top', 1.4, 0, -0.51]),
+  prop('cat-ears', '🐱', ['top', 1.45, 0, -0.1]),
+  prop('headphones', '🎧', ['top', 1.8, 0, 0.5]),
+  // Eyes
+  prop('googly-eye', '👀', ['leftEye', 0.32], ['rightEye', 0.32]),
+  prop('cucumber-slice', '🥒', ['leftEye', 0.35], ['rightEye', 0.35]),
+  prop('eyepatch', '🦜', ['leftEye', 0.8]),
+  prop('tear-drop', '😢', ['rightEye', 0.17, 0, 0.2]),
+  // Nose and mouth
+  prop('clown-nose', '🤡', ['nose', 0.3]),
+  prop('pig-nose', '🐽', ['nose', 0.4]),
+  prop('moustache-handlebar', '🥸', ['nose', 0.6, 0, 0.1]),
+  prop('moustache-walrus', '🦭', ['nose', 0.6, 0, 0.11]),
+  prop('beard-pirate', '🧔', ['mouth', 1.0, 0, 0.2]),
+  prop('braces', '😬', ['mouth', 0.55]),
+  prop('gum-bubble', '🫧', ['mouth', 0.6, 0, 0.08]),
+  prop('bow-tie', '🤵', ['mouth', 0.65, 0, 0.75]),
+  // Cheeks and skin
+  prop('blush', '😊', ['leftCheek', 0.35, 0.08, 0.12], ['rightCheek', 0.35, -0.08, 0.12]),
+  prop('freckles', '🟤', ['leftCheek', 0.3, 0.08, 0.1], ['rightCheek', 0.3, -0.08, 0.1]),
+  prop('pimple', '🔴', ['leftCheek', 0.13, 0.12, 0.25]),
+  prop('band-aid', '🩹', ['leftCheek', 0.3, 0.05, 0.15]),
+  prop('kiss-mark', '💋', ['rightCheek', 0.3, -0.05, 0.22]),
+  prop('sweat-drop', '😅', ['top', 0.17, 0.3, 0.1]),
+  // Small animals
+  prop('fly', '🪰', ['top', 0.24, -0.15, 0.1]),
+  prop('mosquito', '🦟', ['rightCheek', 0.25, 0.04, 0.05]),
+  prop('spider', '🕷️', ['top', 0.4, 0.65, 0.1]),
   mask('cat', '🐱'), mask('dog', '🐶'), mask('lion', '🦁', 1.35), mask('frog', '🐸'), mask('monkey', '🐵'),
   mask('pig', '🐷'), mask('panda', '🐼'), mask('koala', '🐨'), mask('ghost', '👻', 1.35), mask('disguise', '🥸'),
   { id: 'sunglasses', icon: '🕶️', items: [{ emoji: '🕶️', anchor: 'eyes', scale: 0.8 }] },
@@ -39,8 +89,8 @@ const packs: StickerPack[] = [
   fluent('rainbow', '🌈', [{ emoji: '🌈', anchor: 'top', scale: 1.1, dy: -0.55 }]),
   fluent('butterfly', '🦋', [{ emoji: '🦋', anchor: 'top', scale: 0.4, dx: -0.4, dy: -0.2 }]),
 ];
-// Chips show the real art, not the system emoji font: the kid sees what lands on the face.
-export const STICKER_PACKS: StickerPack[] = packs.map((p) => (p.items.length ? { ...p, img: emojiFile(p.icon, p.art) } : p));
+// Chips show the real art, not the system emoji font: the kid sees what lands on the face. A prop pack brings its own picture.
+export const STICKER_PACKS: StickerPack[] = packs.map((p) => (p.items.length && !p.img ? { ...p, img: emojiFile(p.icon, p.art) } : p));
 
 // Landmark indices (MediaPipe canonical face mesh)
 const L_CHEEK = 234, R_CHEEK = 454, TOP = 10, CHIN = 152, LIP_U = 13, LIP_L = 14, NOSE = 4;
@@ -55,7 +105,7 @@ function mean(lm: Float32Array, idx: number[]): P {
   return [x / idx.length, y / idx.length];
 }
 
-function faceSprites(items: Placement[], art: Art | undefined, lm: Float32Array, aspect: number): Sprite[] {
+export function faceSprites(items: Placement[], art: Art | undefined, lm: Float32Array, aspect: number): Sprite[] {
   const lc = pt(lm, L_CHEEK), rc = pt(lm, R_CHEEK), top = pt(lm, TOP), chin = pt(lm, CHIN);
   const le = mean(lm, L_IRIS), re = mean(lm, R_IRIS);
   const width = Math.abs(rc[0] - lc[0]);
@@ -78,7 +128,7 @@ function faceSprites(items: Placement[], art: Art | undefined, lm: Float32Array,
     const dx = (it.dx ?? 0) * width, dy = (it.dy ?? 0) * width;     // offsets in x units, rotated with the head
     const ox = dx * cosA - dy * sinA, oy = dx * sinA + dy * cosA;
     const base = it.anchor === 'face' ? Math.max(width, heightX) : width;
-    return { src: emojiFile(it.emoji, art), cx: ax + ox, cy: ay + oy * aspect, size: it.scale * base, angle };
+    return { src: 'src' in it ? it.src : emojiFile(it.emoji, art), cx: ax + ox, cy: ay + oy * aspect, size: it.scale * base, angle };
   });
 }
 

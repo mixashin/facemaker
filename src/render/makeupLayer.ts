@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import vert from './quad.vert?raw';
 import frag from './makeup.frag?raw';
 import { UV, VERTS, meshPositions, trianglesOutside } from './faceMesh';
-import { lookById, paintLook, paintSkin, MOUTH, EYE_R, EYE_L, type LookId } from '../filters/makeup';
+import { lookById, paintLook, paintSkin, MOUTH, EYE_R, EYE_L, type Look, type LookId } from '../filters/makeup';
+import { loadImage, type Load } from './textureBank';
 import type { Face } from '../tracking/faceTracker';
 
-const TEX = 512; // the flat face layout, pixels per side
+const TEX = 1024; // the flat face layout, pixels per side. Face paint from a picture has fine lines
 const FACES = 2; // same as the tracker
 const BLUR = 0.02; // blur radius as a fraction of the face width
 const L_SIDE = 234, R_SIDE = 454;
@@ -24,7 +25,7 @@ export class MakeupLayer {
   private open = new THREE.BufferAttribute(OPEN, 1);
   private covered = new THREE.BufferAttribute(EYES_COVERED, 1);
 
-  constructor(private scene: THREE.Scene, cam: THREE.Texture, makeCanvas: () => HTMLCanvasElement = () => document.createElement('canvas')) {
+  constructor(private scene: THREE.Scene, cam: THREE.Texture, makeCanvas: () => HTMLCanvasElement = () => document.createElement('canvas'), private load: Load = loadImage, private find: (id: LookId) => Look = lookById) {
     const texture = (c: HTMLCanvasElement) => {
       c.width = c.height = TEX;
       const t = new THREE.CanvasTexture(c);
@@ -61,11 +62,12 @@ export class MakeupLayer {
   }
 
   update(id: LookId, faces: Face[], width: number, height: number): void {
-    const look = lookById(id);
+    const look = this.find(id);
     if (look.id !== this.look) {
       this.look = look.id;
-      paintLook(this.canvas.getContext('2d')!, look, TEX);
-      this.lookTex.needsUpdate = true;
+      this.paint(look);
+      // A look from a picture: empty until the picture is there. The look can change before that.
+      if (look.img) this.load(look.img, (img) => { if (this.look === look.id) this.paint(look, img as CanvasImageSource); }, () => {});
       for (const m of this.meshes) m.geometry.setIndex(look.eyes === 'covered' ? this.covered : this.open);
     }
     this.meshes.forEach((m, i) => {
@@ -82,6 +84,11 @@ export class MakeupLayer {
       u.uSmooth.value = look.smooth;
       u.uFlat.value = look.flat ?? 0;
     });
+  }
+
+  private paint(look: Look, picture?: CanvasImageSource): void {
+    paintLook(this.canvas.getContext('2d')!, look, TEX, picture);
+    this.lookTex.needsUpdate = true;
   }
 
   dispose(): void {

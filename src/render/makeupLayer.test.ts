@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { MakeupLayer } from './makeupLayer';
 import type { Face } from '../tracking/faceTracker';
+import type { Look } from '../filters/makeup';
 
 function face(x: number): Face {
   const lm = new Float32Array(478 * 3);
@@ -9,18 +10,22 @@ function face(x: number): Face {
   lm[234 * 3] = x - 0.1; lm[454 * 3] = x + 0.1; // face width 0.2 of the picture
   return { landmarks: lm, matrix: new Float32Array(16), blend: new Float32Array(52) };
 }
-function setup() {
-  const clears: number[] = [];
+function setup(looks?: Look[]) {
+  const clears: number[] = [], drawn: unknown[] = [];
+  const pending = new Map<string, (img: never) => void>();
   const makeCanvas = () => {
     const n = clears.push(0) - 1;
-    const g = new Proxy({}, { get: (_t, k) => (k === 'clearRect' ? () => { clears[n]++; } : k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : () => {}), set: () => true });
+    const g = new Proxy({}, { get: (_t, k) => (k === 'clearRect' ? () => { clears[n]++; } : k === 'drawImage' ? (img: unknown) => { drawn.push(img); } : k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : () => {}), set: () => true });
     return { width: 0, height: 0, getContext: () => g } as unknown as HTMLCanvasElement;
   };
+  const load = (src: string, done: (img: never) => void) => { pending.set(src, done); };
   const scene = new THREE.Scene();
-  const layer = new MakeupLayer(scene, new THREE.Texture(), makeCanvas);
+  const layer = new MakeupLayer(scene, new THREE.Texture(), makeCanvas, load as never, looks ? (id) => looks.find((l) => l.id === id) ?? looks[0] : undefined);
   const meshes = scene.children as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>[];
-  return { layer, scene, meshes, clears, shown: () => meshes.filter((m) => m.visible).length };
+  return { layer, scene, meshes, clears, drawn, pending, shown: () => meshes.filter((m) => m.visible).length };
 }
+const NONE: Look = { id: 'none', icon: 'x', smooth: 0, layers: [] };
+const painted = (name: string): Look => ({ id: 'paint-' + name, icon: 'x', smooth: 0, layers: [], img: `/makeup/${name}.webp` });
 
 describe('MakeupLayer', () => {
   it('shows nothing without a look or without a face', () => {
@@ -107,6 +112,28 @@ describe('MakeupLayer', () => {
     expect(look.flipY).toBe(true);
     expect(look.premultiplyAlpha).toBe(true);
     expect(look.colorSpace).toBe(THREE.NoColorSpace);
+  });
+  it('loads the picture of a look and paints it when it is there', () => {
+    const s = setup([NONE, painted('tiger')]);
+    s.layer.update('paint-tiger', [face(0.5)], 640, 480);
+    expect([...s.pending.keys()]).toEqual(['/makeup/tiger.webp']);
+    expect(s.drawn).toHaveLength(0);
+    expect(s.shown()).toBe(1); // the mesh is there, the paint comes
+    const img = { width: 1024, height: 1024 };
+    s.pending.get('/makeup/tiger.webp')!(img as never);
+    expect(s.drawn).toEqual([img]);
+    s.layer.update('paint-tiger', [face(0.5)], 640, 480);
+    expect(s.drawn).toHaveLength(1); // once
+  });
+  it('drops a picture that arrives after the child picked another look', () => {
+    const s = setup([NONE, painted('tiger'), painted('cat')]);
+    s.layer.update('paint-tiger', [face(0.5)], 640, 480);
+    s.layer.update('paint-cat', [face(0.5)], 640, 480);
+    s.pending.get('/makeup/tiger.webp')!({ width: 1024, height: 1024 } as never);
+    expect(s.drawn).toHaveLength(0);
+    const cat = { width: 1024, height: 1024 };
+    s.pending.get('/makeup/cat.webp')!(cat as never);
+    expect(s.drawn).toEqual([cat]);
   });
   it('leaves the scene on dispose', () => {
     const s = setup();

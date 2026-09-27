@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync } from 'node:fs';
 import { FaceLandmarker } from '@mediapipe/tasks-vision';
 import { LOOKS, MAKEUP, OVAL, LIPS, MOUTH, EYE_R, EYE_L, BROW_R, BROW_L, lookById, pickLook, paintLook, paintSkin, toLayout, grown, type Layer, type Pt } from './makeup';
 
@@ -83,10 +84,22 @@ describe('looks', () => {
     }
   });
   it('has all eleven looks', () => {
-    expect(LOOKS.map((l) => l.id)).toEqual(['none', 'glam', 'soft', 'rainbow', 'clown', 'zombie', 'vampire', 'tiger', 'butterfly', 'hero', 'cucumber']);
+    expect(LOOKS.slice(0, 11).map((l) => l.id)).toEqual(['none', 'glam', 'soft', 'rainbow', 'clown', 'zombie', 'vampire', 'tiger', 'butterfly', 'hero', 'cucumber']);
     expect(lookById('cucumber').eyes).toBe('covered');
     expect(lookById('cucumber').flat).toBeGreaterThan(0.5); // the slices hide the eyes: paint that ignores the light of the face
     expect(LOOKS.filter((l) => l.eyes === 'covered').length).toBe(1);
+  });
+  it('looks from a picture come after the built-in ones, with their files on disk', () => {
+    const painted = LOOKS.slice(11);
+    for (const l of painted) {
+      expect(l.id, l.id).toMatch(/^paint-[a-z0-9-]+$/);
+      expect(l.img, l.id).toMatch(/^\/makeup\/[a-z0-9-]+\.webp$/);
+      expect(existsSync('public' + l.img), l.img).toBe(true);
+      expect(existsSync('public' + l.chip), l.chip).toBe(true);
+      expect(l.layers).toEqual([]);
+    }
+    expect(MAKEUP.slice(11).map((m) => m.img)).toEqual(painted.map((l) => l.chip)); // the chip shows the paint, not an emoji
+    expect(LOOKS.filter((l) => !l.img).length).toBe(11);
   });
   it('a second tap turns the look off', () => {
     expect(pickLook('none', 'glam')).toBe('glam');
@@ -118,6 +131,20 @@ describe('painter', () => {
     expect(r.calls).toContainEqual({ op: 'translate', args: [100, 0] });
     expect(r.calls).toContainEqual({ op: 'scale', args: [-1, 1] });
     expect(r.ops().filter((o) => o === 'arc').length).toBe(2);
+  });
+  it('puts the picture of a look on the canvas, full size, under its shapes', () => {
+    const r = recorder();
+    const picture = { width: 1024, height: 1024 } as unknown as CanvasImageSource;
+    paintLook(r.g, { id: 'paint-x', icon: 'x', smooth: 0, img: '/makeup/x.webp', layers: [{ kind: 'blob', at: [4], r: 0.05, hard: true, color: '#ff0000', alpha: 1 }] }, 512, picture);
+    const ops = r.ops();
+    expect(r.calls).toContainEqual({ op: 'drawImage', args: [picture, 0, 0, 512, 512] });
+    expect(ops.indexOf('clearRect')).toBeLessThan(ops.indexOf('drawImage'));
+    expect(ops.indexOf('drawImage')).toBeLessThan(ops.indexOf('arc'));
+  });
+  it('paints no picture while the picture is on its way', () => {
+    const r = recorder();
+    paintLook(r.g, { id: 'paint-x', icon: 'x', smooth: 0, img: '/makeup/x.webp', layers: [] }, 512);
+    expect(r.ops()).toEqual(['clearRect']);
   });
   it('saves and restores the canvas state around every layer', () => {
     const r = recorder();

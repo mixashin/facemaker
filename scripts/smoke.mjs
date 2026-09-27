@@ -373,6 +373,23 @@ if (process.env.SMOKE_GALLERY) {
   console.log('gallery thumbs after the shutter:', before);
   if (out) writeFileSync(`${out}/page-gallery.png`, await page.screenshot());
   await page.locator('.thumb').first().click(); await page.waitForTimeout(600);
+  // The viewer on a phone on its side: every button takes its own taps, at its middle and near its corners.
+  // Seen: the buttons of the viewer stood in a column as the capture buttons do, and the close button lay over
+  // the first one.
+  {
+    await page.setViewportSize({ width: 860, height: 380 }); await page.waitForTimeout(500);
+    const lost = await page.evaluate(() => [...document.querySelectorAll('.viewer button')].flatMap((b) => {
+      const r = b.getBoundingClientRect();
+      return [[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]].flatMap(([u, v]) => {
+        const hit = document.elementFromPoint(r.left + r.width * u, r.top + r.height * v);
+        return hit && (hit === b || b.contains(hit)) ? [] : [(b.getAttribute('aria-label') || b.className) + ' at ' + u + ',' + v + ' goes to ' + (hit ? hit.tagName.toLowerCase() + '.' + hit.className : 'nothing')];
+      });
+    }));
+    const n = await page.locator('.viewer button').count();
+    console.log('viewer on a phone on its side: buttons', n, '| taps that go to another element', lost.length, lost.slice(0, 3).join(' | '), n >= 4 && lost.length === 0 ? 'OK' : 'FAIL');
+    if (out) writeFileSync(`${out}/page-viewer-landscape.png`, await page.screenshot());
+    await page.setViewportSize({ width: vw, height: vh }); await page.waitForTimeout(500);
+  }
   const dl0 = downloads.length;
   await click('Save'); await page.waitForTimeout(1500);
   console.log('viewer save downloads a file:', downloads.length === dl0 + 1 ? 'OK' : 'FAIL');
@@ -606,11 +623,11 @@ const tapGear = async (tap = (x, y) => page.mouse.click(x, y)) => {
     const g = document.querySelector('[aria-label="settings"]');
     if (!g) return null;
     const r = g.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, hit = document.elementFromPoint(x, y);
-    return { x, y, hit: hit ? hit.tagName.toLowerCase() + '.' + hit.className : '-' };
+    return { x, y, hit: hit ? hit.tagName.toLowerCase() + '.' + hit.className : '-', own: !!hit && (hit === g || g.contains(hit)), free: !document.querySelector('.sheet') };
   });
   if (!at) return { hit: '-', open: false };
   await tap(at.x, at.y); await page.waitForTimeout(400);
-  const open = (await page.locator('.sheet').count()) > 0;
+  const open = at.free && at.own && (await page.locator('.sheet').count()) > 0; // a sheet that was open before the tap proves nothing
   if (open) { const c = await page.locator('.close').first().boundingBox(); if (c) { await tap(c.x + c.width / 2, c.y + c.height / 2); await page.waitForTimeout(300); } }
   return { hit: at.hit, open, closed: (await page.locator('.sheet').count()) === 0 };
 };

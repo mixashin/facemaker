@@ -4,6 +4,7 @@
 // tool would read a page of the owner of the phone.
 // host: with the port when the address has one (localhost:5173)
 export function ownPages(targets, host) {
+  if (!host) return []; // an address with no host (a file, a blob, an empty tab) has the host ""
   return targets.filter((t) => {
     if (t.type !== 'page') return false;
     try { return new URL(t.url).host === host; } catch { return false; }

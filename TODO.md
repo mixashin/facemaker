@@ -509,13 +509,32 @@ Minor, open:
 - [ ] The phone tool: a process that is killed leaves its port forward in adb. Remove old forwards of the tool at its start (not the forwards of other tools).
 - [ ] The update button can clear the GPU mark too, so a release that repairs the GPU path reaches a marked device at once (now: after 7 days at most).
 
-### The gear took no tap on a high screen on its side (operator, 2026-09-27): fixed on `fix-gear-landscape`
+### Second review, of the gear fix and of the fixes above (2026-09-27): fixed on `review-after-release`
+
+One fresh reviewer: no important finding in the two commits, ready to merge. One important defect that is older than the commits and live, and minor points. All fixed here, each with a test or a check that failed first:
+
+- [x] The viewer on a phone on its side: the buttons of the viewer stood in a column as the capture buttons do (same class `bar`), and the close button lay over the share button. A tap on share closed the viewer. Now the column is for the capture buttons only (`.bar:not(.viewbar)`), the viewer keeps its row at the bottom. Seen on the live site with the defect, headless check in the gallery part of `scripts/smoke.mjs`.
+- [x] The later start missed its time by rounding in 2 of 10 000 cases (a timer can come too soon, a sum of times can be a little less than the wait). The timer takes one millisecond more, and it sets itself again when the answer is "not now".
+- [x] A start on the CPU that failed wrote the GPU mark again. Only a tracker that ran on the GPU writes it.
+- [x] With no start left, an error of a worker that still runs stopped the frames for good. The frames go on then.
+- [x] The phone tool: an empty `PHONE_MATCH` took every page with no host (a file, a blob, an empty tab). No host, no page. The page script checks the host again at the read: when the person went to another address in the same tab, nothing of that page is printed.
+- [x] The gear check counted any open sheet. It asks for no sheet before the tap and for the gear as the element that took the tap.
+- [x] The class `dots` had two rules (progress dots of the tutorial, icon of the photo editor): the row of the tutorial was 44 px high and its dots 2.4 px wide. The icon has the class `more` now.
+
+Open:
+
+- [ ] `video.full` keeps a band of 96 px at the bottom for the row of buttons: check the video controls in the viewer on a low screen on a device.
+- [ ] The phone tool compares the host, not the scheme (`http:`, `content:` with the host of the app pass). No real page of another owner with that host is known.
+- [ ] The phone tool: Ctrl+Break and a closed console window are handled in the code and not tried by hand on Windows.
+
+### The gear took no tap on a high screen on its side (operator, 2026-09-27): live with #29
 
 Found by the operator after the release: the settings button did nothing on a tablet on its side, and worked with the tablet upright.
 
 - Cause: on a screen on its side the bar of the capture buttons is a column as high as the screen (`top: 0; bottom: 0`). It comes after the gear in the page, so it lies over the corner and took the taps. Before the release the gear stood beside the column on every screen on its side. The release put it back into its corner on a high screen, under the column.
 - Fix: the column takes no taps itself, only its buttons do (`pointer-events` in `src/app/styles.css`). A tap between the buttons reaches the video now, as everywhere else on the video.
 - The headless check measured the boxes of the gear and of the three buttons and never tapped. It taps now, on a phone and on a tablet on its side, and says which element took the tap. Seen to fail with the defect in.
+- [x] Merged on the operator's word on 2026-09-27 at 14:14 UTC (#29), deploy success, version `2026-09-27 14:15 2d4eb43`. The gear opens the settings on the live site on six screen shapes (headless, by finger).
 - [ ] Operator: tap the gear on the tablet on its side, and on the open fold phone on its side.
 
 ### Known defects, not fixed yet

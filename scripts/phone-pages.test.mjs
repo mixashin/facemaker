@@ -23,6 +23,10 @@ describe('ownPages', () => {
   it('the dev build over USB: host with its port', () => {
     expect(ownPages([page('http://localhost:5173/'), page('http://localhost:8080/')], 'localhost:5173')).toHaveLength(1);
   });
+  it('no host asked for: no page. A page with no host (a file, a blob, an empty tab) is never a page of the app', () => {
+    const others = ['about:blank', 'data:text/html,x', 'file:///sdcard/Download/letter.pdf', 'blob:https://bank.example/1234'];
+    for (const host of ['', undefined, null]) expect(ownPages(others.map((u) => page(u)), host)).toEqual([]);
+  });
   it('an address that is no address is no page of the app', () => {
     expect(ownPages([page(''), page('about:blank'), { type: 'page' }], 'face.mxa.sh')).toEqual([]);
   });

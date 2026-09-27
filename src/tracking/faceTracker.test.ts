@@ -399,6 +399,44 @@ describe('FaceTracker health', () => {
     s.t.stop();
   });
 
+  it('the later start comes also when the numbers of the clock do not round well', async () => {
+    const s = setup();
+    W.mode = 'no files';
+    s.at(4227.8);
+    s.t.start();
+    s.w().say({ type: 'error', message: 'Failed to fetch' }); // a new start at 4227.8
+    expect(W.all).toHaveLength(2);
+    s.at(9197.5); // 30.3 ms of the wait are left. In a computer 9197.5 + 30.3 - 4227.8 is a little less than 5000
+    s.w().say({ type: 'error', message: 'Failed to fetch' });
+    await tick(80);
+    expect(W.all).toHaveLength(3);
+    s.t.stop();
+  });
+
+  it('a start on the CPU that fails says nothing about the GPU: the app keeps nothing', async () => {
+    const s = setup('auto', undefined, 'CPU'); // the app started on the CPU, by what it kept
+    W.mode = 'silent';
+    s.t.start(); await tick(5); // the files are on the device, the tracker is not ready
+    expect(s.t.health.files).toBe(true);
+    s.w().say({ type: 'error', message: 'wasm: out of memory' });
+    expect(W.all).toHaveLength(2);
+    expect(s.fell).toEqual([]);
+    s.t.stop();
+  });
+
+  it('no start is left and the worker says an error that it survives: the frames go on', async () => {
+    const s = setup('CPU');
+    s.t.start(); await tick(8);
+    for (let i = 0; i < 6; i++) { s.at(i * 5000); s.w().onerror?.({ message: 'x' }); await tick(8); }
+    expect(W.all).toHaveLength(7); // the first one and six new starts
+    s.at(40000);
+    s.w().onerror?.({ message: 'an error that the worker survives' });
+    s.t.push(video, 40000); await tick(2);
+    expect(W.all).toHaveLength(7);
+    expect(s.w().frames()).toHaveLength(1);
+    s.t.stop();
+  });
+
   it('no start is left: the tracker rests, with no timer that runs', async () => {
     const s = setup('CPU');
     W.mode = 'no files';

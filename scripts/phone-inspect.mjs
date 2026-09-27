@@ -15,7 +15,7 @@ import { ownPages } from './phone-pages.mjs';
 
 // A free port of this computer. A fixed one can belong to another program, and then the tool reads a wrong browser.
 const PORT = await new Promise((ok) => { const s = createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); }); });
-const match = process.env.PHONE_MATCH ?? 'face.mxa.sh';
+const match = process.env.PHONE_MATCH || 'face.mxa.sh';
 const wait = Number(process.env.PHONE_WAIT_MS ?? 12000);
 const adb = (...a) => execFileSync('adb', a, { encoding: 'utf8' }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -32,7 +32,10 @@ const unforward = () => { try { adb('forward', '--remove', `tcp:${PORT}`); } cat
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) process.on(sig, () => { unforward(); process.exit(130); });
 
 // What the page tells about itself. Runs in the page.
+// The person at the phone can go to another address in the same tab while the tool waits: then the page says
+// only that it left, and the tool prints nothing of it.
 const READ = `(async () => {
+  if (location.host !== ${JSON.stringify(match)}) return { left: true };
   const fm = globalThis.__fm, v = document.querySelector('video');
   const gl = document.createElement('canvas').getContext('webgl2');
   const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
@@ -107,7 +110,8 @@ try {
     const a = await read();
     await sleep(wait);
     const b = await read();
-    console.log(JSON.stringify(b, null, 2));
+    if (a.left || b.left) { logs.length = 0; process.exitCode = 1; console.log('VERDICT: the page left the app during the read. Nothing of that page is printed. Open facemaker on the phone and run again.'); }
+    else console.log(JSON.stringify(b, null, 2));
     if (typeof a.tracker === 'object' && typeof b.tracker === 'object') {
       const n = b.tracker.results - a.tracker.results;
       console.log(`in ${wait / 1000} s: tracker results ${n}, faces in the last result ${b.tracker.faces}`);

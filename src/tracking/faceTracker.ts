@@ -55,8 +55,9 @@ export class FaceTracker {
     this.stop();
     this.filters.forEach((f) => f.reset()); this.present.fill(false); this.last = []; this.misses = 0;
     this.opts.onFaces([]);
-    // Only a tracker that had its files can say something about the GPU: a download that failed says nothing
-    if (what === 'cpu' && this.health.files) this.opts.onFall?.();
+    // Only a tracker that had its files and ran on the GPU can say something about the GPU: a download that
+    // failed says nothing, and a start on the CPU that failed says nothing
+    if (what === 'cpu' && this.health.files && this.asked !== 'CPU') this.opts.onFall?.();
     this.start(what === 'cpu' ? 'CPU' : this.asked);
   }
 
@@ -66,11 +67,14 @@ export class FaceTracker {
     const w = this.worker, now = this.now(), wait = this.ready ? null : this.health.wait(now);
     if (!w || wait === null) return;
     clearTimeout(this.timer);
+    // One millisecond more than the wait: a timer can come a little too soon, and the sum of the times can be
+    // a little less than the wait by rounding. Then the health would say "not now" and nothing would follow.
+    const due = now + wait + 1;
     this.timer = setTimeout(() => {
       if (this.worker !== w || this.ready) return;
-      const what = this.health.retry(Math.max(this.now(), now + wait)); // a timer can come a little too soon
-      if (what !== 'none') this.renew(what);
-    }, wait);
+      const what = this.health.retry(Math.max(this.now(), due));
+      if (what === 'none') this.later(); else this.renew(what); // none: no start is left, and later() ends there
+    }, wait + 1);
   }
 
   start(prefer: Prefer = this.opts.first ?? this.health.prefer): void {
@@ -94,7 +98,9 @@ export class FaceTracker {
     w.onerror = (e) => {
       if (this.worker !== w) return;
       clearTimeout(this.timer);
-      this.ready = false; // no frame goes to a worker that died
+      // No frame goes to a worker that died. With no start left the worker stays: it can be alive after an
+      // error, and then the frames go on.
+      if (this.health.wait(this.now()) !== null) this.ready = false;
       const text = 'worker: ' + (e.message || 'did not load');
       this.fail(text, this.health.failed(text, this.now()));
     };

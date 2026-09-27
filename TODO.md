@@ -558,8 +558,17 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [x] The page is hidden: the app stops the tracks of the camera. The page is back: the camera starts again, also when it was on its way before (`startOnReturn`). The error screens stay as they are.
 - [x] A start of the camera gives nothing when the page is hidden or a newer start came (`startCamera`). It does not ask for the camera while the page is hidden. A stream that arrives too late is stopped, an error that arrives too late is dropped. So two fast starts (flip, flip) leave one live track, not two.
 - [x] Tests: 13 new unit tests, two new verdicts in `scripts/smoke.mjs` (they fail on the code before the fix).
+- [x] Review by a fresh reviewer (30 headless probes, 17 mutants of the fix): ready after fixes. Fixed after it:
+  - [x] A camera that was busy at the return gave the error screen, and the app did not try again. Now: two more tries (0.5 s, 2 s) before the error screen, for every start. A return to the app starts the camera after an error too.
+  - [x] A clip and the mic could start while the page was hidden (finger down, page hides, no finger-up comes). Older than the fix. Now `startRec` stops there, at its start and after the answer of the mic.
+  - [x] The mic stayed live for 3 s after the page hid. Now it goes off at once when nobody holds it.
+  - [x] The stage took the default size and showed the last picture stretched while the camera started again. Now the last picture stays as it is.
+  - [x] The tutorial was at its first step after a return, and the buttons went away for the time of the start. Now both stay while a camera that ran before starts again. The same for a flip of the camera.
+  - [x] The wait for the size of the picture did not end when the camera stopped in that time.
+  - [x] Tests: a new start stops the camera that runs, the wait for the size, 9 more. The headless checks count every stream that the browser gives. New verdicts: a stream that arrives in the background, a camera that is busy, a camera that stays busy, the step of the tutorial, the mic in the background, a hold that meets the background. Each one fails with its defect in.
+- [ ] Not tested, needs a phone: what Android says to the page while the lock screen shows. If the page is visible there, the camera cannot start, and the error screen shows after the tries. The return after the unlock starts the camera only if the page was hidden in between.
+- [ ] Not covered by the headless check: a hidden event of the browser itself (the check sets the state by hand, and frames still run there). The reviewer ran a tab in the back for 11 s: tracker results came again, no error, no new start.
 - [ ] Operator, on the phone: put the app in the background. The camera sign of Android (green dot) goes off. A second page with the app gets a picture. Back in the first app: the picture comes again in about a second.
-- Known: the buttons go away for the time of the new start (the same as after a flip of the camera).
 
 ### The photo editor: costume parts and the two-finger hold (2026-09-27): on branch `editor-costume-parts`
 
@@ -568,8 +577,18 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [x] A part is made around a head and is larger than a prop (the hat is three face widths high). In the editor its long side is one unit, as the long side of a prop is. Its colours have the same factor as on the live camera (`COSTUME_GAIN`).
 - [x] The face paint of a costume is not in the editor: paint needs the face mesh, and the editor has no face tracker.
 - [x] The two-finger hold: the defect does not occur any more. The flag for a gesture with more than one finger (`many`, from the review of the 3D props, commit `44428db`) cured it. New headless verdict as a guard. It fails when the flag is taken out of the condition.
+- [x] Review by a fresh reviewer: ready after fixes. Fixed after it:
+  - [x] The hat with the hair covered the face of the photo (79 % of it): the editor had no hidden head. Now a part that goes around the head holds the hidden shapes of the head, in its own frame. They write depth and no colour, so the head of the photo shows there. A part in front of the face (the nose) has none.
+  - [x] The parts start in the size of one head (a face of a quarter of the photo width): the hat is three face widths high, the nose is small, and they fit each other. Before, the child had to scale the hat by 6.
+  - [x] At the size of a head the hit circle of the hat covered the photo: a finger on the nose took the hat, and the first finger of every gesture took the hat. Now a 3D sticker is hit where it has a pixel (the editor reads its picture at the place of the finger), and the smallest sticker under the finger is taken.
+  - [x] The import job took a render that was no picture (ffprobe gives the size 0 and no error) and left a half result. Now `checkRender` refuses it before a file is written, with tests.
+  - [x] The headless verdict of the part passed on the glow of the selection alone. Now: pictures with no selection, the nose too, the place of the head in the hat is free, and three taps (in the place of the head, on the hat, on the nose).
+  - [x] The picture of a large sticker was soft: the limit of the picture buffer is 2048 px now.
+  - [x] The colour factor of a costume goes on a material one time, whatever the number of calls is. A test covers the costume files in the live layer.
 - [ ] Operator, on the phone: put the hat of the witch and the nose on a photo, scale them, turn them with three fingers, save.
-- Install size: precache 202 entries, 8.3 MB (two chips more).
+- [ ] Seen by the reviewer, older than this work: on a phone upright a new sticker lands under the open palette, and the chips of the palette are 58 px wide there, not 64 px.
+- [ ] A picture buffer of 2048 px on a phone with little memory: not tried on a device.
+- Install size: precache 202 entries, 8.3 MB.
 
 ### Known defects, not fixed yet
 

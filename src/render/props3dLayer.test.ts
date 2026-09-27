@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { Props3dLayer, lights, likeTheCamera, COSTUME_GAIN, type Model } from './props3dLayer';
+import { Props3dLayer, lights, likeTheCamera, brighten, COSTUME_GAIN, type Model } from './props3dLayer';
 import { headPose, placeProps, PROPS3D } from '../filters/props3d';
 import { partsOf, placeParts } from '../filters/costumes';
 import type { Face } from '../tracking/faceTracker';
@@ -230,5 +230,29 @@ describe('Props3dLayer', () => {
     s.clock.t += 5000;
     s.run(['crown'], [face()]);
     expect(s.asked).toHaveLength(2);
+  });
+});
+
+describe('the colours of the parts of a costume', () => {
+  const thing = () => {
+    const shared = new THREE.MeshStandardMaterial({ color: new THREE.Color(0.4, 0.2, 0.1) });
+    return { root: new THREE.Group().add(new THREE.Mesh(new THREE.BoxGeometry(), shared), new THREE.Mesh(new THREE.BoxGeometry(), shared)), shared };
+  };
+  it('the factor goes on a material one time: two meshes share it, and a second call changes nothing', () => {
+    const t = thing();
+    brighten(t.root, COSTUME_GAIN);
+    expect(t.shared.color.r).toBeCloseTo(0.4 * COSTUME_GAIN, 6);
+    brighten(t.root, COSTUME_GAIN);
+    likeTheCamera(t.root, COSTUME_GAIN);
+    expect(t.shared.color.r).toBeCloseTo(0.4 * COSTUME_GAIN, 6);
+  });
+  it('the layer gives the factor to the files of a costume, and not to a plain prop', () => {
+    const made: Record<string, ReturnType<typeof thing>> = {};
+    const layer = new Props3dLayer((file, done) => { made[file] = thing(); done({ scene: made[file].root, clips: [] }); });
+    const at = { face: 0, pos: [0, 0, 0] as [number, number, number], quat: [0, 0, 0, 1] as [number, number, number, number], scale: 1 };
+    layer.update([{ ...at, id: 'witch-nose', file: '/costumes/witch/witch-nose.glb' }, { ...at, id: 'crown', file: '/props3d/crown.glb' }], [], 4 / 3, 0);
+    expect(made['/costumes/witch/witch-nose.glb'].shared.color.r).toBeCloseTo(0.4 * COSTUME_GAIN, 6);
+    expect(made['/props3d/crown.glb'].shared.color.r).toBeCloseTo(0.4, 6);
+    layer.dispose();
   });
 });

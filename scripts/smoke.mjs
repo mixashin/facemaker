@@ -44,8 +44,31 @@ page.on('request', (r) => { if (offOrigin(r.url())) egress.push(`request ${r.url
 page.on('requestfailed', (r) => { if (offOrigin(r.url())) egress.push(`failed ${r.url()} ${r.failure()?.errorText}`); });
 const downloads = [];
 page.on('download', (d) => downloads.push(d));
+// The checks of the camera count every stream that the browser gives, and they can make the camera slow or busy
+await page.addInitScript(() => {
+  const md = navigator.mediaDevices;
+  if (!md || globalThis.__cam) return;
+  const real = md.getUserMedia.bind(md);
+  const cam = (globalThis.__cam = { streams: [], asks: 0, delay: 0, fail: 0, live: () => cam.streams.filter((s) => s.getVideoTracks().some((t) => t.readyState === 'live')).length });
+  md.getUserMedia = async (c) => {
+    if (!c || !c.video) return real(c);
+    cam.asks++;
+    if (cam.delay) await new Promise((r) => setTimeout(r, cam.delay));
+    if (cam.fail > 0) { cam.fail--; throw new DOMException('Could not start video source', 'NotReadableError'); }
+    const s = await real(c);
+    cam.streams.push(s);
+    return s;
+  };
+});
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+// The page goes to the background and comes back. The browser of the check has no second app: the page gets
+// the state and the event by hand. requestAnimationFrame still runs then, on a phone it stops.
+const hide = (h) => page.evaluate((hidden) => {
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') });
+  document.dispatchEvent(new Event('visibilitychange'));
+}, h);
 
 const RAIL = new Set(['warp', 'sticker', 'props3d', 'makeup', 'faceon', 'scene', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
@@ -67,6 +90,19 @@ if (tutorialShown) {
   console.log('the progress dots of the tutorial are round:', dot.length, JSON.stringify(dot[0] ?? null), dot.length >= 2 && dot.every(([w, h]) => w === 10 && h === 10) ? 'OK' : 'FAIL');
 }
 if (tutorialShown && out) writeFileSync(`${out}/page-tutorial.png`, await page.screenshot());
+if (tutorialShown) {
+  // The tutorial keeps its step when the page comes back from the background. Seen: the camera started again,
+  // the screen was built new, and the tutorial was at its first step.
+  const step = () => page.evaluate(() => [...document.querySelectorAll('[aria-label="tutorial"] .dot')].findIndex((d) => d.classList.contains('on')));
+  await page.locator('[aria-label="tutorial"] .cta').click(); await page.locator('[aria-label="tutorial"] .cta').click(); await page.waitForTimeout(200);
+  const at = await step();
+  await hide(true); await page.waitForTimeout(600);
+  await hide(false); await page.waitForTimeout(100);
+  const during = await step();
+  await page.waitForTimeout(3500);
+  const after = await step();
+  console.log('the tutorial keeps its step over a return from the background: step', at, '| while the camera starts', during, '| after', after, at === 2 && during === 2 && after === 2 ? 'OK' : 'FAIL');
+}
 if (tutorialShown) await closeSheet();
 console.log('tutorial on first launch:', tutorialShown ? 'shown' : 'not shown');
 if (out) writeFileSync(`${out}/page-start.png`, await page.screenshot()); // the clean start screen
@@ -85,29 +121,52 @@ const state = await page.evaluate(async () => {
 });
 console.log(JSON.stringify(state));
 
-// No camera in the background (privacy): the track ends when the page is hidden, a new one starts on return,
-// and the faces and the buttons come again. Seen on a phone: the hidden app had a live track.
+// No camera in the background (privacy). Seen on a phone: the hidden app had a live track. The checks count
+// every stream that the browser gave (cam.live), not only the one on the video element: a stream that arrives
+// late and stays live is on no element.
 {
-  const hide = (h) => page.evaluate((hidden) => {
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
-    document.dispatchEvent(new Event('visibilitychange'));
-  }, h);
   const cam = () => page.evaluate(() => {
-    const t = document.querySelector('video.hidden-video').srcObject?.getVideoTracks()[0] ?? null;
-    globalThis.__cam0 ??= t;
-    return { first: globalThis.__cam0?.readyState ?? null, now: t?.readyState ?? null, same: t === globalThis.__cam0, frames: globalThis.__fm.frames, faces: globalThis.__fm.faces, shutter: !!document.querySelector('[aria-label="take photo"]') };
+    const c = globalThis.__cam, t = document.querySelector('video.hidden-video').srcObject?.getVideoTracks()[0] ?? null;
+    return { live: c.live(), given: c.streams.length, asks: c.asks, onVideo: t?.readyState ?? null, frames: globalThis.__fm.frames, faces: globalThis.__fm.faces, shutter: !!document.querySelector('[aria-label="take photo"]'), error: !!document.querySelector('.blocker') };
   });
+  const knob = (k) => page.evaluate((v) => Object.assign(globalThis.__cam, v), k);
   const before = await cam();
   await hide(true); await page.waitForTimeout(800);
   const hidden = await cam();
-  await hide(false); await page.waitForTimeout(4000);
+  console.log('no camera in the background:', JSON.stringify(hidden), before.live === 1 && hidden.live === 0 && hidden.onVideo === null ? 'OK' : 'FAIL');
+  await hide(false); await page.waitForTimeout(60);
+  const during = await cam(); // the camera starts: the buttons stay
+  await page.waitForTimeout(4000);
   const back = await cam();
   await page.waitForTimeout(1500);
   const later = await cam();
-  const off = before.now === 'live' && hidden.first === 'ended' && hidden.now === null;
-  const on = back.now === 'live' && !back.same && later.frames > back.frames && later.faces === before.faces && later.shutter;
-  console.log('no camera in the background:', JSON.stringify(hidden), off ? 'OK' : 'FAIL');
-  console.log('the camera starts again on return:', JSON.stringify(later), on ? 'OK' : 'FAIL');
+  console.log('the camera starts again on return:', JSON.stringify(later), '| buttons during the start', during.shutter, back.live === 1 && back.given === before.given + 1 && back.onVideo === 'live' && later.frames > back.frames && later.faces === before.faces && later.shutter && during.shutter && !later.error ? 'OK' : 'FAIL');
+  // A slow camera: the page goes to the background while the start is on its way, and the stream arrives there
+  await hide(true); await page.waitForTimeout(300);
+  await knob({ delay: 1500 });
+  await hide(false); await page.waitForTimeout(300);
+  await hide(true); await page.waitForTimeout(2500);
+  const late = await cam();
+  await knob({ delay: 0 });
+  await hide(false); await page.waitForTimeout(4000);
+  const cured = await cam();
+  console.log('a stream that arrives in the background is stopped:', JSON.stringify(late), '| back', cured.live, late.given === later.given + 1 && late.live === 0 && !late.error && cured.live === 1 && cured.shutter && !cured.error ? 'OK' : 'FAIL');
+  // A camera that is busy at the return (another app gives it back a moment later): the app tries again
+  await hide(true); await page.waitForTimeout(300);
+  await knob({ fail: 1 });
+  await hide(false); await page.waitForTimeout(4000);
+  const tried = await cam();
+  console.log('a camera that is busy at the return gets a new try:', JSON.stringify(tried), tried.asks === cured.asks + 2 && tried.live === 1 && !tried.error && tried.shutter ? 'OK' : 'FAIL');
+  // The camera stays busy: the error screen shows after the tries. The next return starts the camera.
+  await hide(true); await page.waitForTimeout(300);
+  await knob({ fail: 3 });
+  await hide(false); await page.waitForTimeout(5000);
+  const failed = await cam();
+  await hide(true); await page.waitForTimeout(300);
+  await hide(false); await page.waitForTimeout(4000);
+  const again = await cam();
+  console.log('a camera that stays busy gives the error screen, and the next return starts the camera:', failed.error, failed.live, '| then', again.error, again.live, failed.error && failed.live === 0 && failed.asks === tried.asks + 3 && !again.error && again.live === 1 && again.shutter ? 'OK' : 'FAIL');
+  await page.waitForTimeout(1500);
 }
 
 // A label "-" closes the dock, so the shot shows the whole picture.
@@ -560,14 +619,50 @@ if (process.env.SMOKE_GALLERY) {
     await touch('touchEnd', []); await page.waitForTimeout(400);
     const tapped = await chosen();
     console.log('a two-finger hold keeps the selection:', JSON.stringify(held0), 'then', JSON.stringify(held1), '| a tap of one finger there ends it:', tapped === '', held0 !== '' && held1 === held0 && tapped === '' ? 'OK' : 'FAIL');
-    // The 3D parts of a costume are stickers too
-    await page.locator('.pull').first().click(); await page.waitForTimeout(400);
-    const bare = await pixels(), had = await stickers();
-    await click('3d-witch-hat-hair'); await page.waitForTimeout(2500); // the model loads
-    const hat = await pixels();
-    if (out) writeFileSync(`${out}/page-editor-part.png`, await page.screenshot());
-    const part = (await chosen()).split(' ').map(Number);
-    console.log('a part of a costume lands on the photo: stickers', had, 'then', await stickers(), '| size', part[0], '| pixels that changed', differ(bare, hat), (await stickers()) === had + 1 && part[0] > 0 && differ(bare, hat) > 100 ? 'OK' : 'FAIL');
+    // The 3D parts of a costume are stickers too. The pictures are taken with no selection: the glow of a
+    // selection alone changes some hundred pixels.
+    {
+      // a tap beside the stickers, at the right edge: it ends the selection and closes the palette (the palette lies over the left part)
+      const edge = [photo.x + photo.width - 12, photo.y + photo.height / 2];
+      const tapOff = async () => { await touch('touchStart', [edge]); await page.waitForTimeout(60); await touch('touchEnd', []); await page.waitForTimeout(400); };
+      const put = async (id) => {
+        await page.locator('.pull').first().click(); await page.waitForTimeout(400);
+        await click(id); await page.waitForTimeout(2500); // the model loads
+        const n = (await chosen()).split(' ').map(Number); // size, turn, yaw, pitch, x, y
+        if (out) writeFileSync(`${out}/page-editor-${id}.png`, await page.screenshot());
+        await tapOff();
+        return n;
+      };
+      // a photo with no sticker: the taps below must meet the parts only
+      await click('Done'); await click('Remove all stickers'); await page.waitForTimeout(300);
+      const bare = await pixels(), had = await stickers();
+      const hat = await put('3d-witch-hat-hair'), withHat = await pixels();
+      const nose = await put('3d-witch-nose'), withNose = await pixels();
+      if (out) writeFileSync(`${out}/page-editor-parts.png`, await page.screenshot());
+      // The hat goes around the head: where the head is, the photo shows (the hair behind the head is hidden).
+      // The place of the head in the sticker: the middle of the part is 0.437 face widths above the middle of
+      // the head, and the part is 3.033 face widths high.
+      const canvas = await page.evaluate(() => { const c = document.querySelector('.edit-canvas'); return [c.width, c.height]; });
+      const k = 200 / canvas[0], face = (hat[0] / 3.033) * k, hx = hat[4] * k, hy = hat[5] * (150 / canvas[1]) + 0.437 * face + 0.07 * face;
+      let covered = 0, area = 0;
+      for (let y = Math.round(hy - 0.3 * face); y <= Math.round(hy + 0.3 * face); y++) for (let x = Math.round(hx - 0.25 * face); x <= Math.round(hx + 0.25 * face); x++) {
+        if (x < 0 || y < 0 || x >= 200 || y >= 150) continue;
+        const i = (y * 200 + x) * 4;
+        area++;
+        if (Math.abs(bare[i] - withHat[i]) + Math.abs(bare[i + 1] - withHat[i + 1]) + Math.abs(bare[i + 2] - withHat[i + 2]) > 40) covered++;
+      }
+      // A tap takes the 3D sticker that has a pixel under the finger. Seen: the hat was hit in a circle as large
+      // as the photo, and the first finger of every gesture took the hat.
+      const fit = Math.min(photo.width / canvas[0], photo.height / canvas[1]); // object-fit: contain
+      const onScreen = (x, y) => [photo.x + (photo.width - canvas[0] * fit) / 2 + x * fit, photo.y + (photo.height - canvas[1] * fit) / 2 + y * fit];
+      const pick = async (x, y) => { await touch('touchStart', [onScreen(x, y)]); await page.waitForTimeout(60); await touch('touchEnd', []); await page.waitForTimeout(400); return Number((await chosen()).split(' ')[0]) || 0; };
+      const inHead = await pick(hat[4], hat[5] + 0.507 * (hat[0] / 3.033)), onHat = await pick(hat[4], hat[5] - 0.25 * hat[0]), onNose = await pick(nose[4], nose[5]);
+      await tapOff();
+      console.log('a tap takes the 3D sticker that has a pixel there: in the place of the head', inHead, '| on the hat', onHat, '| on the nose', onNose, inHead === 0 && onHat === hat[0] && onNose === nose[0] ? 'OK' : 'FAIL');
+      const ratio = hat[0] / nose[0];
+      console.log('the parts of a costume land on the photo: stickers', had, 'then', await stickers(), '| pixels of the hat', differ(bare, withHat), '| of the nose', differ(withHat, withNose), '| size of the hat against the nose', ratio.toFixed(2), '| the place of the head in the hat: covered', covered, 'of', area,
+        had === 0 && (await stickers()) === 2 && differ(bare, withHat) > 1500 && differ(withHat, withNose) > 60 && Math.abs(ratio - 3.033 / 0.648) < 0.05 && area > 100 && covered < area * 0.1 ? 'OK' : 'FAIL');
+    }
     await cdp.detach();
   }
   await closeSheet();
@@ -595,6 +690,12 @@ if (process.env.SMOKE_RECORD) {
   // The shout preset listens to the mic: on while it is picked, off a few seconds after.
   await click('warp'); await click('none'); await click('shout'); await page.waitForTimeout(1500);
   const micShout = await micNow();
+  // No mic in the background: it goes off when the page hides, with no wait. It comes again with the page.
+  await hide(true); await page.waitForTimeout(700);
+  const micHidden = await micNow();
+  await hide(false); await page.waitForTimeout(3500);
+  const micBack = await micNow();
+  console.log('no mic in the background: with the shout preset', micShout, '| page hidden', micHidden, '| back', micBack, micShout === 'live' && micHidden === 'idle' && micBack === 'live' ? 'OK' : 'FAIL');
   await click('none'); await closeDock(); await page.waitForTimeout(4000);
   const micNone = await micNow();
   console.log('mic with the shout preset:', micShout, '| a few seconds after it is off:', micNone, micShout === 'live' && micNone === 'idle' ? 'OK' : 'FAIL');
@@ -669,6 +770,19 @@ if (process.env.SMOKE_RECORD) {
   await page.waitForTimeout(3500);
   const micIdle2 = await micNow();
   console.log('mic a few seconds after the slow tap:', micIdle2, micIdle2 === 'idle' ? 'OK' : 'FAIL');
+  // The finger goes down, the page goes to the background before the clip starts, and no finger-up comes
+  // there: no clip and no mic in the background.
+  const h0 = await page.evaluate(() => globalThis.__fm.clips);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(100);
+  await hide(true); await page.waitForTimeout(1500);
+  const inBack = await page.evaluate(() => ({ rec: !!document.querySelector('.shutter.rec'), mic: globalThis.__fm.mic(), cam: globalThis.__cam.live() }));
+  await hide(false);
+  await page.mouse.up();
+  await page.waitForTimeout(4500);
+  const h1 = await page.evaluate(() => ({ clips: globalThis.__fm.clips, rec: !!document.querySelector('.shutter.rec'), mic: globalThis.__fm.mic(), cam: globalThis.__cam.live() }));
+  console.log('a hold that meets the background makes no clip and takes no mic:', JSON.stringify(inBack), '| back', JSON.stringify(h1), !inBack.rec && inBack.mic === 'idle' && inBack.cam === 0 && h1.clips === h0 && !h1.rec && h1.mic === 'idle' && h1.cam === 1 ? 'OK' : 'FAIL');
 }
 // Shutter: a double tap must produce exactly one file.
 const shutter = page.getByRole('button', { name: 'take photo' });

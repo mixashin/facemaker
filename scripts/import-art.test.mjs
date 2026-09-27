@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { inspectGlb, inspectPart, pngs, cornerAlpha, PART_REACH } from './import-art.mjs';
+import { inspectGlb, inspectPart, pngs, cornerAlpha, checkRender, PART_REACH } from './import-art.mjs';
 
 // A glTF 2.0 binary with a JSON chunk only: enough for the checks that read the JSON
 function glb(json) {
@@ -84,6 +84,25 @@ describe.skipIf(!tools)('cornerAlpha (needs ffmpeg)', () => {
   });
   it('is 255 for a picture with no transparency at all', () => {
     expect(cornerAlpha(make('rgb.png', 'color=c=blue:s=64x64,format=rgb24'))).toBe(255);
+  });
+});
+
+describe.skipIf(!tools)('checkRender: the render of a part, for its chip (needs ffmpeg)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'facemaker-art-'));
+  const make = (name, size) => { const f = join(dir, name); execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', `color=c=red:s=${size},format=rgba`, '-frames:v', '1', f]); return f; };
+  it('takes a square picture that is large enough for a chip', () => {
+    expect(() => checkRender(make('good.png', '1024x1024'))).not.toThrow();
+    expect(() => checkRender(make('least.png', '160x160'))).not.toThrow();
+  });
+  it('refuses a picture that is not square, and one that is smaller than the chip', () => {
+    expect(() => checkRender(make('wide.png', '1024x512'))).toThrow(/1024x512, expected a square/);
+    expect(() => checkRender(make('small.png', '16x16'))).toThrow(/16x16, expected a square of 160 px or more/);
+  });
+  it('refuses a file that is no picture, and a file that is not there', () => {
+    const text = join(dir, 'text.png');
+    writeFileSync(text, 'this is no picture');
+    expect(() => checkRender(text)).toThrow(/no picture/);
+    expect(() => checkRender(join(dir, 'none.png'))).toThrow(/not found/);
   });
 });
 

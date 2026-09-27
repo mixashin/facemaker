@@ -28,6 +28,16 @@ export function cornerAlpha(file) {
   return Math.max(px[3], px[7], px[11], px[15]);
 }
 const cutOut = (file, name) => { if (cornerAlpha(file) !== 0) throw new Error(`${name}: the corners are not transparent, expected a cut-out`); };
+// The render of a 3D part, for its chip: a square picture, not smaller than the chip. ffprobe gives no error
+// for a file that is no picture, it gives a size of 0.
+export const CHIP_PX = 160;
+export function checkRender(file) {
+  if (!existsSync(file)) throw new Error(`${file}: not found`);
+  let w = 0, h = 0;
+  try { [w, h] = probe(file).map(Number); } catch { /* no picture */ }
+  if (!(w > 0 && h > 0)) throw new Error(`${file}: no picture`);
+  if (w !== h || w < CHIP_PX) throw new Error(`${file}: ${w}x${h}, expected a square of ${CHIP_PX} px or more`);
+}
 
 const JOBS = {
   // Face-on targets (brief R1): square, opaque. The generator made 1254 px, so 1280 px keeps every detail.
@@ -243,10 +253,7 @@ JOBS.costumes = function () {
       const file = `${c.src}/${part}.glb`;
       if (!existsSync(file)) throw new Error(`${file}: not found`);
       if (statSync(file).size > 1.5 * 1024 * 1024) throw new Error(`${file}: larger than 1.5 MB`);
-      const render = `${c.src}/${part}.png`;
-      if (!existsSync(render)) throw new Error(`${file}: no render ${part}.png for the chip`);
-      const [rw, rh] = probe(render);
-      if (rw !== rh) throw new Error(`${render}: ${rw}x${rh}, expected a square`);
+      checkRender(`${c.src}/${part}.png`);
       try { return { id: part, file: `/costumes/${id}/${part}.glb`, chip: `/costumes/${id}/${part}-chip.webp`, ...inspectPart(readFileSync(file), c.triangles[part]) }; } catch (e) { throw new Error(`${file}: ${e.message}`); }
     });
     const other = readdirSync(c.src).filter((n) => /\.glb$/.test(n) && !parts.some((p) => `${p.id}.glb` === n));
@@ -259,7 +266,7 @@ JOBS.costumes = function () {
     ffmpeg('-i', chip, '-vf', 'scale=128:128:flags=lanczos', '-c:v', 'libwebp', '-quality', '85', `public/makeup/${id}-chip.webp`);
     for (const p of parts) {
       copyFileSync(`${c.src}/${p.id}.glb`, `public${p.file}`);
-      ffmpeg('-i', `${c.src}/${p.id}.png`, '-vf', 'scale=160:160:flags=lanczos', '-c:v', 'libwebp', '-quality', '85', `public${p.chip}`);
+      ffmpeg('-i', `${c.src}/${p.id}.png`, '-vf', `scale=${CHIP_PX}:${CHIP_PX}:flags=lanczos`, '-c:v', 'libwebp', '-quality', '85', `public${p.chip}`);
     }
     list.push({ id, look: `paint-${id}`, parts });
     console.log('imported costume', id, 'with', parts.map((p) => `${p.id} (${p.triangles} triangles)`).join(', '));

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker, inside, tilt, centre, MAX_TILT, FRAME } from './editor';
+import { EDITOR_STICKERS, elementToImage, hitTest, moveTo, pinch, flipSticker, renderEditor, type EditorSticker, inside, tilt, centre, MAX_TILT, FRAME, startScale, inShot } from './editor';
 import { existsSync } from 'node:fs';
 import { prop3dById } from '../filters/props3d';
 import { partById } from '../filters/costumes';
@@ -31,12 +31,59 @@ describe('elementToImage', () => {
   });
 });
 
+describe('startScale', () => {
+  const item = (id: string) => EDITOR_STICKERS.find((s) => s.id === id)!;
+  it('a sticker starts at a quarter of the photo width', () => {
+    expect(startScale(800, item('3d-crown'))).toBe(200);
+    expect(startScale(800, item('sunglasses'))).toBe(200);
+  });
+  it('the parts of a costume start in the size of one head: the hat is three face widths high, the nose is small', () => {
+    const hat = startScale(800, item('3d-witch-hat-hair')), nose = startScale(800, item('3d-witch-nose'));
+    expect(hat).toBeCloseTo(200 * 3.033, 3);
+    expect(nose).toBeCloseTo(200 * 0.648, 3);
+  });
+});
+
 describe('hitTest and moveTo', () => {
+  it('takes the smallest sticker under the finger: a nose under the hat that goes around the head', () => {
+    const nose = st(1, 320, 260, 60), hat = st(2, 320, 200, 900); // the hat came later, it lies on top
+    expect(hitTest([nose, hat], { x: 325, y: 265 })?.id).toBe(1);
+    expect(hitTest([hat, nose], { x: 325, y: 265 })?.id).toBe(1);
+    expect(hitTest([nose, hat], { x: 500, y: 100 })?.id).toBe(2);
+  });
   it('returns the topmost sticker under the point', () => {
     const a = st(1, 100, 100), b = st(2, 120, 100);
     expect(hitTest([a, b], { x: 110, y: 100 })?.id).toBe(2);
     expect(hitTest([a, b], { x: 60, y: 100 })?.id).toBe(1);
     expect(hitTest([a, b], { x: 400, y: 400 })).toBeNull();
+  });
+  const solid = (id: number, x: number, y: number, scale: number, more: Partial<EditorSticker> = {}): EditorSticker => ({ ...st(id, x, y, scale), src: '/props3d/crown-chip.webp', model: 'crown', ...more });
+  it('a 3D sticker is hit where it has a pixel: the space in a hat that goes around the head is free', () => {
+    const hat = solid(1, 320, 240, 900);
+    const asked: [number, number][] = [];
+    const ring = (_s: EditorSticker, u: number, v: number) => { asked.push([u, v]); return Math.hypot(u - 0.5, v - 0.5) > 0.2; }; // a ring: nothing in its middle
+    expect(hitTest([hat], { x: 320, y: 240 }, ring)).toBeNull();
+    expect(asked[0][0]).toBeCloseTo(0.5); expect(asked[0][1]).toBeCloseTo(0.5);
+    expect(hitTest([hat], { x: 320 + 600, y: 240 }, ring)?.id).toBe(1); // outside the old circle of 450, on a pixel of the ring
+    const flat = st(2, 320, 240, 100);
+    expect(hitTest([flat, hat], { x: 330, y: 240 }, ring)?.id).toBe(2); // a flat sticker under the space of the hat
+  });
+  it('a 3D sticker with no picture to look at is hit in its circle, as a flat one', () => {
+    const hat = solid(1, 320, 240, 200);
+    expect(hitTest([hat], { x: 400, y: 240 }, () => null)?.id).toBe(1);
+    expect(hitTest([hat], { x: 430, y: 240 }, () => null)).toBeNull();
+    expect(hitTest([hat], { x: 400, y: 240 })?.id).toBe(1);
+  });
+  it('finds the place of a point in the picture of a sticker: with its size, its turn and its mirror', () => {
+    const d = 100 * 2 * FRAME; // the side of the picture on the photo
+    expect(inShot(solid(1, 100, 100, 100), { x: 100, y: 100 })).toEqual({ u: 0.5, v: 0.5 });
+    const right = inShot(solid(1, 100, 100, 100), { x: 100 + d / 4, y: 100 - d / 2 });
+    expect(right.u).toBeCloseTo(0.75); expect(right.v).toBeCloseTo(0);
+    const mirrored = inShot(solid(1, 100, 100, 100, { flip: true }), { x: 100 + d / 4, y: 100 });
+    expect(mirrored.u).toBeCloseTo(0.25); expect(mirrored.v).toBeCloseTo(0.5);
+    // turned by a quarter to the right: the top of the sticker points to the right of the photo
+    const turned = inShot(solid(1, 100, 100, 100, { rot: Math.PI / 2 }), { x: 100 + d / 4, y: 100 });
+    expect(turned.u).toBeCloseTo(0.5); expect(turned.v).toBeCloseTo(0.25);
   });
   it('moveTo recentres', () => {
     expect(moveTo(st(1, 0, 0), { x: 5, y: 7 })).toMatchObject({ x: 5, y: 7 });

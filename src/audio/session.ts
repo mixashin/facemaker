@@ -5,6 +5,8 @@ import type { VoiceId } from './voice';
 // The microphone is on only while something uses it: a recording, the voice mirror, the shout preset.
 // Each user takes a lease and gives it back. A few seconds after the last lease the engine is closed and
 // the mic tracks are stopped. The delay keeps a second hold right after the first one quick.
+// No mic in the background: while the page is hidden there is no delay, and a page that hides inside the delay
+// ends it (rest).
 export const IDLE_MS = 3000;
 
 export type Engine = Pick<VoiceEngine, 'setPreset' | 'resume' | 'dispose' | 'level' | 'stream'>;
@@ -14,10 +16,12 @@ type Deps = {
   releaseMic: () => void;
   makeEngine: (mic: MediaStream, id: VoiceId) => Engine;
   idleMs?: number;
+  hidden?: () => boolean; // the page is in the background
 };
 
 export function createVoiceSession(deps: Deps) {
   const idleMs = deps.idleMs ?? IDLE_MS;
+  const hidden = deps.hidden ?? (() => typeof document !== 'undefined' && document.hidden);
   let engine: Engine | null = null;
   let engineMic: MediaStream | null = null;
   let users = 0;
@@ -39,7 +43,7 @@ export function createVoiceSession(deps: Deps) {
       if (released) return;
       released = true;
       users--;
-      if (users === 0) idle = setTimeout(drop, idleMs);
+      if (users === 0) idle = setTimeout(drop, hidden() ? 0 : idleMs);
     };
     const none = (): Lease => { release(); return { engine: null, release() {} }; };
 
@@ -59,14 +63,25 @@ export function createVoiceSession(deps: Deps) {
     return { engine, release };
   }
 
+  // The page went to the background. With no user the mic goes off now. A user that holds the mic decides for
+  // itself: a clip that ends there saves its sound first, and lets go then.
+  function rest(): void {
+    if (users > 0 || !engine) return;
+    clearTimeout(idle);
+    drop();
+  }
+
   return {
     acquire,
+    rest,
     current: (): Engine | null => engine,
     setPreset(id: VoiceId): void { engine?.setPreset(id); },
   };
 }
 
 const session = createVoiceSession({ getMic: () => getMic(), releaseMic, makeEngine: (mic, id) => new VoiceEngine(mic, id) });
+
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { if (document.hidden) session.rest(); });
 
 export const acquireVoice = session.acquire;
 export const currentEngine = session.current;

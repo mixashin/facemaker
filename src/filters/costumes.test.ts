@@ -21,6 +21,10 @@ describe('costumes', () => {
     expect(look.flat).toBeGreaterThan(0.5); // the paint keeps its colour: it must match the nose
     expect(LOOKS.find((l) => l.id === 'paint-tiger')!.flat).toBeUndefined(); // paint with no parts takes the light of the face
   });
+  it('knows the long side of a part, in face widths', () => {
+    expect(partById('witch-hat-hair')!.long).toBeCloseTo(3.033, 3);
+    expect(partById('witch-nose')!.long).toBeCloseTo(0.648, 3);
+  });
   it('finds a part by its name, and no part has the name of a 3D prop', () => {
     expect(partById('witch-nose')?.file).toBe('/costumes/witch/witch-nose.glb');
     expect(partById('crown')).toBeUndefined();

@@ -3,7 +3,7 @@
 // that picture on the photo with the 2D canvas. The turn in the plane and the mirror stay with the 2D canvas.
 import * as THREE from 'three';
 import { loadGlb, lights, brighten, COSTUME_GAIN, type LoadModel } from '../render/props3dLayer';
-import { prop3dById } from '../filters/props3d';
+import { prop3dById, OCCLUDERS } from '../filters/props3d';
 import { partById } from '../filters/costumes';
 import { FRAME, type EditorSticker } from './editor';
 
@@ -15,10 +15,11 @@ export function turn(yaw: number, pitch: number): THREE.Quaternion {
   return new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'XYZ'));
 }
 
-// Side of the shot in pixels, for a shot that is `px` wide on the photo
+// Side of the shot in pixels, for a shot that is `px` wide on the photo. The limit: the hat of a costume at the
+// size of a head on a phone photo needs about 1800 px.
 export function shotSize(px: number): number {
   let n = 128;
-  while (n < 1024 && n < px) n *= 2;
+  while (n < 2048 && n < px) n *= 2;
   return n;
 }
 
@@ -28,7 +29,9 @@ export function cardSize(w: number, h: number): [number, number] {
   return long > 0 ? [w / long, h / long] : [1, 1];
 }
 
-export type ShotRenderer = Pick<THREE.WebGLRenderer, 'domElement' | 'setSize' | 'render' | 'dispose' | 'forceContextLoss'>;
+export type ShotRenderer = Pick<THREE.WebGLRenderer, 'domElement' | 'setSize' | 'render' | 'dispose' | 'forceContextLoss'> & { getContext(): Pick<WebGLRenderingContext, 'readPixels'> };
+const FINGER = 0.03; // of the side of the picture: the square that a finger covers
+const RGBA = 0x1908, BYTES = 0x1401;
 const webgl = (): ShotRenderer => {
   const r = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   r.setClearColor(0x000000, 0);
@@ -83,6 +86,17 @@ export class Shots {
           const size = box.getSize(new THREE.Vector3()), k = 1 / (Math.max(size.x, size.y, size.z) || 1);
           m.scene.position.multiplyScalar(k); m.scene.scale.multiplyScalar(k);
           brighten(m.scene, COSTUME_GAIN);
+          // A part that goes around the head (the hat with its hair) has hair behind the head. The live camera
+          // hides it behind the hidden shapes of the head. Here the same shapes go into the part, in its frame:
+          // they write depth and no colour, so the head of the photo shows where they are. A part in front of
+          // the face (the nose) gets none: it would go away when the child turns it round.
+          if (box.min.z < 0) for (const shape of OCCLUDERS) {
+            const head = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true }));
+            head.position.set(0, shape.up, -shape.back);
+            head.scale.set(...shape.radii);
+            head.renderOrder = -1; // into the depth buffer before the part
+            m.scene.add(head);
+          }
         }
         this.keep(key, m.scene);
         this.waiting.delete(key);
@@ -115,6 +129,21 @@ export class Shots {
     thing.quaternion.copy(turn(s.flip ? -(s.yaw ?? 0) : s.yaw ?? 0, s.pitch ?? 0)); // the canvas mirrors the picture: the turn goes the other way there
     gl.render(this.scene, this.camera);
     return gl.domElement;
+  };
+
+  // Has the sticker a pixel at this place of its picture (u from the left, v from the top, 0 to 1)? For the
+  // finger that selects a sticker: a 3D prop has a form, and a part of a costume has room for a head in it.
+  // The answer is for a small square, a finger is wide. null: there is no picture to look at.
+  covers = (s: EditorSticker, u: number, v: number): boolean | null => {
+    if (!(u >= 0 && u <= 1 && v >= 0 && v <= 1)) return false;
+    const gl = this.draw(s) ? this.renderer : null;
+    if (!gl) return null;
+    const n = gl.domElement.width, side = Math.max(1, Math.round(n * FINGER));
+    const from = (at: number) => Math.min(n - side, Math.max(0, Math.round(at * n - side / 2)));
+    const px = new Uint8Array(side * side * 4);
+    gl.getContext().readPixels(from(u), from(1 - v), side, side, RGBA, BYTES, px); // the rows count from the bottom
+    for (let i = 3; i < px.length; i += 4) if (px[i] > 0) return true;
+    return false;
   };
 
   dispose(): void {

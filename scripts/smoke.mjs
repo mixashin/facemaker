@@ -85,6 +85,31 @@ const state = await page.evaluate(async () => {
 });
 console.log(JSON.stringify(state));
 
+// No camera in the background (privacy): the track ends when the page is hidden, a new one starts on return,
+// and the faces and the buttons come again. Seen on a phone: the hidden app had a live track.
+{
+  const hide = (h) => page.evaluate((hidden) => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, h);
+  const cam = () => page.evaluate(() => {
+    const t = document.querySelector('video.hidden-video').srcObject?.getVideoTracks()[0] ?? null;
+    globalThis.__cam0 ??= t;
+    return { first: globalThis.__cam0?.readyState ?? null, now: t?.readyState ?? null, same: t === globalThis.__cam0, frames: globalThis.__fm.frames, faces: globalThis.__fm.faces, shutter: !!document.querySelector('[aria-label="take photo"]') };
+  });
+  const before = await cam();
+  await hide(true); await page.waitForTimeout(800);
+  const hidden = await cam();
+  await hide(false); await page.waitForTimeout(4000);
+  const back = await cam();
+  await page.waitForTimeout(1500);
+  const later = await cam();
+  const off = before.now === 'live' && hidden.first === 'ended' && hidden.now === null;
+  const on = back.now === 'live' && !back.same && later.frames > back.frames && later.faces === before.faces && later.shutter;
+  console.log('no camera in the background:', JSON.stringify(hidden), off ? 'OK' : 'FAIL');
+  console.log('the camera starts again on return:', JSON.stringify(later), on ? 'OK' : 'FAIL');
+}
+
 // A label "-" closes the dock, so the shot shows the whole picture.
 const shot = async (labels) => {
   for (const l of labels) {

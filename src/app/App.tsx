@@ -1,7 +1,7 @@
 import { preferFrom, firstStart, fellMark, PREFER_KEY, FELL_KEY } from '../tracking/health';
 import { live } from './report';
 import { useEffect, useRef } from 'preact/hooks';
-import { startCamera, stopCamera, cameraLost } from '../camera/camera';
+import { startCamera, stopCamera, startOnReturn } from '../camera/camera';
 import { FaceTracker, type Face } from '../tracking/faceTracker';
 import { FaceRenderer } from '../render/renderer';
 import { handlesForAll, MAX_HANDLES } from '../filters/presets';
@@ -107,7 +107,8 @@ export function App() {
       faces = []; // no effect of the old picture stays while the camera restarts
       seg.stop(); r.rest(); // the mask of the old picture too. The loop starts the segmenter again
       startCamera(video, facing.value)
-        .then(() => {
+        .then((s) => {
+          if (!s) return; // the page is in the background, or a newer start came: that start goes on
           camState.value = 'live';
           r.setMirror(facing.value === 'user');
           if (!started) { t.start(); started = true; raf = requestAnimationFrame(loop); }
@@ -118,11 +119,11 @@ export function App() {
     // subscribe fires once immediately. Skip that first run, restart the camera on real changes.
     let first = true;
     const unsub = facing.subscribe(() => { if (first) { first = false; return; } start(); });
-    // A hidden tab stops the render loop: end the clip and save it.
-    const onHide = () => { if (!document.hidden) return; if (recording.value) stopRec(); seg.stop(); r.rest(); }; // no work in the background
+    // A hidden tab stops the render loop: end the clip and save it. No work and no camera in the background.
+    const onHide = () => { if (!document.hidden) return; if (recording.value) stopRec(); seg.stop(); r.rest(); stopCamera(video); };
     document.addEventListener('visibilitychange', onHide);
-    // Back from another app that took the camera (the photo picker can open the camera app): start it again.
-    const onBack = () => { if (!document.hidden && camState.value === 'live' && cameraLost(video.srcObject as MediaStream | null)) start(); };
+    // Back in front: the camera starts again. The same after another app took it (the photo picker can open the camera app).
+    const onBack = () => { if (!document.hidden && startOnReturn(camState.value, video.srcObject as MediaStream | null)) start(); };
     document.addEventListener('visibilitychange', onBack);
     // The shout preset listens to the mic. It holds the mic only while it is on the visible camera screen.
     let shout: Promise<Lease> | null = null;

@@ -1,7 +1,7 @@
-// Art from Astra (astra/out, not in git) to app files. Runs by hand after a delivery: node scripts/import-art.mjs targets|facepaint|backgrounds|props
+// Art from Astra (astra/out, not in git) to app files. Runs by hand after a delivery: node scripts/import-art.mjs targets|facepaint|backgrounds|props|props3d
 // Needs ffmpeg and ffprobe on PATH. The results are committed.
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 
 const probe = (file) => execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,pix_fmt', '-of', 'csv=p=0', file]).toString().trim().split(',');
 const ffmpeg = (...args) => execFileSync('ffmpeg', ['-loglevel', 'error', '-y', ...args]);
@@ -110,7 +110,68 @@ JOBS.props = function () {
   console.log('src/filters/props.json:', names.length, 'props');
 };
 
-const job = JOBS[process.argv[2]];
-if (!job) { console.error('usage: node scripts/import-art.mjs', Object.keys(JOBS).join('|')); process.exit(1); }
-if (!existsSync('astra/out')) { console.error('astra/out not found: run from the repo root, after a delivery'); process.exit(1); }
-job();
+// What a .glb holds (glTF 2.0 binary): the facts that the brief asks for, and the things that the app refuses.
+// A 3D file is data, but it can name files outside itself. The app makes zero third-party requests: refuse those.
+export function inspectGlb(bytes) {
+  if (bytes.toString('ascii', 0, 4) !== 'glTF' || bytes.readUInt32LE(4) !== 2) throw new Error('not a glTF 2.0 binary');
+  if (bytes.readUInt32LE(8) !== bytes.length) throw new Error('length in the header does not match the file');
+  if (bytes.toString('ascii', 16, 20) !== 'JSON') throw new Error('first chunk is not JSON');
+  const g = JSON.parse(bytes.toString('utf8', 20, 20 + bytes.readUInt32LE(12)));
+  const outside = [...(g.buffers ?? []), ...(g.images ?? [])].filter((x) => x.uri !== undefined).map((x) => String(x.uri).slice(0, 40));
+  if (outside.length) throw new Error('names a file outside itself: ' + outside.join(', '));
+  const ext = [...new Set([...(g.extensionsUsed ?? []), ...(g.extensionsRequired ?? [])])];
+  if (ext.length) throw new Error('uses extensions: ' + ext.join(', '));
+  let triangles = 0;
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (const m of g.meshes ?? []) for (const p of m.primitives) {
+    if ((p.mode ?? 4) !== 4) throw new Error('a mesh is not made of triangles');
+    triangles += (p.indices !== undefined ? g.accessors[p.indices].count : g.accessors[p.attributes.POSITION].count) / 3;
+  }
+  const roots = g.scenes?.[g.scene ?? 0]?.nodes ?? [];
+  for (const r of roots) {
+    const n = g.nodes[r], s = n.scale ?? [1, 1, 1], q = n.rotation ?? [0, 0, 0, 1];
+    if (n.matrix || s.some((v) => Math.abs(v - 1) > 1e-4) || Math.abs(Math.abs(q[3]) - 1) > 1e-4) throw new Error('the root has a scale or a rotation: apply the transforms');
+  }
+  // bounds of the rest pose. Children of the root can have a place of their own: follow the tree (translation and scale only, enough for a size check)
+  const walk = (i, at, by) => {
+    const n = g.nodes[i], t = n.translation ?? [0, 0, 0], s = n.scale ?? [1, 1, 1];
+    const here = at.map((v, k) => v + t[k] * by[k]), size = by.map((v, k) => v * s[k]);
+    if (n.mesh !== undefined) for (const p of g.meshes[n.mesh].primitives) {
+      const a = g.accessors[p.attributes.POSITION];
+      for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], here[k] + Math.min(a.min[k] * size[k], a.max[k] * size[k])); hi[k] = Math.max(hi[k], here[k] + Math.max(a.min[k] * size[k], a.max[k] * size[k])); }
+    }
+    for (const c of n.children ?? []) walk(c, here, size);
+  };
+  for (const r of roots) walk(r, [0, 0, 0], [1, 1, 1]);
+  const clips = (g.animations ?? []).map((a) => a.name);
+  return { triangles, size: hi.map((h, k) => Number((h - lo[k]).toFixed(3))), centre: hi.map((h, k) => Number(((h + lo[k]) / 2).toFixed(3))), clips };
+}
+
+// 3D props (brief R5): <name>.glb plus a render <name>.png for the chip.
+JOBS.props3d = function () {
+  const src = 'astra/out/R5-props-3d', dst = 'public/props3d';
+  if (!existsSync(src)) { console.error(src, 'not found: no delivery for this request yet'); process.exit(1); }
+  mkdirSync(dst, { recursive: true });
+  const list = [];
+  for (const f of readdirSync(src).filter((n) => /^[a-z0-9-]+\.glb$/.test(n)).sort()) {
+    const id = f.replace(/\.glb$/, '');
+    const facts = inspectGlb(readFileSync(`${src}/${f}`));
+    if (facts.triangles > 5000) throw new Error(`${f}: ${facts.triangles} triangles, the limit is 5000`);
+    if (Math.abs(Math.max(...facts.size) - 1) > 0.05) throw new Error(`${f}: largest side ${Math.max(...facts.size)}, expected 1`);
+    if (statSync(`${src}/${f}`).size > 1.5 * 1024 * 1024) throw new Error(`${f}: larger than 1.5 MB`);
+    if (!existsSync(`${src}/${id}.png`)) throw new Error(`${f}: no render ${id}.png for the chip`);
+    copyFileSync(`${src}/${f}`, `${dst}/${f}`);
+    ffmpeg('-i', `${src}/${id}.png`, '-vf', 'scale=160:160:flags=lanczos', '-c:v', 'libwebp', '-quality', '85', `${dst}/${id}-chip.webp`);
+    list.push({ id, ...facts });
+    console.log('imported', id, facts.triangles, 'triangles', facts.clips.join(' ') || 'no clip');
+  }
+  writeFileSync('src/filters/props3d.json', JSON.stringify(list, null, 2) + '\n');
+  console.log('src/filters/props3d.json:', list.length, 'props');
+};
+
+if (import.meta.main) {
+  const job = JOBS[process.argv[2]];
+  if (!job) { console.error('usage: node scripts/import-art.mjs', Object.keys(JOBS).join('|')); process.exit(1); }
+  if (!existsSync('astra/out')) { console.error('astra/out not found: run from the repo root, after a delivery'); process.exit(1); }
+  job();
+}

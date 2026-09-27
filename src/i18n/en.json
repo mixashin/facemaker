@@ -75,5 +75,6 @@
   "editor.trash": "Drop here to remove",
   "editor.unsaved": "Not saved yet. Leave?",
   "editor.leave": "Leave without saving",
-  "editor.stay": "Keep editing"
+  "editor.stay": "Keep editing",
+  "tabs.props3d": "3D hats and bugs"
 }

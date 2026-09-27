@@ -75,5 +75,6 @@
   "editor.trash": "Pusti ovde za brisanje",
   "editor.unsaved": "Nije sačuvano. Izlaz?",
   "editor.leave": "Izađi bez čuvanja",
-  "editor.stay": "Nastavi uređivanje"
+  "editor.stay": "Nastavi uređivanje",
+  "tabs.props3d": "3D šeširi i bube"
 }

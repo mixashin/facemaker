@@ -30,7 +30,7 @@ export const tutorialSeen = signal(false);
 export const showSettings = signal(false);
 export const showAbout = signal(false);
 export const text = signal<TextState>({ text: '', color: '#ffffff', font: 'a', x: 0.5, y: 0.25, scale: 1 });
-export type DockTab = 'warp' | 'sticker' | 'makeup' | 'faceon' | 'scene' | 'text' | 'voice' | 'lab';
+export type DockTab = 'warp' | 'sticker' | 'props3d' | 'makeup' | 'faceon' | 'scene' | 'text' | 'voice' | 'lab';
 export const dockOpen = signal(false); // effects dock on the left, closed by default
 export const dockTab = signal<DockTab>('warp');
 export const stickers = signal<string[]>([]); // active sticker packs in pick order
@@ -51,6 +51,7 @@ export const target = signal<string>('none'); // face-on mode: id of the picture
 export const photo = signal<Target | null>(null); // the picture from the device, this session only
 // Face search on a still picture. App.tsx sets it when the tracker runs (the tracker owns the worker).
 export const still: { detect: null | ((picture: ImageBitmap) => Promise<Float32Array | null>) } = { detect: null };
+export const props3d = signal<string[]>([]); // 3D props on the head and around it, in pick order
 export const scene = signal<string>('none'); // the place behind the person
 export const tryScene = signal<Scene | null>(null); // a scene that is not in the list: for checks (scripts/smoke.mjs)
 export const makeup = signal<LookId>('none'); // one look at a time. It combines with filters, stickers, text and voice

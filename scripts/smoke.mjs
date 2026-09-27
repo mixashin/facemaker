@@ -47,7 +47,7 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
-const RAIL = new Set(['warp', 'sticker', 'makeup', 'faceon', 'scene', 'text', 'voice', 'lab']);
+const RAIL = new Set(['warp', 'sticker', 'props3d', 'makeup', 'faceon', 'scene', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
 const click = async (label) => {
   if (RAIL.has(label)) await openDock();
@@ -139,6 +139,37 @@ if (state.fm?.faces > 0) {
   const red1 = await redPixels();
   console.log('stickers follow the warp: heart pixels', red0, 'with big head and big eyes', red1, 'ratio', (red1 / Math.max(1, red0)).toFixed(2), red0 > 50 && red1 > red0 * 1.3 ? 'OK' : 'FAIL');
   await click('none'); await click('sticker'); await click('none');
+  // 3D props: a hat changes the picture above the face, a bee moves by itself, one hat at a time
+  {
+    const snap = () => page.evaluate(() => {
+      const src = document.querySelector('canvas.stage');
+      const c = document.createElement('canvas'); c.width = 160; c.height = 120;
+      const g = c.getContext('2d'); g.drawImage(src, 0, 0, 160, 120);
+      return [...g.getImageData(0, 0, 160, 120).data];
+    });
+    const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 40) n++; return n; };
+    await click('warp'); await click('none'); await click('sticker'); await click('none');
+    await click('props3d'); await click('none'); await page.waitForTimeout(400);
+    const bare3 = await snap();
+    await click('crown'); await page.waitForTimeout(2500); // the model loads
+    const crowned = await snap();
+    console.log('3D crown on the head: pixels that changed', differ(bare3, crowned), differ(bare3, crowned) > 150 ? 'OK' : 'FAIL');
+    await click('pirate-hat'); await page.waitForTimeout(2000);
+    const worn = await pressed();
+    console.log('a hat takes the place of a hat:', worn.join('+'), worn.length === 1 && worn[0] === 'pirate-hat' ? 'OK' : 'FAIL');
+    await click('none'); await click('bee'); await page.waitForTimeout(2500);
+    const bee0 = await snap(); await page.waitForTimeout(900);
+    const bee1 = await snap();
+    console.log('the bee flies by itself: pixels that changed in 0.9 s', differ(bee0, bee1), differ(bee0, bee1) > 20 ? 'OK' : 'FAIL');
+    await click('sunglasses'); await click('crown'); await page.waitForTimeout(1500);
+    const three = await pressed();
+    console.log('glasses, hat and pest together:', three.join('+'), three.length === 3 ? 'OK' : 'FAIL');
+    if (out) writeFileSync(`${out}/props3d.png`, await page.locator('canvas').screenshot());
+    await click('none'); await page.waitForTimeout(500);
+    const gone = await snap();
+    console.log('none takes the 3D props off:', differ(bare3, gone) < 30 ? 'OK' : 'FAIL');
+    await click('warp');
+  }
   // Makeup: a look paints the face, follows the warp, and works together with a filter and a sticker.
   const tinted = (test) => page.evaluate((body) => {
     const hit = new Function('r', 'g', 'b', `return ${body};`);

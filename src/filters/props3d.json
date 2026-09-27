@@ -1,0 +1,181 @@
+[
+  {
+    "id": "bee",
+    "triangles": 3360,
+    "size": [
+      1,
+      0.534,
+      0.757
+    ],
+    "centre": [
+      0,
+      -0.003,
+      0.012
+    ],
+    "clips": [
+      "fly"
+    ]
+  },
+  {
+    "id": "butterfly",
+    "triangles": 3344,
+    "size": [
+      1,
+      0.292,
+      0.675
+    ],
+    "centre": [
+      0,
+      0.057,
+      -0.032
+    ],
+    "clips": [
+      "flap"
+    ]
+  },
+  {
+    "id": "crown",
+    "triangles": 2416,
+    "size": [
+      1,
+      0.555,
+      0.968
+    ],
+    "centre": [
+      0,
+      0.278,
+      0
+    ],
+    "clips": []
+  },
+  {
+    "id": "fly",
+    "triangles": 2784,
+    "size": [
+      1,
+      0.534,
+      0.757
+    ],
+    "centre": [
+      0,
+      -0.003,
+      0.012
+    ],
+    "clips": [
+      "fly",
+      "idle"
+    ]
+  },
+  {
+    "id": "ladybug",
+    "triangles": 3216,
+    "size": [
+      1,
+      0.578,
+      0.954
+    ],
+    "centre": [
+      0,
+      0.015,
+      0.092
+    ],
+    "clips": [
+      "walk"
+    ]
+  },
+  {
+    "id": "mosquito",
+    "triangles": 3220,
+    "size": [
+      1,
+      0.534,
+      0.92
+    ],
+    "centre": [
+      0,
+      -0.003,
+      0.05
+    ],
+    "clips": [
+      "fly"
+    ]
+  },
+  {
+    "id": "party-hat",
+    "triangles": 2952,
+    "size": [
+      0.745,
+      1,
+      0.745
+    ],
+    "centre": [
+      0,
+      0.473,
+      0
+    ],
+    "clips": []
+  },
+  {
+    "id": "pirate-hat",
+    "triangles": 1920,
+    "size": [
+      1,
+      0.309,
+      0.818
+    ],
+    "centre": [
+      0,
+      0.155,
+      -0.057
+    ],
+    "clips": []
+  },
+  {
+    "id": "spider",
+    "triangles": 2212,
+    "size": [
+      1,
+      0.891,
+      0.828
+    ],
+    "centre": [
+      0,
+      0.199,
+      0
+    ],
+    "clips": [
+      "walk",
+      "idle"
+    ]
+  },
+  {
+    "id": "sunglasses",
+    "triangles": 1284,
+    "size": [
+      1,
+      0.34,
+      0.529
+    ],
+    "centre": [
+      0,
+      0,
+      -0.222
+    ],
+    "clips": []
+  },
+  {
+    "id": "witch-hat",
+    "triangles": 1544,
+    "size": [
+      1,
+      0.696,
+      1
+    ],
+    "centre": [
+      0,
+      0.303,
+      0
+    ],
+    "clips": []
+  }
+]

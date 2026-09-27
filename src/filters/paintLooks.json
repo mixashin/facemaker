@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": "paint-butterfly",
+    "icon": "🎨",
+    "img": "/makeup/butterfly.webp",
+    "chip": "/makeup/butterfly-chip.webp"
+  },
+  {
+    "id": "paint-tiger",
+    "icon": "🎨",
+    "img": "/makeup/tiger.webp",
+    "chip": "/makeup/tiger-chip.webp"
+  }
+]

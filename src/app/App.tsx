@@ -1,7 +1,7 @@
 import { preferFrom, firstStart, fellMark, PREFER_KEY, FELL_KEY } from '../tracking/health';
 import { live } from './report';
 import { useEffect, useRef } from 'preact/hooks';
-import { startCamera, stopCamera, startOnReturn } from '../camera/camera';
+import { startCamera, stopCamera, startOnReturn, retryIn } from '../camera/camera';
 import { FaceTracker, type Face } from '../tracking/faceTracker';
 import { FaceRenderer } from '../render/renderer';
 import { handlesForAll, MAX_HANDLES } from '../filters/presets';
@@ -31,7 +31,7 @@ import { RecordCanvas } from '../capture/recordCanvas';
 import { acquireVoice, currentEngine, type Lease } from '../audio/session';
 import { micState } from '../audio/mic';
 import { isRealClip, type HoldEvent } from './hold';
-import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup, target, photo, still, scene, tryScene, props3d } from './state';
+import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup, target, photo, still, scene, tryScene, props3d, wasLive, controlsUp } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -76,6 +76,9 @@ export function App() {
     // The person mask for a place (made before the camera starts: start() resets it). The segmenter runs only while a place is on and the camera view shows.
     const seg = new SegTracker({ onMask: (m, w, h) => { fm.masks++; fm.mask = [w, h]; r.setMask(m, w, h); }, onError: (m) => console.warn('segmenter', m) });
     const loop = (now: number) => {
+      // The camera starts again (a flip, a return from the background): the video has no picture and no size.
+      // The last picture stays on the stage. Seen: the stage took the default size and showed it stretched.
+      if (!video.videoWidth) { raf = requestAnimationFrame(loop); return; }
       if (screen.value === 'camera') t.push(video, now);
       const aspect = video.videoWidth / video.videoHeight;
       const level = presets.value.includes('shout') ? currentEngine()?.level() ?? 0 : 0; // mic volume drives the shout preset
@@ -101,8 +104,9 @@ export function App() {
       recCanvas.current?.draw(canvas); // while recording: copy the visible crop for the recorder
       raf = requestAnimationFrame(loop);
     };
-    let started = false;
-    const start = () => {
+    let started = false, run = 0;
+    const start = (tries = 0) => {
+      const mine = ++run;
       camState.value = 'starting';
       faces = []; // no effect of the old picture stays while the camera restarts
       seg.stop(); r.rest(); // the mask of the old picture too. The loop starts the segmenter again
@@ -110,10 +114,15 @@ export function App() {
         .then((s) => {
           if (!s) return; // the page is in the background, or a newer start came: that start goes on
           camState.value = 'live';
+          wasLive.value = true;
           r.setMirror(facing.value === 'user');
           if (!started) { t.start(); started = true; raf = requestAnimationFrame(loop); }
         })
-        .catch((e) => { camState.value = camStateFromError((e as DOMException)?.name ?? ''); });
+        .catch((e) => {
+          const state = camStateFromError((e as DOMException)?.name ?? ''), wait = retryIn(state, tries);
+          if (wait === null) camState.value = state;
+          else setTimeout(() => { if (mine === run) start(tries + 1); }, wait); // not when a newer start came in that time
+        });
     };
     start();
     // subscribe fires once immediately. Skip that first run, restart the camera on real changes.
@@ -179,11 +188,12 @@ export function App() {
   };
 
   const startRec = async () => {
-    if (busy.value || recording.value || camState.value !== 'live' || typeof MediaRecorder === 'undefined') return;
+    // No clip and no mic in the background. The page can hide while the finger is down, and no finger-up comes then.
+    if (document.hidden || busy.value || recording.value || camState.value !== 'live' || typeof MediaRecorder === 'undefined') return;
     const stage = canvasRef.current!;
     const rect = stage.getBoundingClientRect();
     const lease = await acquireVoice(voice.value); // mic at first need. no engine when refused: a silent video
-    if (!holding.current || recording.value) { lease.release(); return; } // released while the permission prompt was open
+    if (document.hidden || !holding.current || recording.value) { lease.release(); return; } // released while the permission prompt was open, or the page went to the background
     const rc = new RecordCanvas(stage, { width: rect.width, height: rect.height });
     rc.draw(stage);
     recorder.current ??= new Recorder(MediaRecorder as unknown as RecCtor, (t) => MediaRecorder.isTypeSupported(t));
@@ -268,20 +278,21 @@ export function App() {
     if (pointers.size < 2) pinch0 = 0;
   };
 
+  const up = controlsUp(camState.value, wasLive.value);
   return (
     <main class="app">
       <video ref={videoRef} class="hidden-video" />
       <canvas ref={canvasRef} class="stage" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
       {flash.value && <div class="flash" />}
       {flyShot.value && <img class="fly" src={flyShot.value} alt="" />}
-      {camState.value === 'live' && (
+      {up && (
         <>
           {!recording.value && <TopBar />}
           {screen.value === 'camera' && !recording.value && <Dock />}
           <CaptureButton onShutter={onShutter} onFlip={() => (facing.value = facing.value === 'user' ? 'environment' : 'user')} onGallery={() => { dockOpen.value = false; refreshGallery().catch(() => {}); screen.value = 'gallery'; }} />
         </>
       )}
-      {shouldShowTutorial(tutorialSeen.value, camState.value) && <Tutorial />}
+      {shouldShowTutorial(tutorialSeen.value, up ? 'live' : camState.value) && <Tutorial />}
       {showSettings.value && <Settings />}
       {showAbout.value && <About />}
       {screen.value === 'gallery' && <Gallery />}

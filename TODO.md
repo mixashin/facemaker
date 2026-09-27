@@ -512,17 +512,17 @@ Minor, fixed: `usable` asks for 478 points and refuses a face wider than four pi
 
 Minor, open:
 
-- [ ] A worker that hangs (no answer, no error) gives one error and no new start: after the second frame with no answer for 5 s, treat the worker as failed. Change the test "a frame with no answer does not block the tracker for ever" with it. Not seen on a device.
-- [ ] When a face before the last one is left out (`usable`), the next face moves into its place and takes its filter: reset the filter when the source of a place changes. MediaPipe packs its list the same way when a face leaves.
-- [ ] A new start of the tracker during the search in a device photo answers "no face" (`FaceOnPanel.tsx`): try one more time when the tracker is not ready.
-- [ ] The field `matrix` of a face is always zero now and still goes through the whole chain (`types.ts`, `faceTracker.ts`, `face.worker.ts`): remove it.
-- [ ] `headPose`: the chin is out of the width and still in the turn of the head. A mouth that opens wide tilts the head frame by about 4 degrees (made face). Take `up` from the forehead and the base of the nose, and check the fit of the witch again after that.
+- [x] A worker that hangs (no answer, no error) gives one error and no new start: after the second frame with no answer for 5 s, treat the worker as failed. Change the test "a frame with no answer does not block the tracker for ever" with it. Not seen on a device. Done on `review-minors`: the second frame with no answer for 5 s gives a new worker, as a worker that died.
+- [x] When a face before the last one is left out (`usable`), the next face moves into its place and takes its filter: reset the filter when the source of a place changes. MediaPipe packs its list the same way when a face leaves. Done on `review-minors`: the filter of a place starts fresh when another face of the tracker comes to it.
+- [x] A new start of the tracker during the search in a device photo answers "no face" (`FaceOnPanel.tsx`): try one more time when the tracker is not ready. Done on `review-minors`, in the tracker: a still picture waits up to 8 s for a tracker that starts.
+- [x] The field `matrix` of a face is always zero now and still goes through the whole chain (`types.ts`, `faceTracker.ts`, `face.worker.ts`): remove it. Done on `review-minors`: the field is gone.
+- [x] `headPose`: the chin is out of the width and still in the turn of the head. A mouth that opens wide tilts the head frame by about 4 degrees (made face). Take `up` from the forehead and the base of the nose, and check the fit of the witch again after that. Done on `review-minors`: the turn takes the line from the base of the nose to the forehead, with a fixed correction of 9.3 degrees. The fit of the witch on the real face is the same (58 dB against the picture before).
 - [ ] `headPose`: the width holds in every pose only when the depth of the tracker has the scale of x. With a depth of 0.7 the width changes by 7 % at most in a nod. Measure on the phone with a nod.
 - [ ] The neck shape turns with the head, the real neck does not: with a tilt of the head the curls beside the shape lie over the throat. No simple cure.
-- [ ] `likeTheCamera`: the list "one time per material" lives for one call. A second call on the same model would give the factor two times (today: one call per load). Two colours of the witch pass 1.0 after the factor and clip by 2.5 % on a surface that faces the sun. No test covers the `/costumes/` branch of the layer.
-- [ ] Headless check "above the face" of the witch compares with a picture that holds the crown and the bee: take the picture before with the bee only.
-- [ ] The phone tool: a process that is killed leaves its port forward in adb. Remove old forwards of the tool at its start (not the forwards of other tools).
-- [ ] The update button can clear the GPU mark too, so a release that repairs the GPU path reaches a marked device at once (now: after 7 days at most).
+- [x] `likeTheCamera`: the list "one time per material" lives for one call. A second call on the same model would give the factor two times (today: one call per load). Two colours of the witch pass 1.0 after the factor and clip by 2.5 % on a surface that faces the sun. No test covers the `/costumes/` branch of the layer. Done on `editor-costume-parts`: a material gets the factor one time, and a test covers the costume files of the layer. Open: two colours of the witch clip by 2.5 %.
+- [x] Headless check "above the face" of the witch compares with a picture that holds the crown and the bee: take the picture before with the bee only. Done on `review-minors`: the check compares with a picture that has no hat.
+- [x] The phone tool: a process that is killed leaves its port forward in adb. Remove old forwards of the tool at its start (not the forwards of other tools). Done on `review-minors`: the tool keeps a record of its ports and removes the forwards of an earlier run. Not run with a phone yet.
+- [x] The update button can clear the GPU mark too, so a release that repairs the GPU path reaches a marked device at once (now: after 7 days at most). Done on `review-minors`.
 
 ### Second review, of the gear fix and of the fixes above (2026-09-27): live with #31
 
@@ -539,7 +539,7 @@ One fresh reviewer: no important finding in the two commits, ready to merge. One
 Open:
 
 - [ ] `video.full` keeps a band of 96 px at the bottom for the row of buttons: check the video controls in the viewer on a low screen on a device.
-- [ ] The phone tool compares the host, not the scheme (`http:`, `content:` with the host of the app pass). No real page of another owner with that host is known.
+- [x] The phone tool compares the host, not the scheme (`http:`, `content:` with the host of the app pass). No real page of another owner with that host is known. Done on `review-minors`: https, or http on this computer only. Not run with a phone yet.
 - [ ] The phone tool: Ctrl+Break and a closed console window are handled in the code and not tried by hand on Windows.
 
 ### The gear took no tap on a high screen on its side (operator, 2026-09-27): live with #29
@@ -589,6 +589,14 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [ ] Seen by the reviewer, older than this work: on a phone upright a new sticker lands under the open palette, and the chips of the palette are 58 px wide there, not 64 px.
 - [ ] A picture buffer of 2048 px on a phone with little memory: not tried on a device.
 - Install size: precache 202 entries, 8.3 MB.
+
+### The minor findings of the reviews (2026-09-27): on branch `review-minors`
+
+- [x] Ten findings of the two reviews after the release are fixed, with tests first. The list is in the two review sections above (each line names its cure).
+- [x] The head pose: measured on the real face with true proportions (`FACE_FIT=crop`). The default test picture is stretched, and the lean of the face lines is wrong there: a check of a fit needs the true proportions.
+- [ ] Open, needs a device: the width of the head in a nod (`headPose`), the video controls of the viewer on a low screen (`video.full`), Ctrl+Break and a closed console window with the phone tool.
+- [ ] Open, no simple cure: the neck shape turns with the head.
+- [ ] Not run with a phone: the two changes of the phone tool (`scripts/phone-inspect.mjs`). Their logic has unit tests (`ownAddress`, `staleForwards`).
 
 ### Known defects, not fixed yet
 

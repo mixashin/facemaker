@@ -19,6 +19,7 @@ const assets = [
   { name: 'Fluent Emoji graphics', version: FLUENT_COMMIT.slice(0, 7), license: 'MIT', url: FLUENT_REPO },
   { name: 'MediaPipe Face Landmarker model', version: 'float16/1', license: 'Apache-2.0', url: 'https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker' },
   { name: 'MediaPipe canonical face model', version: MESH_COMMIT.slice(0, 7), license: 'Apache-2.0', url: MESH_REPO },
+  { name: 'Facemaker art by Astra', version: '2026-09', license: 'CC0-1.0', url: 'https://github.com/mixashin/facemaker/blob/main/LICENSE-ASSETS.md' },
   { name: 'Workbox', version: JSON.parse(readFileSync('node_modules/workbox-build/package.json', 'utf8')).version, license: 'MIT', url: 'https://github.com/GoogleChrome/workbox' },
 ];
 

@@ -23,7 +23,7 @@ function setup() {
   const run = (scene: Scene | null, mirror = false, t = 0) => layer.update(scene, mirror, t, [640, 480], [640, 480]);
   return { layer, mat, u, pending, videos, arrive, run };
 }
-const mask = (v: number, w = 4, h = 3) => new Uint8Array(w * h).fill(v);
+const mask = (v: number, w = 4, h = 3) => new Uint8Array(w * h).fill(v); // 4 x 3, as the canvas of the tests (640 x 480)
 
 describe('BackdropLayer', () => {
   it('no scene, no mask: the camera picture goes through', () => {
@@ -68,6 +68,26 @@ describe('BackdropLayer', () => {
     expect((turned.image.data as Uint8Array)[0]).toBe(90);
   });
 
+  it('forgets the mask when the page rests: the child comes back in another pose', () => {
+    const s = setup();
+    s.run(moon); s.arrive(moon.plate); s.layer.setMask(mask(255), 4, 3);
+    expect(s.run(moon)).toBe(true);
+    s.layer.rest();
+    expect(s.run(moon)).toBe(false);
+    expect(s.u.uOn.value).toBe(0);
+    s.layer.setMask(mask(255), 4, 3);
+    expect(s.run(moon)).toBe(true);
+  });
+
+  it('does not stretch a mask of the old shape over a turned picture', () => {
+    const s = setup();
+    s.run(moon); s.arrive(moon.plate); s.layer.setMask(mask(255, 256, 192), 256, 192);
+    expect(s.layer.update(moon, false, 0, [640, 480], [640, 480])).toBe(true);
+    expect(s.layer.update(moon, false, 0, [480, 640], [480, 640])).toBe(false); // the phone was turned, the mask is from before
+    s.layer.setMask(mask(255, 192, 256), 192, 256);
+    expect(s.layer.update(moon, false, 0, [480, 640], [480, 640])).toBe(true);
+  });
+
   it('uses the layers that the scene has', () => {
     const s = setup();
     s.layer.setMask(mask(255), 4, 3);
@@ -99,6 +119,8 @@ describe('BackdropLayer', () => {
     s.run(film); s.arrive(film.plate);
     expect(s.run(film)).toBe(true); // the plate shows until the video is ready
     expect(s.videos).toHaveLength(1);
+    expect(s.videos[0].playing).toBe(true); // play starts the load: a phone on mobile data loads nothing before that
+    expect((s.u.uPlate.value as THREE.Texture).image).toMatchObject({ width: 1536 });
     s.videos[0].ready();
     s.run(film);
     expect(s.videos[0].playing).toBe(true);

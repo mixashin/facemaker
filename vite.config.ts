@@ -33,7 +33,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2}'],
+        // The segmenter model is in the precache: a place must work offline at its first use (the face model loads at every start)
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2}', 'models/selfie_segmenter-f16.tflite'],
         navigateFallback: '/index.html',
         runtimeCaching: [
           {

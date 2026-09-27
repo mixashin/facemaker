@@ -116,9 +116,9 @@ export class FaceRenderer {
     this.makeup.update(this.look, this.faces, this.canvas.width, this.canvas.height);
     const el = this.canvas.getBoundingClientRect();
     this.textLayer.update(this.textState, this.mat.uniforms.uAspect.value as number, el.width > 0 ? el.width / el.height : 16 / 9);
+    this.sceneOn = this.backdrop.update(this.place, this.mirror, this.time, [this.canvas.width, this.canvas.height], [el.width, el.height]);
     this.renderer.setRenderTarget(this.target);
     this.renderer.render(this.pre, this.camera);
-    this.sceneOn = this.backdrop.update(this.place, this.mirror, this.time, [this.canvas.width, this.canvas.height], [el.width, el.height]);
     this.quad.visible = !this.faceOn.update(this.view, [this.canvas.width, this.canvas.height], [el.width, el.height]);
     this.renderer.setRenderTarget(null);
     this.renderer.render(this.scene, this.camera);

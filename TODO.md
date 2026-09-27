@@ -274,10 +274,33 @@ Built and checked headless on branch `m4c-backgrounds`: segmenter worker, mask s
 
 - [ ] Scenes: wait for request R2. Then `scripts/import-art.mjs` job `backgrounds`, fill `SCENES`, tune `drift` and `sway`, precache plates and layers, runtime cache for loop videos.
 - [ ] Floating bits (`bits/<name>.png` of the brief): not built. Build when a scene delivers them.
-- [ ] One fresh reviewer for the branch, then the pull request against `m4b-face-on`.
+- [x] One fresh reviewer for the branch (2026-09-27), findings below. Pull request #19 against `m4b-face-on`.
 
 Phone checks owed by the operator, when scenes are in:
 - [ ] Edge of the person: hair, fingers, a second person.
 - [ ] Frame rate with a scene, and with a scene plus filters, makeup and stickers.
 - [ ] A recording with a scene. Heat and battery after 5 minutes with a scene on.
 - [ ] Turn the phone with a scene on. Flip the camera with a scene on.
+
+## Deferred from the M4c review (2026-09-27)
+
+Fixed in the branch: an old mask after a return from the background, a camera flip or a turn of the phone; the model in the precache; the fence test compares the two workers word for word; smoke probes that catch a mask upside down; a place and a face-on picture at the same time (the last pick wins); a loop video that waits for `play()` to load; backdrop uniforms one frame late; mask values outside 0 to 1; a worker that dies without a message; a late bitmap of a stopped worker; a start in the background; an error on every frame (the tracker gives up after 30).
+
+For the phone check:
+- [ ] Smoothing: a fixed share gives the slow phone the longest lag. If the mask trails a fast child, make it time-based: `keep = exp(-dt / 40 ms)`.
+- [ ] Input of 256 x 256 in place of 144 x 256 for a phone held upright: a finer mask across the width at the same model cost. Compare.
+- [ ] `resizeQuality: 'low'` for the small copy of the frame: try `'medium'` if hair edges are noisy.
+- [ ] Time to the first scene after each return (gallery, face-on, background): the worker starts again each time.
+- [ ] Loop video with Wi-Fi off (mobile data): it must start.
+
+For the art import (request R2):
+- [ ] Far and near layers need transparent side margins wider than their drift and sway, or mirrored repeat on these textures.
+- [ ] Colour fringe at the edge of far and near layers (straight alpha, linear filter): check on the first art.
+- [ ] All layers of one scene need the aspect of the plate.
+- [ ] Loop videos: the browser asks with a Range header and gets 206, which the runtime cache does not store. Precache them, or store the full file and add the Workbox range plugin.
+- [ ] Scene textures stay on the GPU once used (9 MB per layer of 1536 px). Release the ones that are off.
+- [ ] A change from one scene to the next shows the room for some frames. Keep the old scene until the new plate is loaded.
+
+Known limits:
+- Stickers and makeup draw over the near layer of a scene (a hat is in front of the seaweed that is in front of the face).
+- The scene bends with the face near the head under a filter, as the room does today. A straight horizon shows it.

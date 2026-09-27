@@ -1,4 +1,4 @@
-import { dockOpen, dockTab, presets, stickers, sliders, makeup, scene, type DockTab } from './state';
+import { dockOpen, dockTab, presets, stickers, sliders, makeup, scene, target, type DockTab } from './state';
 import { DEFAULT_SLIDERS } from '../filters/sliders';
 import { PRESETS, togglePreset, type PresetId } from '../filters/presets';
 import { STICKER_PACKS, toggleSticker } from '../filters/stickers';
@@ -47,7 +47,7 @@ export function Dock() {
         {tab === 'sticker' && <Strip items={STICKER_PACKS} value={stickers.value} onPick={(id) => (stickers.value = toggleSticker(stickers.value, id))} label={t('tabs.sticker')} />}
         {tab === 'makeup' && <Strip items={MAKEUP} value={makeup.value} onPick={(id) => (makeup.value = pickLook(makeup.value, id as LookId))} label={t('tabs.makeup')} />}
         {tab === 'faceon' && <FaceOnPanel />}
-        {tab === 'scene' && <Strip items={BACKDROPS} value={scene.value} onPick={(id) => (scene.value = pickScene(scene.value, id))} label={t('tabs.scene')} />}
+        {tab === 'scene' && <Strip items={BACKDROPS} value={scene.value} onPick={(id) => { scene.value = pickScene(scene.value, id); if (scene.value !== 'none') target.value = 'none'; }} label={t('tabs.scene')} />}
         {tab === 'text' && <TextEditor />}
         {tab === 'voice' && <VoicePanel />}
         {tab === 'lab' && <LabRows />}

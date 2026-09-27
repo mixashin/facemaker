@@ -6,7 +6,10 @@ export function inputSize(w: number, h: number): [number, number] {
   return [Math.round(w * k), Math.round(h * k)];
 }
 
-// Hair and fingers flicker from frame to frame. A share of the mask before stays: less flicker, a little lag.
+const byte = (v: number) => (v <= 0 ? 0 : v >= 1 ? 255 : Math.round(v * 255)); // the model can leave 0 to 1 by a little
+
+// The mask of the model (1 is person) as bytes, smoothed over time. Hair and fingers flicker from frame to
+// frame. A share of the mask before stays: less flicker, a little lag.
 export class MaskSmoother {
   private last: Uint8Array | null = null;
   private w = 0;
@@ -14,13 +17,11 @@ export class MaskSmoother {
 
   constructor(private keep = 0.4) {}
 
-  push(mask: Uint8Array, w: number, h: number): Uint8Array {
-    if (!this.last || this.w !== w || this.h !== h || this.last.length !== mask.length) {
-      this.last = mask.slice(); this.w = w; this.h = h;
-      return this.last;
-    }
-    const out = this.last, k = this.keep;
-    for (let i = 0; i < out.length; i++) out[i] = Math.round(out[i] * k + mask[i] * (1 - k));
+  push(mask: Float32Array, w: number, h: number): Uint8Array {
+    const first = !this.last || this.w !== w || this.h !== h || this.last.length !== mask.length;
+    if (first) { this.last = new Uint8Array(mask.length); this.w = w; this.h = h; }
+    const out = this.last!, k = first ? 0 : this.keep;
+    for (let i = 0; i < out.length; i++) out[i] = Math.round(out[i] * k + byte(mask[i]) * (1 - k));
     return out;
   }
 

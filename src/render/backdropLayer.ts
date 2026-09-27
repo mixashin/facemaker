@@ -27,6 +27,7 @@ export class BackdropLayer {
   private mask: THREE.DataTexture | null = null;
   private fresh = false; // a mask arrived since the scene went on
   private playing: HTMLVideoElement | null = null;
+  private again = 0; // when to try a video again that did not start
 
   constructor(private mat: THREE.ShaderMaterial, load?: Load, private film: Film = makeVideo) { this.bank = new TextureBank(load); }
 
@@ -47,11 +48,12 @@ export class BackdropLayer {
     return f;
   }
 
-  private play(el: HTMLVideoElement | null): void {
-    if (this.playing === el) return;
+  private play(el: HTMLVideoElement | null, tMs = 0): void {
+    if (this.playing === el || (el && tMs < this.again)) return;
     this.playing?.pause();
     this.playing = el;
-    el?.play().catch(() => {}); // a muted video may play without a tap. If not, the plate stays
+    // A muted video may play without a tap. If it does not, the plate stays, and the next try comes a second later.
+    el?.play().catch(() => { if (this.playing === el) { this.playing = null; this.again = tMs + 1000; } });
   }
 
   setMask(mask: Uint8Array, width: number, height: number): void {
@@ -71,9 +73,11 @@ export class BackdropLayer {
     const u = this.mat.uniforms;
     const plate = scene ? this.bank.get(scene.plate) : null;
     const film = scene?.video ? this.video(scene.video) : null;
-    const on = !!scene && !!plate && this.fresh;
+    // A mask of another shape is from before a turn of the phone: it waits for the next one
+    const fits = !!this.mask && Math.abs(this.mask.image.width / this.mask.image.height - canvas[0] / canvas[1]) < 0.05;
+    const on = !!scene && !!plate && this.fresh && fits;
     u.uOn.value = on ? 1 : 0;
-    this.play(on && film?.tex ? film.el : null);
+    this.play(on && film ? film.el : null, tMs); // play starts the load: a phone on mobile data loads nothing before that
     if (!scene) this.fresh = false; // the next scene waits for a mask of its own time
     if (!scene || !plate || !on) return false;
     const far = scene.far ? this.bank.get(scene.far) : null, near = scene.near ? this.bank.get(scene.near) : null;
@@ -89,8 +93,9 @@ export class BackdropLayer {
     return true;
   }
 
-  // The page went to the background: no video runs there. The next update starts it again.
-  rest(): void { this.play(null); }
+  // The page went to the background, or the camera starts again: no video runs, and the mask is old.
+  // The next update waits for a new mask and starts the video again.
+  rest(): void { this.play(null); this.fresh = false; }
 
   dispose(): void {
     this.play(null);

@@ -4,7 +4,7 @@
 type SegIn = import('./types').SegIn;
 type SegOut = import('./types').SegOut;
 
-// Egress fence for this worker, the same as in face.worker.ts (a test compares the two). The document's
+// Egress fence for this worker, word for word the one of face.worker.ts (a test compares the two). The document's
 // meta CSP does not apply to a same-origin worker script, and MediaPipe posts usage telemetry from here.
 {
   const origin = self.location.origin;
@@ -50,9 +50,7 @@ function frame(bitmap: ImageBitmap, ts: number) {
     seg.segmentForVideo(bitmap, ts, (r) => {
       const m = r.confidenceMasks?.[0]; // one mask: 1 is person, 0 is background
       if (!m) return;
-      const f = m.getAsFloat32Array(); // lives only inside this callback
-      const mask = new Uint8Array(f.length);
-      for (let i = 0; i < f.length; i++) mask[i] = f[i] * 255;
+      const mask = m.getAsFloat32Array().slice(); // the mask lives only inside this callback: take a copy
       post({ type: 'mask', mask, width: m.width, height: m.height, ts }, [mask.buffer]);
       sent = true;
     });

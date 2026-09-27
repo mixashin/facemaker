@@ -25,5 +25,5 @@ export type SegIn =
 
 export type SegOut =
   | { type: 'ready' }
-  | { type: 'mask'; mask: Uint8Array; width: number; height: number; ts: number } // one byte per pixel: 255 is person
+  | { type: 'mask'; mask: Float32Array; width: number; height: number; ts: number } // one value per pixel: 1 is person. Row 0 is the top
   | { type: 'error'; message: string };

@@ -440,7 +440,7 @@ Branch `release-witch` holds all four pull requests, merged and tested together:
 | #25 | `props3d` | 3D props, three fingers turn a sticker in depth |
 | #26 | `costume-witch` | The witch costume, the turn of the head from the landmarks |
 
-- [ ] The operator merges the release pull request (its number is in the last message of the session and on GitHub, head `release-witch`, base main). In the terminal of Claude Code: `! gh pr merge <number> --merge`. GitHub then shows #23 to #26 as merged too, because main holds their commits.
+- [ ] The operator merges the release pull request #27 (head `release-witch`, base main). In the terminal of Claude Code: `! gh pr merge 27 --merge`. GitHub then shows #23 to #26 as merged too, because main holds their commits.
 - [ ] After the merge: watch the deploy (`gh run list --branch main --limit 1`), then run the headless check on the live site: `FACE=test/face.jpg SMOKE_WAIT_MS=25000 SMOKE_GALLERY=1 SMOKE_RECORD=1 node scripts/smoke.mjs https://face.mxa.sh`. Expect every verdict OK and zero third-party requests.
 - [ ] Devices get a release at their second start after it. From this release on the settings show the version and have the update button.
 - [ ] Delete the merged branches after the release (local and on GitHub): `tracker-health`, `art-r1-r3`, `props3d`, `costume-witch`, `release-witch`.

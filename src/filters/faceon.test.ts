@@ -195,7 +195,7 @@ describe('cover offset', () => {
 
 describe('targets', () => {
   it('have a picture and a chip on disk, and a face place inside the picture', () => {
-    expect(TARGETS.map((t) => t.id)).toEqual(['orange', 'apple', 'cat', 'dog', 'lion', 'teddy-bear', 'potato', 'egg', 'pumpkin', 'toast', 'robot', 'moon', 'cloud']);
+    expect(TARGETS.map((t) => t.id)).toEqual(['orange', 'apple', 'cat', 'dog', 'lion', 'teddy-bear', 'pig', 'potato', 'egg', 'pumpkin', 'toast', 'robot', 'moon', 'cloud']);
     expect(new Set(TARGETS.map((t) => t.icon)).size).toBe(TARGETS.length);
     for (const t of TARGETS) {
       expect(existsSync('public' + t.img), t.img).toBe(true);
@@ -236,5 +236,47 @@ describe('device photo', () => {
     expect(fitSize(4000, 3000)).toEqual([1536, 1152]);
     expect(fitSize(3000, 4000)).toEqual([1152, 1536]);
     expect(fitSize(800, 600)).toEqual([800, 600]);
+  });
+});
+
+// The pig has a snout where a face has its nose and the top of its mouth. Eyes and mouth have own places, and
+// they must lie on plain skin. The areas are measured on the picture of 2048 px (delivery note of the art):
+// left, top, right, bottom.
+describe('the pig', () => {
+  const EYES = [674, 705, 1374, 970], MOUTH = [774, 1180, 1274, 1430], SNOUT = [880, 975, 1165, 1160], HEAD = [481, 552, 1570, 1570];
+  const pig = TARGETS.find((t) => t.id === 'pig')!;
+  // a window in pixels of the picture
+  const px = ([cx, cy, rx, ry]: number[]) => [pig.nose[0] + (cx - rx) * pig.width, pig.nose[1] + (cy - ry) * pig.width, pig.nose[0] + (cx + rx) * pig.width, pig.nose[1] + (cy + ry) * pig.width].map((v) => v * 2048);
+  const inside = (b: number[], a: number[]) => b[0] >= a[0] && b[1] >= a[1] && b[2] <= a[2] && b[3] <= a[3];
+  const apart = (b: number[], a: number[]) => b[2] <= a[0] || b[0] >= a[2] || b[3] <= a[1] || b[1] >= a[3];
+  const turned = (by: number) => { const lm = face(); lm[4 * 3] += by * 0.3 * 0.984; return lm; };
+
+  it('has own places for eyes and mouth', () => {
+    expect(pig.eyes).toBeDefined();
+    expect(pig.mouth).toBeDefined();
+  });
+  it('the face place is on the snout', () => {
+    const [x, y] = [pig.nose[0] * 2048, pig.nose[1] * 2048];
+    expect(inside([x, y, x, y], SNOUT)).toBe(true);
+  });
+  it('eyes lie on the plain skin above the snout and the mouth on the plain skin below it, also with the head turned', () => {
+    for (const by of [0, 0.6, -0.6]) {
+      const [right, left, mouth] = windows(turned(by), [], A, pig).map(px);
+      expect(inside(right, EYES), 'right eye, turn ' + by).toBe(true);
+      expect(inside(left, EYES), 'left eye, turn ' + by).toBe(true);
+      expect(inside(mouth, MOUTH), 'mouth, turn ' + by).toBe(true);
+    }
+  });
+  it('the eyes do not touch each other', () => {
+    const [right, left] = windows(face(), [], A, pig).map(px);
+    expect(left[0] - right[2]).toBeGreaterThan(20);
+  });
+  it('a mouth that opens wide stays clear of the snout and on the head', () => {
+    const open = face();
+    for (const i of [17, 84, 181, 314, 405, 14, 87, 317, 91, 146, 321, 375]) open[i * 3 + 1] += 0.3 * 0.25 * A; // lower lip down by a quarter of the face width
+    const mouth = px(windows(open, [], A, pig)[2]);
+    expect(apart(mouth, SNOUT)).toBe(true);
+    expect(mouth[0]).toBeGreaterThan(HEAD[0]); expect(mouth[2]).toBeLessThan(HEAD[2]);
+    expect(mouth[3]).toBeLessThan(HEAD[3]); // over the chin line is accepted, off the pig is not
   });
 });

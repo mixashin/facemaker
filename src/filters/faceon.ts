@@ -96,7 +96,7 @@ export function coverOffset(cw: number, ch: number, ew: number, eh: number, pw: 
   return [Math.min(freeX, Math.max(-freeX, x)) + 0, Math.min(freeY, Math.max(-freeY, y)) + 0];
 }
 
-const art = (id: string, icon: string, nose: P, width: number): Target => ({ id, icon, img: `/targets/${id}.webp`, chip: `/targets/${id}-chip.webp`, nose, width, angle: 0 });
+const art = (id: string, icon: string, nose: P, width: number, place: { eyes?: P; mouth?: number } = {}): Target => ({ id, icon, img: `/targets/${id}.webp`, chip: `/targets/${id}-chip.webp`, nose, width, angle: 0, ...place });
 // Art by Astra (CC0). The place of the face is set by hand: the face model finds human faces only.
 // Animals: the nose of the child lands on the nose of the animal, and the width leaves the mouth above the chin.
 // Tune with true face proportions (FACE_FIT=crop in scripts/smoke.mjs), not with the stretched test picture.
@@ -107,6 +107,10 @@ export const TARGETS: Target[] = [
   art('dog', '🐶', [0.5, 0.5], 0.33),
   art('lion', '🦁', [0.497, 0.523], 0.31),
   art('teddy-bear', '🧸', [0.5, 0.515], 0.31),
+  // The snout is as high as the nose and the upper lip of a face together: the eyes go higher and the mouth
+  // lower than on a face, onto the plain skin. The mouth is low enough that it stays clear of the snout when
+  // it opens wide (the window grows up and down from its place).
+  art('pig', '🐷', [0.497, 0.5225], 0.36, { eyes: [0.25, 0.315], mouth: 0.36 }),
   art('potato', '🥔', [0.5, 0.51], 0.4),
   art('egg', '🥚', [0.495, 0.54], 0.34),
   art('pumpkin', '🎃', [0.5, 0.55], 0.4),

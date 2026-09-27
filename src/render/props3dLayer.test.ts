@@ -11,7 +11,7 @@ function face(cx = 0.5): Face {
   // depth as measured on a real face, in face widths: skin of the forehead +0.08, sides of the face -0.5
   set(234, -0.5, 0, 0.5); set(454, 0.5, 0, 0.5); set(10, 0, -0.56, -0.08); set(152, 0, 0.7, 0.03); set(4, 0, 0.09, -0.28);
   set(168, 0, -0.2, -0.1); set(151, 0, -0.45, -0.1);
-  return { landmarks: lm, matrix: new Float32Array(new THREE.Matrix4().toArray()), blend: new Float32Array(52) };
+  return { landmarks: lm, matrix: new Float32Array(16), blend: new Float32Array(52) }; // no matrix: the tracker gives none
 }
 // As in a real file: the clip moves a part of the model by its name (a wing), not the model as a whole.
 const model = (): Model => {

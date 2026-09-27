@@ -5,15 +5,18 @@ import { PROPS3D, PROPS3D_CHIPS, MAX_PROPS3D, toggleProp, toStage, headPose, pla
 import type { Face } from '../tracking/faceTracker';
 
 const A = 4 / 3;
-const IDENTITY = new THREE.Matrix4().toArray();
-// A face that looks at the camera: cheeks 0.3 of the picture width apart, around (cx, cy).
-function face(cx = 0.5, cy = 0.5, w = 0.3, matrix: number[] = IDENTITY): Face {
-  const lm = new Float32Array(478 * 3);
-  const set = (i: number, x: number, y: number, z = 0) => { lm[i * 3] = cx + x * w; lm[i * 3 + 1] = cy + y * w * A; lm[i * 3 + 2] = z * w; };
-  // depth as measured on a real face, in face widths: skin of the forehead +0.08, sides of the face -0.5
-  set(234, -0.5, 0, 0.5); set(454, 0.5, 0, 0.5); set(10, 0, -0.56, -0.08); set(152, 0, 0.7, 0.03); set(4, 0, 0.09, -0.28);
-  set(168, 0, -0.2, -0.1); set(151, 0, -0.45, -0.1);
-  return { landmarks: lm, matrix: new Float32Array(matrix), blend: new Float32Array(52) };
+// Points of a face in the frame of the head: x right, y up, z front, one unit is the distance between the sides of
+// the face. Depth as measured on a real face: the skin of the forehead is 0.58 in front of the sides.
+const POINTS: [number, number, number, number][] = [[234, -0.5, 0, 0], [454, 0.5, 0, 0], [10, 0, 0.56, 0.58], [152, 0, -0.7, 0.47], [4, 0, -0.09, 0.78], [168, 0, 0.2, 0.6], [151, 0, 0.45, 0.6]];
+// A face around (cx, cy) of the picture, its sides 0.3 of the picture width apart, with a turn of the head.
+function face(cx = 0.5, cy = 0.5, w = 0.3, turn = new THREE.Quaternion()): Face {
+  const lm = new Float32Array(478 * 3), W = w * 2;
+  const middle = new THREE.Vector3(cx * 2 - 1, (1 - cy * 2) / A, -0.5 * W);
+  for (const [i, x, y, z] of POINTS) {
+    const p = new THREE.Vector3(x, y, z).multiplyScalar(W).applyQuaternion(turn).add(middle);
+    lm[i * 3] = (p.x + 1) / 2; lm[i * 3 + 1] = (1 - p.y * A) / 2; lm[i * 3 + 2] = -p.z / 2;
+  }
+  return { landmarks: lm, matrix: new Float32Array(16), blend: new Float32Array(52) }; // no matrix: the tracker gives none
 }
 const only = (placed: Placed[], id: string, f = 0) => placed.find((p) => p.id === id && p.face === f)!;
 const v = (p: Placed) => new THREE.Vector3(...p.pos);
@@ -63,19 +66,30 @@ describe('stage space', () => {
     const mid = toStage(lm, 2, A);
     expect(mid.x).toBeCloseTo(0); expect(mid.y).toBeCloseTo(0); expect(mid.z).toBeCloseTo(0.2); // nearer to the camera
   });
-  it('finds the head: middle between the cheeks, width, and the turn from the pose', () => {
+  it('finds the head: middle between the sides of the face, width, no turn for a face that looks at the camera', () => {
     const h = headPose(face(0.5, 0.5, 0.3), A);
     expect(h.centre.x).toBeCloseTo(0); expect(h.centre.y).toBeCloseTo(0);
     expect(h.centre.z).toBeCloseTo(-0.3); // the middle of the head in depth: where the sides of the face are, half a face width behind the skin
     expect(h.width).toBeCloseTo(0.6 * 0.867 * 1.26); // the face width of faceon.ts: cheek to cheek (0.6 stage units), or 0.867 of the height when that is more. It holds when the head turns.
-    expect(h.quat.angleTo(new THREE.Quaternion())).toBeCloseTo(0);
-    const rolled = new THREE.Matrix4().makeRotationZ(0.3).setPosition(1, 2, -30).scale(new THREE.Vector3(1.1, 1.1, 1.1)).toArray();
-    const q = headPose(face(0.5, 0.5, 0.3, rolled), A).quat;
-    expect(q.angleTo(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0.3))).toBeCloseTo(0, 4);
+    expect(h.quat.angleTo(new THREE.Quaternion())).toBeLessThan(0.1); // a real forehead stands a little before the chin
   });
-  it('a pose of zeros (no pose yet) is no turn', () => {
-    const h = headPose(face(0.5, 0.5, 0.3, new Array(16).fill(0)), A);
-    expect(h.quat.angleTo(new THREE.Quaternion())).toBeCloseTo(0);
+  it('takes the turn of the head from the landmarks: the tracker gives no pose', () => {
+    const still = headPose(face(), A).quat;
+    const axis = (x: number, y: number, z: number, angle: number) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(x, y, z), angle);
+    for (const [name, turn] of [['tilt to the shoulder', axis(0, 0, 1, 0.3)], ['turn to the side', axis(0, 1, 0, 0.5)], ['nod', axis(1, 0, 0, -0.35)], ['all at once', axis(0, 1, 0, 0.4).multiply(axis(1, 0, 0, 0.2)).multiply(axis(0, 0, 1, -0.25))]] as const) {
+      const q = headPose(face(0.4, 0.55, 0.25, turn), A).quat;
+      expect(q.angleTo(turn.clone().multiply(still)), name).toBeLessThan(0.01);
+    }
+  });
+  it('keeps the width when the head turns to the side', () => {
+    const turned = headPose(face(0.5, 0.5, 0.3, new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.6)), A);
+    expect(turned.width / headPose(face(), A).width).toBeGreaterThan(0.95);
+    expect(turned.width / headPose(face(), A).width).toBeLessThan(1.05);
+  });
+  it('a face with all points at one place gives no turn, and no numbers that are no numbers', () => {
+    const h = headPose({ landmarks: new Float32Array(478 * 3).fill(0.5), matrix: new Float32Array(16), blend: new Float32Array(52) }, A);
+    expect(h.quat.toArray()).toEqual([0, 0, 0, 1]);
+    expect([...h.centre.toArray(), h.width].every(Number.isFinite)).toBe(true);
   });
 });
 
@@ -97,10 +111,10 @@ describe('placeProps', () => {
   it('the hat follows the size of the face and the turn of the head', () => {
     const near = only(placeProps(['crown'], [face(0.5, 0.5, 0.4)], A, 0), 'crown'), far = only(placeProps(['crown'], [face(0.5, 0.5, 0.2)], A, 0), 'crown');
     expect(near.scale / far.scale).toBeCloseTo(2);
-    const roll = new THREE.Matrix4().makeRotationZ(0.5).toArray();
+    const roll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0.5);
     const f = face(0.5, 0.5, 0.3, roll);
     const tilted = only(placeProps(['crown'], [f], A, 0), 'crown'), upright = only(placeProps(['crown'], [face()], A, 0), 'crown');
-    expect(new THREE.Quaternion(...tilted.quat).angleTo(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0.5))).toBeCloseTo(0, 4);
+    expect(new THREE.Quaternion(...tilted.quat).angleTo(roll)).toBeLessThan(0.1);
     expect(tilted.pos[0]).toBeLessThan(upright.pos[0]); // the offset above the forehead turns with the head: to the left for a turn to the left
   });
   it('puts the glasses on the bridge of the nose', () => {

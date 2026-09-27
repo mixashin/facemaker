@@ -1,10 +1,9 @@
 // 3D props (operator, 2026-09-27): hats and glasses that sit on the head and turn with it, pests that fly
 // around it. Models by Astra (CC0, brief R5), imported by scripts/import-art.mjs props3d.
 //
-// Place and size come from the landmarks, as for the flat stickers: the prop sits where the face is in the
-// picture. Only the turn of the head comes from the pose matrix of MediaPipe. (Measured: a prop placed by
-// the pose matrix alone misses the face by 9 to 36 px on a 640 px picture, because the matrix fits a
-// generic head.)
+// Place, size and turn come from the landmarks. The tracker gives no pose matrix: the step of MediaPipe that
+// makes it stops the whole tracker on a face with bad numbers (found 2026-09-27 on a phone). Before that, a
+// prop placed by the matrix alone missed the face by 9 to 36 px on a 640 px picture anyway.
 //
 // Stage space: x right, y up, z toward the viewer, no perspective. One unit is half the picture width.
 // Depth (measured on a real face, in face widths): the zero of the landmarks is on the skin of the face,
@@ -29,7 +28,7 @@ type Rule = Worn | Pest;
 type Facts = { id: string; triangles: number; size: number[]; centre: number[]; clips: string[] };
 export type Prop3D = Rule & { id: string; icon: string; file: string; chip: string; clips: string[] };
 
-const FOREHEAD = 10, BRIDGE = 168, BROW = 151, SIDE_R = 234, SIDE_L = 454;
+const FOREHEAD = 10, CHIN = 152, BRIDGE = 168, BROW = 151, SIDE_R = 234, SIDE_L = 454;
 const hat = (scale: number, up: number, back = -0.55): Worn => ({ kind: 'hat', at: [FOREHEAD], offset: [0, up, back], scale });
 const orbit = (radius: number, height: number, period: number, scale: number, clip = 'fly'): Pest => ({ kind: 'pest', path: 'orbit', radius, height, period, scale, clip });
 // Order of the chips: what a child wears first, then what flies and crawls.
@@ -70,13 +69,19 @@ export function toStage(lm: Float32Array, i: number, aspect: number): THREE.Vect
 
 export type Head = { centre: THREE.Vector3; width: number; quat: THREE.Quaternion };
 // The head on the stage. centre: the middle between the sides of the face, in depth too (that is the middle
-// of the head). width: the face width. quat: the turn of the head, from the pose.
+// of the head). width: the face width. quat: the turn of the head. Its axes: x from side to side, y from
+// the chin to the forehead (made square to x), z out of the face.
 export function headPose(face: Face, aspect: number): Head {
   const lm = face.landmarks;
-  const centre = toStage(lm, SIDE_R, aspect).add(toStage(lm, SIDE_L, aspect)).multiplyScalar(0.5);
-  const m = new THREE.Matrix4().fromArray(face.matrix);
+  const right = toStage(lm, SIDE_R, aspect), left = toStage(lm, SIDE_L, aspect);
+  const centre = right.clone().add(left).multiplyScalar(0.5);
+  const x = left.sub(right), up = toStage(lm, FOREHEAD, aspect).sub(toStage(lm, CHIN, aspect));
+  const z = new THREE.Vector3().crossVectors(x, up);
   const quat = new THREE.Quaternion();
-  if (Math.abs(m.determinant()) > 1e-9) quat.setFromRotationMatrix(new THREE.Matrix4().extractRotation(m));
+  if (x.lengthSq() > 1e-12 && z.lengthSq() > 1e-12) { // a face with all points at one place has no turn
+    x.normalize(); z.normalize();
+    quat.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, new THREE.Vector3().crossVectors(z, x), z));
+  }
   return { centre, width: faceFrame(lm, aspect).width * 2, quat };
 }
 

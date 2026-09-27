@@ -121,6 +121,22 @@ if (state.fm?.faces > 0) {
   await click('none');
   const cleared = await pressed();
   console.log('none clears the stickers:', cleared.join('+'), cleared.length === 1 && cleared[0] === 'none' ? 'OK' : 'FAIL');
+  // Stickers are part of the picture: a warp moves and scales them with the face.
+  // Hearts sit on the eyes. With big head and big eyes on, the red area must grow (it stayed the same before).
+  const redPixels = () => page.evaluate(() => {
+    const src = document.querySelector('canvas.stage');
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 190 && d[i + 1] < 90 && d[i + 2] < 110) n++;
+    return n;
+  });
+  await click('hearts'); await click('warp'); await click('none'); await page.waitForTimeout(600);
+  const red0 = await redPixels();
+  await click('bigHead'); await click('bigEyes'); await page.waitForTimeout(600);
+  const red1 = await redPixels();
+  console.log('stickers follow the warp: heart pixels', red0, 'with big head and big eyes', red1, 'ratio', (red1 / Math.max(1, red0)).toFixed(2), red0 > 50 && red1 > red0 * 1.3 ? 'OK' : 'FAIL');
+  await click('none'); await click('sticker'); await click('none');
   await click('warp');
 }
 if (process.env.SMOKE_SHOTS && out) {

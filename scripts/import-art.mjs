@@ -1,7 +1,7 @@
 // Art from Astra (astra/out, not in git) to app files. Runs by hand after a delivery: node scripts/import-art.mjs targets
 // Needs ffmpeg and ffprobe on PATH. The results are committed.
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 
 const probe = (file) => execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,pix_fmt', '-of', 'csv=p=0', file]).toString().trim().split(',');
 const ffmpeg = (...args) => execFileSync('ffmpeg', ['-loglevel', 'error', '-y', ...args]);
@@ -30,6 +30,26 @@ const JOBS = {
       console.log('imported', id);
     }
   },
+};
+
+// Face paint in the flat face layout (brief R4): square, with transparency. The look list of the app is
+// written new from all files in public/makeup, so a look stays when its source is gone from astra/out.
+JOBS.facepaint = function () {
+  const src = 'astra/out/R4-face-paint', dst = 'public/makeup';
+  mkdirSync(dst, { recursive: true });
+  for (const f of pngs(src)) {
+    const [w, h, fmt] = probe(`${src}/${f}`);
+    if (w !== h || Number(w) < 1024) throw new Error(`${f}: ${w}x${h}, expected a square of 1024 px or more`);
+    if (!hasAlpha(fmt)) throw new Error(`${f}: ${fmt} has no transparency. Bare skin must be transparent`);
+    const id = f.replace(/\.png$/, '');
+    ffmpeg('-i', `${src}/${f}`, '-vf', 'scale=1024:1024:flags=lanczos', '-c:v', 'libwebp', '-quality', '90', `${dst}/${id}.webp`);
+    ffmpeg('-i', `${src}/${f}`, '-vf', 'scale=128:128:flags=lanczos', '-c:v', 'libwebp', '-quality', '85', `${dst}/${id}-chip.webp`);
+    console.log('imported', id);
+  }
+  const names = readdirSync(dst).filter((n) => /^[a-z0-9-]+\.webp$/.test(n) && !/-chip\.webp$/.test(n)).map((n) => n.replace(/\.webp$/, '')).sort();
+  const looks = names.map((n) => ({ id: `paint-${n}`, icon: '🎨', img: `/makeup/${n}.webp`, chip: `/makeup/${n}-chip.webp` }));
+  writeFileSync('src/filters/paintLooks.json', JSON.stringify(looks, null, 2) + '\n');
+  console.log('src/filters/paintLooks.json:', looks.length, 'looks');
 };
 
 const job = JOBS[process.argv[2]];

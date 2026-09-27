@@ -214,7 +214,9 @@ Astra is OpenAI Codex with image generation and Blender, run by the operator. As
 - [x] R1 face-on targets (for M4b): the required five arrived 2026-09-27 (orange, apple, cat, dog, lion; 2048 px, opaque, no eyes, no mouth) and passed the check. Imported into `public/targets` with M4b (WebP, 1280 px, about 75 KB each). Extras: open.
 - [ ] R2 background scenes (for M4c): open.
 - [ ] R3 sticker props (33): open.
-- [ ] R4 face paint on the flat face layout (experiment): open. When the first two files arrive: add image looks to the makeup engine (load a PNG into the look canvas, then erase the openings) and check the fit on the face.
+- [x] R4 face paint on the flat face layout: the experiment passed 2026-09-27. Tiger and butterfly arrived, fit the face (front, tilted, under filters), and are in the app as picture looks (branch `m4-face-paint`, PR #20). The brief (version 4) releases the other looks.
+- [ ] R4, the other looks: open. After each delivery: `node scripts/import-art.mjs facepaint`, build, look at the fit.
+- [ ] Phone check of the picture looks: blink, open mouth, head turned to the side. Two tigers are in the list now (the drawn one and the painted one): decide which stays.
 - [ ] R5 3D props, R6 3D avatars: wait for the operator.
 - [ ] After each delivery: check the files (size, transparency, names, no text), import into `public/`, add the row to LICENSE-ASSETS.md and the entry to scripts/attributions.mjs (CC0, released by the operator).
 

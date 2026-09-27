@@ -2,8 +2,11 @@
 // layout (the UV map of the face mesh, src/render/faceMesh.ts). The painter draws them on a square canvas,
 // once per look. The mesh layer (src/render/makeupLayer.ts) stretches that canvas over the live face.
 import { UV } from '../render/faceMesh';
+import painted from './paintLooks.json';
 
-export type LookId = 'none' | 'glam' | 'soft' | 'rainbow' | 'clown' | 'zombie' | 'vampire' | 'tiger' | 'butterfly' | 'hero' | 'cucumber';
+// Built-in looks: none, glam, soft, rainbow, clown, zombie, vampire, tiger, butterfly, hero, cucumber.
+// Looks from a picture: paint-<name> (src/filters/paintLooks.json, written by scripts/import-art.mjs).
+export type LookId = string;
 
 // Landmark rings (MediaPipe face mesh), in drawing order. R is the subject's right: the left of the camera picture.
 export const OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
@@ -28,7 +31,9 @@ export type Layer = Fill | Blob | Stroke | Erase;
 // Lengths in a layer (r, blur, width, dx, dy) are fractions of the layout size.
 // eyes 'covered': the look paints over the eyes on purpose (the mesh keeps its eye triangles).
 // flat 0..1: how much the paint ignores the light of the face. 0 keeps light and shadow, 1 is flat colour.
-export type Look = { id: LookId; icon: string; smooth: number; layers: Layer[]; eyes?: 'covered'; flat?: number };
+// img: face paint as a picture in the flat layout (art by Astra). The shapes of the look are painted over it.
+// chip: small picture for the chip.
+export type Look = { id: LookId; icon: string; smooth: number; layers: Layer[]; eyes?: 'covered'; flat?: number; img?: string; chip?: string };
 
 export function toLayout(p: Pt): [number, number] {
   return typeof p === 'number' ? [UV[p * 2], 1 - UV[p * 2 + 1]] : p;
@@ -109,8 +114,11 @@ function paint(g: G, layers: Layer[], size: number): void {
 
 // Eyes and mouth need no care here: the mesh has holes there (makeupLayer.ts), so paint on those places
 // of the layout is never drawn. The closed mouth is a line of 1.5 px in the layout: an erase could not hit it.
-export function paintLook(g: G, look: Look, size: number): void {
+// picture: the loaded picture of a look with `img`. While it is on its way, the canvas stays empty.
+export function paintLook(g: G, look: Look, size: number, picture?: CanvasImageSource): void {
   g.clearRect(0, 0, size, size);
+  if (look.img && !picture) return;
+  if (picture) g.drawImage(picture, 0, 0, size, size);
   paint(g, look.layers, size);
 }
 
@@ -155,7 +163,7 @@ const slice = (eye: number[]): Layer[] => [
   ...Array.from({ length: 8 }, (_, i): Layer => ({ kind: 'blob', at: eye, r: 0.011, hard: true, color: '#5f9e35', alpha: 1, dx: 0.04 * Math.cos((i * Math.PI) / 4), dy: 0.04 * Math.sin((i * Math.PI) / 4) })),
 ];
 
-export const LOOKS: Look[] = [
+const BUILT_IN: Look[] = [
   { id: 'none', icon: '🙂', smooth: 0, layers: [] },
   { id: 'glam', icon: '💄', smooth: 0.6, layers: [...shadow('#8a4fb0', 0.45), ...liner(), lips('#c4122f', 0.8), ...blush('#ff5a8a', 0.32)] },
   { id: 'soft', icon: '🌸', smooth: 0.7, layers: [...shadow('#c9a0dc', 0.22), lips('#e0607e', 0.5), ...blush('#ff8fa3', 0.28)] },
@@ -210,7 +218,10 @@ export const LOOKS: Look[] = [
   ] },
 ];
 
-export const MAKEUP = LOOKS.map(({ id, icon }) => ({ id, icon }));
+const PAINTED: Look[] = (painted as { id: string; icon: string; img: string; chip: string }[]).map((p) => ({ ...p, smooth: 0, layers: [] }));
+export const LOOKS: Look[] = [...BUILT_IN, ...PAINTED];
+
+export const MAKEUP: { id: LookId; icon: string; img?: string }[] = LOOKS.map(({ id, icon, chip }) => ({ id, icon, img: chip }));
 const BY_ID = new Map(LOOKS.map((l) => [l.id, l]));
 export const lookById = (id: LookId): Look => BY_ID.get(id) ?? LOOKS[0];
 

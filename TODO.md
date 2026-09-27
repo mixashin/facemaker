@@ -419,15 +419,25 @@ Built on branch `tracker-health`:
 
 Open:
 - [x] The 3D props take the turn of the head from the landmarks (done in #26): with the geometry step off there is no pose matrix.
-- [ ] The app keeps the camera while it is in the background (seen on the phone: the hidden installed app had a live track, and a second page got no picture). Stop the camera when the page is hidden, start it again on return.
+- [x] The app keeps the camera while it is in the background (seen on the phone: the hidden installed app had a live track, and a second page got no picture). Stop the camera when the page is hidden, start it again on return. Fixed on branch `camera-background`, see "The camera in the background" below.
 - [ ] Report the GPU fault to MediaPipe? Facts for it are above. Operator's decision.
 - [ ] Known limit of the update button: with the app open in two places (installed app and a Chrome tab) the old service worker can stay, and its cache stays empty until the next release. The app works with a network. Close the other one first.
 - [ ] A reload from the computer (`phone-inspect.mjs reload`) with the phone locked leaves the app on the camera error screen: the camera cannot start on a locked phone. Unlock first.
 - [ ] Icons differ between devices: the rail and the buttons use the emoji font of the device (old art on an old Android). Option: own icon art for the rail and the buttons, as the chips have.
 
-## Handoff 2026-09-27, after the release (next session starts here)
+## Handoff 2026-09-27, late (next session starts here)
 
-### The release: done
+### State
+
+- [x] Live: the release (#27), the gear fix (#29), the pig (#30), the fixes after two reviews (#31). Version on the live site after #31: `2026-09-27 14:59 bf377c3` (a later merge of documents gives a new version with the same code). Full headless check on the live site with gallery and record: 72 verdicts OK, zero third-party requests.
+- [x] Only `main` is left, local and on GitHub, after the merge of this documents update. No worktree, no agent.
+- [x] Art: no request is open. Brief version 14.
+- [ ] Next work, in this order unless the operator says otherwise: the known defects below (the camera in the background is fixed on branch `camera-background`), then the open minor findings of the two reviews, then the plan for M5.
+
+The sections below are the record of the day. Open items have an empty box.
+
+
+### The release of 2026-09-27: done
 
 - [x] The operator merged pull request #27 on 2026-09-27 at 13:21 UTC. It holds #23 (tracker fix, version label, update button, device report), #24 (art), #25 (3D props), #26 (the witch). Version on the live site: `2026-09-27 13:21 928bcd2`.
 - [x] Deploy: success. Headless check on the live site with gallery and record: 66 verdicts OK, zero third-party requests.
@@ -465,7 +475,7 @@ Solved in #23, tested on the phone over USB, the operator saw it work. Live sinc
 ### Art
 
 - [x] Request R7 (the witch) is delivered, accepted and built (#26). Brief version 12 has the result and the answers to Astra's two questions.
-- [x] A pig for the face on a picture (operator, 2026-09-27): built on branch `faceon-pig`. Astra delivered `pig.png` (brief version 13, request R1), accepted with no change. The snout is as high as the nose and the upper lip of a face together, so the pig has own places for eyes and mouth (`eyes`, `mouth` in `TARGETS`, `src/filters/faceon.ts`): eyes above the snout, mouth below it, low enough that a mouth that opens wide stays clear of the snout. A test holds the windows on the plain skin that Astra measured on the picture. Seen in the browser with true face proportions on three screen shapes, plain and with the filters big eyes and big mouth. Brief version 14 has the result and the answer to Astra's question.
+- [x] A pig for the face on a picture (operator, 2026-09-27): live with #30. Astra delivered `pig.png` (brief version 13, request R1), accepted with no change. The snout is as high as the nose and the upper lip of a face together, so the pig has own places for eyes and mouth (`eyes`, `mouth` in `TARGETS`, `src/filters/faceon.ts`): eyes above the snout, mouth below it, low enough that a mouth that opens wide stays clear of the snout. A test holds the windows on the plain skin that Astra measured on the picture. Seen in the browser with true face proportions on three screen shapes, plain and with the filters big eyes and big mouth. Brief version 14 has the result and the answer to Astra's question.
 - [ ] Operator: the pig on a device, with a child that talks and opens the mouth wide.
 - [ ] More costumes: the pattern is section R7 of the brief, the template is `astra/templates/head-standin.obj`, the import job takes one line per costume (`COSTUMES` in `scripts/import-art.mjs`).
 
@@ -477,6 +487,10 @@ Lists are in the sections "3D props", "Costume: the witch", "M4a", "M4b", "M4c" 
 - [ ] 3D hats and bugs: fit and frame rate on the tablet.
 - [ ] Three fingers in the photo editor on a phone.
 - [ ] The update button and the version label in the settings.
+- [ ] The gear on the tablet on its side and on the open fold phone on its side.
+- [ ] The pig with a child that talks and opens the mouth wide.
+- [ ] The viewer on a phone on its side: share, save, edit, delete, close.
+- [ ] The phone where the GPU path fails: face effects after the second start of the installed app.
 
 ### Open, for the operator to decide
 
@@ -485,7 +499,7 @@ Lists are in the sections "3D props", "Costume: the witch", "M4a", "M4b", "M4c" 
 - Tag `m4` after the phone checks of M4.
 - Install size: precache 8.2 MB with the witch. Option: art in a runtime cache that fills in the background.
 
-### Review after the release (2026-09-27): fixed on `review-after-release`
+### Review after the release (2026-09-27): live with #31
 
 One fresh reviewer read the three parts on main. The merge lost nothing (every file is the blob of one side, the key lists of both languages are the same, 66 verdicts are 47 + 12 + 7). Four important findings, all fixed with a test that failed first:
 
@@ -510,7 +524,7 @@ Minor, open:
 - [ ] The phone tool: a process that is killed leaves its port forward in adb. Remove old forwards of the tool at its start (not the forwards of other tools).
 - [ ] The update button can clear the GPU mark too, so a release that repairs the GPU path reaches a marked device at once (now: after 7 days at most).
 
-### Second review, of the gear fix and of the fixes above (2026-09-27): fixed on `review-after-release`
+### Second review, of the gear fix and of the fixes above (2026-09-27): live with #31
 
 One fresh reviewer: no important finding in the two commits, ready to merge. One important defect that is older than the commits and live, and minor points. All fixed here, each with a test or a check that failed first:
 
@@ -538,8 +552,25 @@ Found by the operator after the release: the settings button did nothing on a ta
 - [x] Merged on the operator's word on 2026-09-27 at 14:14 UTC (#29), deploy success, version `2026-09-27 14:15 2d4eb43`. The gear opens the settings on the live site on six screen shapes (headless, by finger).
 - [ ] Operator: tap the gear on the tablet on its side, and on the open fold phone on its side.
 
+### The camera in the background (2026-09-27): fixed on `camera-background`
+
+- [x] Proof of the defect on the live site (headless, page set to hidden): the track stayed `live`.
+- [x] The page is hidden: the app stops the tracks of the camera. The page is back: the camera starts again, also when it was on its way before (`startOnReturn`). The error screens stay as they are.
+- [x] A start of the camera gives nothing when the page is hidden or a newer start came (`startCamera`). It does not ask for the camera while the page is hidden. A stream that arrives too late is stopped, an error that arrives too late is dropped. So two fast starts (flip, flip) leave one live track, not two.
+- [x] Tests: 13 new unit tests, two new verdicts in `scripts/smoke.mjs` (they fail on the code before the fix).
+- [x] Review by a fresh reviewer (30 headless probes, 17 mutants of the fix): ready after fixes. Fixed after it:
+  - [x] A camera that was busy at the return gave the error screen, and the app did not try again. Now: two more tries (0.5 s, 2 s) before the error screen, for every start. A return to the app starts the camera after an error too.
+  - [x] A clip and the mic could start while the page was hidden (finger down, page hides, no finger-up comes). Older than the fix. Now `startRec` stops there, at its start and after the answer of the mic.
+  - [x] The mic stayed live for 3 s after the page hid. Now it goes off at once when nobody holds it.
+  - [x] The stage took the default size and showed the last picture stretched while the camera started again. Now the last picture stays as it is.
+  - [x] The tutorial was at its first step after a return, and the buttons went away for the time of the start. Now both stay while a camera that ran before starts again. The same for a flip of the camera.
+  - [x] The wait for the size of the picture did not end when the camera stopped in that time.
+  - [x] Tests: a new start stops the camera that runs, the wait for the size, 9 more. The headless checks count every stream that the browser gives. New verdicts: a stream that arrives in the background, a camera that is busy, a camera that stays busy, the step of the tutorial, the mic in the background, a hold that meets the background. Each one fails with its defect in.
+- [ ] Not tested, needs a phone: what Android says to the page while the lock screen shows. If the page is visible there, the camera cannot start, and the error screen shows after the tries. The return after the unlock starts the camera only if the page was hidden in between.
+- [ ] Not covered by the headless check: a hidden event of the browser itself (the check sets the state by hand, and frames still run there). The reviewer ran a tab in the back for 11 s: tracker results came again, no error, no new start.
+- [ ] Operator, on the phone: put the app in the background. The camera sign of Android (green dot) goes off. A second page with the app gets a picture. Back in the first app: the picture comes again in about a second.
+
 ### Known defects, not fixed yet
 
-- The app keeps the camera while it is in the background (a second page gets no picture). Stop the camera when the page is hidden.
 - The photo editor has no costume parts in its palette.
 - A two-finger hold of more than 0.3 s with no move clears the selection in the editor.

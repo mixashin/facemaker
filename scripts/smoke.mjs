@@ -44,8 +44,31 @@ page.on('request', (r) => { if (offOrigin(r.url())) egress.push(`request ${r.url
 page.on('requestfailed', (r) => { if (offOrigin(r.url())) egress.push(`failed ${r.url()} ${r.failure()?.errorText}`); });
 const downloads = [];
 page.on('download', (d) => downloads.push(d));
+// The checks of the camera count every stream that the browser gives, and they can make the camera slow or busy
+await page.addInitScript(() => {
+  const md = navigator.mediaDevices;
+  if (!md || globalThis.__cam) return;
+  const real = md.getUserMedia.bind(md);
+  const cam = (globalThis.__cam = { streams: [], asks: 0, delay: 0, fail: 0, live: () => cam.streams.filter((s) => s.getVideoTracks().some((t) => t.readyState === 'live')).length });
+  md.getUserMedia = async (c) => {
+    if (!c || !c.video) return real(c);
+    cam.asks++;
+    if (cam.delay) await new Promise((r) => setTimeout(r, cam.delay));
+    if (cam.fail > 0) { cam.fail--; throw new DOMException('Could not start video source', 'NotReadableError'); }
+    const s = await real(c);
+    cam.streams.push(s);
+    return s;
+  };
+});
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
+// The page goes to the background and comes back. The browser of the check has no second app: the page gets
+// the state and the event by hand. requestAnimationFrame still runs then, on a phone it stops.
+const hide = (h) => page.evaluate((hidden) => {
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') });
+  document.dispatchEvent(new Event('visibilitychange'));
+}, h);
 
 const RAIL = new Set(['warp', 'sticker', 'props3d', 'makeup', 'faceon', 'scene', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
@@ -67,6 +90,19 @@ if (tutorialShown) {
   console.log('the progress dots of the tutorial are round:', dot.length, JSON.stringify(dot[0] ?? null), dot.length >= 2 && dot.every(([w, h]) => w === 10 && h === 10) ? 'OK' : 'FAIL');
 }
 if (tutorialShown && out) writeFileSync(`${out}/page-tutorial.png`, await page.screenshot());
+if (tutorialShown) {
+  // The tutorial keeps its step when the page comes back from the background. Seen: the camera started again,
+  // the screen was built new, and the tutorial was at its first step.
+  const step = () => page.evaluate(() => [...document.querySelectorAll('[aria-label="tutorial"] .dot')].findIndex((d) => d.classList.contains('on')));
+  await page.locator('[aria-label="tutorial"] .cta').click(); await page.locator('[aria-label="tutorial"] .cta').click(); await page.waitForTimeout(200);
+  const at = await step();
+  await hide(true); await page.waitForTimeout(600);
+  await hide(false); await page.waitForTimeout(100);
+  const during = await step();
+  await page.waitForTimeout(3500);
+  const after = await step();
+  console.log('the tutorial keeps its step over a return from the background: step', at, '| while the camera starts', during, '| after', after, at === 2 && during === 2 && after === 2 ? 'OK' : 'FAIL');
+}
 if (tutorialShown) await closeSheet();
 console.log('tutorial on first launch:', tutorialShown ? 'shown' : 'not shown');
 if (out) writeFileSync(`${out}/page-start.png`, await page.screenshot()); // the clean start screen
@@ -84,6 +120,54 @@ const state = await page.evaluate(async () => {
   };
 });
 console.log(JSON.stringify(state));
+
+// No camera in the background (privacy). Seen on a phone: the hidden app had a live track. The checks count
+// every stream that the browser gave (cam.live), not only the one on the video element: a stream that arrives
+// late and stays live is on no element.
+{
+  const cam = () => page.evaluate(() => {
+    const c = globalThis.__cam, t = document.querySelector('video.hidden-video').srcObject?.getVideoTracks()[0] ?? null;
+    return { live: c.live(), given: c.streams.length, asks: c.asks, onVideo: t?.readyState ?? null, frames: globalThis.__fm.frames, faces: globalThis.__fm.faces, shutter: !!document.querySelector('[aria-label="take photo"]'), error: !!document.querySelector('.blocker') };
+  });
+  const knob = (k) => page.evaluate((v) => Object.assign(globalThis.__cam, v), k);
+  const before = await cam();
+  await hide(true); await page.waitForTimeout(800);
+  const hidden = await cam();
+  console.log('no camera in the background:', JSON.stringify(hidden), before.live === 1 && hidden.live === 0 && hidden.onVideo === null ? 'OK' : 'FAIL');
+  await hide(false); await page.waitForTimeout(60);
+  const during = await cam(); // the camera starts: the buttons stay
+  await page.waitForTimeout(4000);
+  const back = await cam();
+  await page.waitForTimeout(1500);
+  const later = await cam();
+  console.log('the camera starts again on return:', JSON.stringify(later), '| buttons during the start', during.shutter, back.live === 1 && back.given === before.given + 1 && back.onVideo === 'live' && later.frames > back.frames && later.faces === before.faces && later.shutter && during.shutter && !later.error ? 'OK' : 'FAIL');
+  // A slow camera: the page goes to the background while the start is on its way, and the stream arrives there
+  await hide(true); await page.waitForTimeout(300);
+  await knob({ delay: 1500 });
+  await hide(false); await page.waitForTimeout(300);
+  await hide(true); await page.waitForTimeout(2500);
+  const late = await cam();
+  await knob({ delay: 0 });
+  await hide(false); await page.waitForTimeout(4000);
+  const cured = await cam();
+  console.log('a stream that arrives in the background is stopped:', JSON.stringify(late), '| back', cured.live, late.given === later.given + 1 && late.live === 0 && !late.error && cured.live === 1 && cured.shutter && !cured.error ? 'OK' : 'FAIL');
+  // A camera that is busy at the return (another app gives it back a moment later): the app tries again
+  await hide(true); await page.waitForTimeout(300);
+  await knob({ fail: 1 });
+  await hide(false); await page.waitForTimeout(4000);
+  const tried = await cam();
+  console.log('a camera that is busy at the return gets a new try:', JSON.stringify(tried), tried.asks === cured.asks + 2 && tried.live === 1 && !tried.error && tried.shutter ? 'OK' : 'FAIL');
+  // The camera stays busy: the error screen shows after the tries. The next return starts the camera.
+  await hide(true); await page.waitForTimeout(300);
+  await knob({ fail: 3 });
+  await hide(false); await page.waitForTimeout(5000);
+  const failed = await cam();
+  await hide(true); await page.waitForTimeout(300);
+  await hide(false); await page.waitForTimeout(4000);
+  const again = await cam();
+  console.log('a camera that stays busy gives the error screen, and the next return starts the camera:', failed.error, failed.live, '| then', again.error, again.live, failed.error && failed.live === 0 && failed.asks === tried.asks + 3 && !again.error && again.live === 1 && again.shutter ? 'OK' : 'FAIL');
+  await page.waitForTimeout(1500);
+}
 
 // A label "-" closes the dock, so the shot shows the whole picture.
 const shot = async (labels) => {
@@ -544,6 +628,12 @@ if (process.env.SMOKE_RECORD) {
   // The shout preset listens to the mic: on while it is picked, off a few seconds after.
   await click('warp'); await click('none'); await click('shout'); await page.waitForTimeout(1500);
   const micShout = await micNow();
+  // No mic in the background: it goes off when the page hides, with no wait. It comes again with the page.
+  await hide(true); await page.waitForTimeout(700);
+  const micHidden = await micNow();
+  await hide(false); await page.waitForTimeout(3500);
+  const micBack = await micNow();
+  console.log('no mic in the background: with the shout preset', micShout, '| page hidden', micHidden, '| back', micBack, micShout === 'live' && micHidden === 'idle' && micBack === 'live' ? 'OK' : 'FAIL');
   await click('none'); await closeDock(); await page.waitForTimeout(4000);
   const micNone = await micNow();
   console.log('mic with the shout preset:', micShout, '| a few seconds after it is off:', micNone, micShout === 'live' && micNone === 'idle' ? 'OK' : 'FAIL');
@@ -618,6 +708,19 @@ if (process.env.SMOKE_RECORD) {
   await page.waitForTimeout(3500);
   const micIdle2 = await micNow();
   console.log('mic a few seconds after the slow tap:', micIdle2, micIdle2 === 'idle' ? 'OK' : 'FAIL');
+  // The finger goes down, the page goes to the background before the clip starts, and no finger-up comes
+  // there: no clip and no mic in the background.
+  const h0 = await page.evaluate(() => globalThis.__fm.clips);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(100);
+  await hide(true); await page.waitForTimeout(1500);
+  const inBack = await page.evaluate(() => ({ rec: !!document.querySelector('.shutter.rec'), mic: globalThis.__fm.mic(), cam: globalThis.__cam.live() }));
+  await hide(false);
+  await page.mouse.up();
+  await page.waitForTimeout(4500);
+  const h1 = await page.evaluate(() => ({ clips: globalThis.__fm.clips, rec: !!document.querySelector('.shutter.rec'), mic: globalThis.__fm.mic(), cam: globalThis.__cam.live() }));
+  console.log('a hold that meets the background makes no clip and takes no mic:', JSON.stringify(inBack), '| back', JSON.stringify(h1), !inBack.rec && inBack.mic === 'idle' && inBack.cam === 0 && h1.clips === h0 && !h1.rec && h1.mic === 'idle' && h1.cam === 1 ? 'OK' : 'FAIL');
 }
 // Shutter: a double tap must produce exactly one file.
 const shutter = page.getByRole('button', { name: 'take photo' });

@@ -17,3 +17,13 @@ export type WorkerOut =
   | { type: 'result'; result: FaceResult; ts: number }
   | { type: 'still'; id: number; landmarks: Float32Array | null } // 478 * 3 of the first face, null without a face
   | { type: 'error'; message: string };
+
+// Person mask for the background scenes (seg.worker.ts)
+export type SegIn =
+  | { type: 'init'; wasmPath: string; modelPath: string }
+  | { type: 'frame'; bitmap: ImageBitmap; ts: number };
+
+export type SegOut =
+  | { type: 'ready' }
+  | { type: 'mask'; mask: Float32Array; width: number; height: number; ts: number } // one value per pixel: 1 is person. Row 0 is the top
+  | { type: 'error'; message: string };

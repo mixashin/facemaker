@@ -1,5 +1,5 @@
 import { useRef, useState } from 'preact/hooks';
-import { target, photo, still } from './state';
+import { target, photo, still, scene } from './state';
 import { FACEON, pickTarget, photoTarget, fitSize } from '../filters/faceon';
 import { Strip } from './Strip';
 import { t } from '../i18n/i18n';
@@ -23,6 +23,7 @@ async function usePhoto(file: File): Promise<boolean> {
   if (photo.value) URL.revokeObjectURL(photo.value.img);
   photo.value = photoTarget(URL.createObjectURL(blob), lm, w, h);
   target.value = 'photo';
+  scene.value = 'none';
   return true;
 }
 
@@ -32,7 +33,7 @@ export function FaceOnPanel() {
   const [state, setState] = useState<'idle' | 'busy' | 'failed'>('idle');
   const pick = (id: string) => {
     if (id === 'photo') input.current?.click(); // the picture changes when a photo arrives, not before
-    else target.value = pickTarget(target.value, id);
+    else { target.value = pickTarget(target.value, id); if (target.value !== 'none') scene.value = 'none'; } // a picture takes the place of the camera view: no place behind it
   };
   const onFile = (e: Event) => {
     const el = e.currentTarget as HTMLInputElement;

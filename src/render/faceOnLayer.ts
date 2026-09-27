@@ -3,18 +3,9 @@ import copyFrag from './copy.frag?raw';
 import chain from './warpChain.glsl?raw';
 import frag from './faceon.frag?raw';
 import { SPAN, coverScale, coverOffset, type Frame, type Win, type Target } from '../filters/faceon';
+import { TextureBank, type Img, type Load } from './textureBank';
 
 export type FaceOnView = { target: Target; frame: Frame | null; wins: Win[] };
-type Img = TexImageSource & { width: number; height: number };
-type Load = (src: string, done: (img: Img) => void, fail: () => void) => void;
-const RETRY_MS = 5000;
-
-const loadImage: Load = (src, done, fail) => {
-  const img = new Image();
-  img.onload = () => done(img);
-  img.onerror = () => { console.warn('picture failed to load', src); fail(); };
-  img.src = src;
-};
 
 // quad.vert ignores the matrices (the full-screen passes need none). These two meshes have a place.
 const PLACED = `varying vec2 vUv;
@@ -28,10 +19,10 @@ export class FaceOnLayer {
   private group = new THREE.Group(); // one unit is the picture width, on both axes
   private picture: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   private face: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
-  private textures = new Map<string, THREE.Texture | null>(); // null while the picture loads
-  private failed = new Map<string, number>(); // when a picture failed to load
+  private bank: TextureBank;
 
-  constructor(private scene: THREE.Scene, shared: Record<string, THREE.IUniform>, private load: Load = loadImage, private now: () => number = () => performance.now()) {
+  constructor(private scene: THREE.Scene, shared: Record<string, THREE.IUniform>, load?: Load, now?: () => number) {
+    this.bank = new TextureBank(load, now);
     const geo = new THREE.PlaneGeometry(1, 1);
     this.picture = new THREE.Mesh(geo, new THREE.ShaderMaterial({ vertexShader: PLACED, fragmentShader: copyFrag, uniforms: { uTex: { value: null } }, depthTest: false, depthWrite: false }));
     this.face = new THREE.Mesh(geo, new THREE.ShaderMaterial({
@@ -49,29 +40,9 @@ export class FaceOnLayer {
     scene.add(this.group);
   }
 
-  private texture(src: string): THREE.Texture | null {
-    if (this.textures.has(src)) return this.textures.get(src)!;
-    const at = this.failed.get(src);
-    if (at !== undefined && this.now() - at < RETRY_MS) return null; // the phone was offline for a moment: ask again, but not every frame
-    this.failed.delete(src);
-    this.textures.set(src, null);
-    // One device photo at a time: a new one takes the place of the one before (each is a large texture).
-    if (src.startsWith('blob:')) for (const [old, tex] of this.textures) if (old !== src && old.startsWith('blob:')) { tex?.dispose(); this.textures.delete(old); }
-    this.load(src, (img) => {
-      if (!this.textures.has(src)) return; // replaced while it loaded
-      const t = new THREE.Texture(img as never);
-      t.colorSpace = THREE.NoColorSpace; // values go through as they are
-      t.generateMipmaps = false;
-      t.minFilter = THREE.LinearFilter;
-      t.needsUpdate = true;
-      this.textures.set(src, t);
-    }, () => { this.textures.delete(src); this.failed.set(src, this.now()); });
-    return null;
-  }
-
   // True when the picture is drawn. Until it is loaded the camera view stays.
   update(view: FaceOnView | null, canvas: [number, number], element: [number, number]): boolean {
-    const tex = view ? this.texture(view.target.img) : null;
+    const tex = view ? this.bank.get(view.target.img) : null;
     this.group.visible = !!tex;
     if (!view || !tex) return false;
     const img = tex.image as Img, t = view.target, ratio = img.height / img.width;
@@ -96,7 +67,7 @@ export class FaceOnLayer {
   }
 
   dispose(): void {
-    this.textures.forEach((t) => t?.dispose());
+    this.bank.dispose();
     this.picture.geometry.dispose();
     this.picture.material.dispose();
     this.face.material.dispose();

@@ -1,8 +1,9 @@
-import { dockOpen, dockTab, presets, stickers, sliders, makeup, type DockTab } from './state';
+import { dockOpen, dockTab, presets, stickers, sliders, makeup, scene, target, type DockTab } from './state';
 import { DEFAULT_SLIDERS } from '../filters/sliders';
 import { PRESETS, togglePreset, type PresetId } from '../filters/presets';
 import { STICKER_PACKS, toggleSticker } from '../filters/stickers';
 import { MAKEUP, pickLook, type LookId } from '../filters/makeup';
+import { BACKDROPS, pickScene } from '../filters/scenes';
 import { Strip } from './Strip';
 import { TextEditor } from './TextEditor';
 import { LabRows } from './FaceLab';
@@ -10,15 +11,18 @@ import { VoicePanel } from './VoicePanel';
 import { FaceOnPanel } from './FaceOnPanel';
 import { t } from '../i18n/i18n';
 
-const TABS: { id: DockTab; icon: string }[] = [
+const ALL_TABS: { id: DockTab; icon: string }[] = [
   { id: 'warp', icon: '🎭' },
   { id: 'sticker', icon: '🐱' },
   { id: 'makeup', icon: '💄' },
   { id: 'faceon', icon: '🍊' },
+  { id: 'scene', icon: '🏝️' },
   { id: 'text', icon: '✏️' },
   { id: 'voice', icon: '🎤' },
   { id: 'lab', icon: '🧪' },
 ];
+// The places tab shows when there is a place to pick (the art arrives with request R2).
+const TABS = ALL_TABS.filter((x) => x.id !== 'scene' || BACKDROPS.length > 1);
 
 // Slide-in effects panel. The pull tab sits on the panel's right edge, so it stays reachable open or closed.
 export function Dock() {
@@ -43,6 +47,7 @@ export function Dock() {
         {tab === 'sticker' && <Strip items={STICKER_PACKS} value={stickers.value} onPick={(id) => (stickers.value = toggleSticker(stickers.value, id))} label={t('tabs.sticker')} />}
         {tab === 'makeup' && <Strip items={MAKEUP} value={makeup.value} onPick={(id) => (makeup.value = pickLook(makeup.value, id as LookId))} label={t('tabs.makeup')} />}
         {tab === 'faceon' && <FaceOnPanel />}
+        {tab === 'scene' && <Strip items={BACKDROPS} value={scene.value} onPick={(id) => { scene.value = pickScene(scene.value, id); if (scene.value !== 'none') target.value = 'none'; }} label={t('tabs.scene')} />}
         {tab === 'text' && <TextEditor />}
         {tab === 'voice' && <VoicePanel />}
         {tab === 'lab' && <LabRows />}

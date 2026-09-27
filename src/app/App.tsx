@@ -18,6 +18,8 @@ import { Editor } from './Editor';
 import { openStore, safePut } from '../storage/gallery';
 import { sliderHandles } from '../filters/sliders';
 import { TARGETS, faceFrame, windows } from '../filters/faceon';
+import { sceneById } from '../filters/scenes';
+import { SegTracker } from '../tracking/segTracker';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
 import { Recorder, type RecCtor } from '../capture/recorder';
@@ -25,7 +27,7 @@ import { RecordCanvas } from '../capture/recordCanvas';
 import { acquireVoice, currentEngine, type Lease } from '../audio/session';
 import { micState } from '../audio/mic';
 import { isRealClip, type HoldEvent } from './hold';
-import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup, target, photo, still } from './state';
+import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup, target, photo, still, scene, tryScene } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,7 +48,7 @@ export function App() {
     let raf = 0;
     const r = new FaceRenderer(canvas, video);
     // Debug counters for scripts/smoke.mjs: frames returned by the worker and faces in the last one.
-    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }) });
+    const fm = ((globalThis as any).__fm = { frames: 0, faces: 0, delegate: '', shots: 0, clips: 0, mic: () => micState.value, target: () => ({ id: target.value, photo: photo.value }), masks: 0, mask: [0, 0], nose: () => (faces[0] ? [faces[0].landmarks[4 * 3], faces[0].landmarks[4 * 3 + 1]] : null), scene: (s: import('../filters/scenes').Scene | null) => { tryScene.value = s; scene.value = s ? s.id : 'none'; } });
     const t = new FaceTracker({
       numFaces: 2,
       onFaces: (f) => { faces = f; fm.frames++; fm.faces = f.length; },
@@ -54,6 +56,8 @@ export function App() {
       onError: (m) => console.error('tracker', m),
     });
     still.detect = (picture) => t.detectStill(picture);
+    // The person mask for a place (made before the camera starts: start() resets it). The segmenter runs only while a place is on and the camera view shows.
+    const seg = new SegTracker({ onMask: (m, w, h) => { fm.masks++; fm.mask = [w, h]; r.setMask(m, w, h); }, onError: (m) => console.warn('segmenter', m) });
     const loop = (now: number) => {
       if (screen.value === 'camera') t.push(video, now);
       const aspect = video.videoWidth / video.videoHeight;
@@ -66,6 +70,10 @@ export function App() {
       r.setFaceOn(tg ? { target: tg, frame: lm ? faceFrame(lm, aspect) : null, wins: lm ? windows(lm, handles, aspect) : [] } : null);
       r.setSprites(spritesForAll(stickers.value, faces, aspect));
       r.setMakeup(makeup.value, faces);
+      const place = screen.value === 'camera' && !tg && !document.hidden ? sceneById(scene.value, tryScene.value) : null; // a face-on picture has no camera view
+      if (place && !seg.running) seg.start(); else if (!place && seg.running) seg.stop();
+      if (place) seg.push(video, now);
+      r.setScene(place, now);
       r.setText(text.value);
       r.render();
       recCanvas.current?.draw(canvas); // while recording: copy the visible crop for the recorder
@@ -75,6 +83,7 @@ export function App() {
     const start = () => {
       camState.value = 'starting';
       faces = []; // no effect of the old picture stays while the camera restarts
+      seg.stop(); r.rest(); // the mask of the old picture too. The loop starts the segmenter again
       startCamera(video, facing.value)
         .then(() => {
           camState.value = 'live';
@@ -88,7 +97,7 @@ export function App() {
     let first = true;
     const unsub = facing.subscribe(() => { if (first) { first = false; return; } start(); });
     // A hidden tab stops the render loop: end the clip and save it.
-    const onHide = () => { if (document.hidden && recording.value) stopRec(); };
+    const onHide = () => { if (!document.hidden) return; if (recording.value) stopRec(); seg.stop(); r.rest(); }; // no work in the background
     document.addEventListener('visibilitychange', onHide);
     // Back from another app that took the camera (the photo picker can open the camera app): start it again.
     const onBack = () => { if (!document.hidden && camState.value === 'live' && cameraLost(video.srcObject as MediaStream | null)) start(); };
@@ -109,6 +118,7 @@ export function App() {
       unsubShout.forEach((u) => u());
       shout?.then((l) => l.release());
       still.detect = null;
+      seg.stop();
       unsub(); cancelAnimationFrame(raf); t.stop(); r.dispose(); stopCamera(video);
     };
   }, []);

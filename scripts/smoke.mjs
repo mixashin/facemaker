@@ -45,7 +45,7 @@ page.on('download', (d) => downloads.push(d));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForTimeout(Number(process.env.SMOKE_WAIT_MS ?? 4000));
 
-const RAIL = new Set(['warp', 'sticker', 'makeup', 'text', 'voice', 'lab']);
+const RAIL = new Set(['warp', 'sticker', 'makeup', 'faceon', 'text', 'voice', 'lab']);
 const openDock = async () => { if ((await page.locator('.dock.open').count()) === 0) { await page.locator('[aria-label="effects"]').click(); await page.waitForTimeout(350); } };
 const click = async (label) => {
   if (RAIL.has(label)) await openDock();
@@ -172,6 +172,19 @@ if (state.fm?.faces > 0) {
   const red3 = await tinted(RED);
   console.log('no look, no trace: red pixels as before', lip0, red3, Math.abs(red3 - lip0) <= Math.max(20, lip0 * 0.1) ? 'OK' : 'FAIL');
   if (out) { writeFileSync(`${out}/makeup-none-before.png`, bareFace); writeFileSync(`${out}/makeup-none-after.png`, await shot([])); }
+  // Face on a picture: the orange fills the screen, the live eyes and mouth sit on it, filters still work.
+  const ORANGE = 'r > 200 && g > 90 && g < 170 && b < 80';
+  await click('faceon'); await click('none'); await page.waitForTimeout(400);
+  const o0 = await tinted(ORANGE);
+  await click('orange'); await page.waitForTimeout(1200); // the picture loads
+  const o1 = await tinted(ORANGE);
+  console.log('face on a picture: orange pixels', o0, 'with the orange', o1, o1 > o0 + 20000 ? 'OK' : 'FAIL');
+  await click('warp'); await click('bigEyes'); await page.waitForTimeout(600);
+  const o2 = await tinted(ORANGE);
+  console.log('filters work on the picture: orange pixels', o1, 'with big eyes', o2, o2 < o1 - 300 ? 'OK' : 'FAIL');
+  await click('none'); await click('faceon'); await click('orange'); await page.waitForTimeout(500); // second tap: off
+  const o3 = await tinted(ORANGE);
+  console.log('second tap brings the camera back: orange pixels', o3, Math.abs(o3 - o0) < 500 ? 'OK' : 'FAIL');
   await click('warp');
 }
 if (process.env.SMOKE_SHOTS && out) {

@@ -17,6 +17,7 @@ import { Viewer } from './Viewer';
 import { Editor } from './Editor';
 import { openStore, safePut } from '../storage/gallery';
 import { sliderHandles } from '../filters/sliders';
+import { TARGETS, faceFrame, windows } from '../filters/faceon';
 import { TopBar } from './TopBar';
 import { CaptureButton } from './CaptureButton';
 import { Recorder, type RecCtor } from '../capture/recorder';
@@ -24,7 +25,7 @@ import { RecordCanvas } from '../capture/recordCanvas';
 import { acquireVoice, currentEngine, type Lease } from '../audio/session';
 import { micState } from '../audio/mic';
 import { isRealClip, type HoldEvent } from './hold';
-import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup } from './state';
+import { presets, facing, camState, flash, busy, dockOpen, stickers, text, tutorialSeen, showSettings, showAbout, screen, store, items, refreshGallery, sliders, galleryThumb, flyShot, camStateFromError, recording, voice, makeup, target, photo } from './state';
 
 export function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -56,7 +57,12 @@ export function App() {
       if (screen.value === 'camera') t.push(video, now);
       const aspect = video.videoWidth / video.videoHeight;
       const level = presets.value.includes('shout') ? currentEngine()?.level() ?? 0 : 0; // mic volume drives the shout preset
-      r.setHandles([...handlesForAll(presets.value, faces, aspect, level), ...sliderHandles(sliders.value, faces, aspect, now)]);
+      const handles = [...handlesForAll(presets.value, faces, aspect, level), ...sliderHandles(sliders.value, faces, aspect, now)];
+      r.setHandles(handles);
+      // Face-on mode: a picture with the live eyes and mouth of the first face. The filters work on them.
+      const tg = target.value === 'photo' ? photo.value : TARGETS.find((x) => x.id === target.value);
+      const lm = faces[0]?.landmarks;
+      r.setFaceOn(tg ? { target: tg, frame: lm ? faceFrame(lm, aspect) : null, wins: lm ? windows(lm, handles, aspect) : [] } : null);
       r.setSprites(spritesForAll(stickers.value, faces, aspect));
       r.setMakeup(makeup.value, faces);
       r.setText(text.value);

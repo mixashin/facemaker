@@ -82,6 +82,11 @@ describe('looks', () => {
       }
     }
   });
+  it('has all eleven looks', () => {
+    expect(LOOKS.map((l) => l.id)).toEqual(['none', 'glam', 'soft', 'rainbow', 'clown', 'zombie', 'vampire', 'tiger', 'butterfly', 'hero', 'cucumber']);
+    expect(lookById('cucumber').eyes).toBe('covered');
+    expect(LOOKS.filter((l) => l.eyes === 'covered').length).toBe(1);
+  });
   it('a second tap turns the look off', () => {
     expect(pickLook('none', 'glam')).toBe('glam');
     expect(pickLook('glam', 'tiger')).toBe('tiger');

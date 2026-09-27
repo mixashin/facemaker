@@ -89,7 +89,7 @@ export function Editor() {
     if (pointers.current.size === 3) twoTap.current.fingers = 3; // not a two-finger tap
     if (pointers.current.size === 1) {
       twoTap.current.fingers = 1;
-      const hit = hitTest(stickers, p);
+      const hit = hitTest(stickers, p, shots.current?.covers);
       grabbed.current = hit?.id ?? null;
       if (hit) setSelected(hit.id);
       gesture.current = { moved: false, pinched: false, many: false, x: p.x, y: p.y };

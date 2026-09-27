@@ -29,7 +29,9 @@ export function cardSize(w: number, h: number): [number, number] {
   return long > 0 ? [w / long, h / long] : [1, 1];
 }
 
-export type ShotRenderer = Pick<THREE.WebGLRenderer, 'domElement' | 'setSize' | 'render' | 'dispose' | 'forceContextLoss'>;
+export type ShotRenderer = Pick<THREE.WebGLRenderer, 'domElement' | 'setSize' | 'render' | 'dispose' | 'forceContextLoss'> & { getContext(): Pick<WebGLRenderingContext, 'readPixels'> };
+const FINGER = 0.03; // of the side of the picture: the square that a finger covers
+const RGBA = 0x1908, BYTES = 0x1401;
 const webgl = (): ShotRenderer => {
   const r = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   r.setClearColor(0x000000, 0);
@@ -127,6 +129,21 @@ export class Shots {
     thing.quaternion.copy(turn(s.flip ? -(s.yaw ?? 0) : s.yaw ?? 0, s.pitch ?? 0)); // the canvas mirrors the picture: the turn goes the other way there
     gl.render(this.scene, this.camera);
     return gl.domElement;
+  };
+
+  // Has the sticker a pixel at this place of its picture (u from the left, v from the top, 0 to 1)? For the
+  // finger that selects a sticker: a 3D prop has a form, and a part of a costume has room for a head in it.
+  // The answer is for a small square, a finger is wide. null: there is no picture to look at.
+  covers = (s: EditorSticker, u: number, v: number): boolean | null => {
+    if (!(u >= 0 && u <= 1 && v >= 0 && v <= 1)) return false;
+    const gl = this.draw(s) ? this.renderer : null;
+    if (!gl) return null;
+    const n = gl.domElement.width, side = Math.max(1, Math.round(n * FINGER));
+    const from = (at: number) => Math.min(n - side, Math.max(0, Math.round(at * n - side / 2)));
+    const px = new Uint8Array(side * side * 4);
+    gl.getContext().readPixels(from(u), from(1 - v), side, side, RGBA, BYTES, px); // the rows count from the bottom
+    for (let i = 3; i < px.length; i += 4) if (px[i] > 0) return true;
+    return false;
   };
 
   dispose(): void {

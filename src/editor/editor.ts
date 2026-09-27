@@ -58,14 +58,29 @@ export function elementToImage(ex: number, ey: number, imgW: number, imgH: numbe
   return { x: (ex - ox) / k, y: (ey - oy) / k };
 }
 
+// Where a point of the photo is in the picture of a sticker that is turned in depth (renderEditor): u from the
+// left, v from the top, 0 to 1 inside the picture.
+export function inShot(s: EditorSticker, p: P): { u: number; v: number } {
+  const dx = p.x - s.x, dy = p.y - s.y, c = Math.cos(s.rot), n = Math.sin(s.rot), d = s.scale * 2 * FRAME;
+  const x = dx * c + dy * n, y = dy * c - dx * n; // the turn in the plane, taken back
+  return { u: (s.flip ? -x : x) / d + 0.5, v: y / d + 0.5 };
+}
+
+// Has the sticker a pixel at this place of its picture? null: there is no picture to look at (src/editor/shots.ts)
+export type Covers = (s: EditorSticker, u: number, v: number) => boolean | null;
+
 // The sticker under the finger: the smallest one, and of two with one size the one on top. A large sticker
 // can go around a small one (the hat with the hair of a costume goes around the head, and the nose is on the
 // face): with "the one on top" alone no finger reached the small one.
-export function hitTest(stickers: EditorSticker[], p: P): EditorSticker | null {
+// A flat sticker is hit in a circle. A 3D sticker is hit where it has a pixel: the hat of a costume at the
+// size of a head had a circle as large as the photo, and the first finger of every gesture took the hat.
+export function hitTest(stickers: EditorSticker[], p: P, covers?: Covers): EditorSticker | null {
   let hit: EditorSticker | null = null;
   for (let i = stickers.length - 1; i >= 0; i--) {
     const s = stickers[i];
-    if (Math.hypot(p.x - s.x, p.y - s.y) <= s.scale / 2 && (!hit || s.scale < hit.scale)) hit = s;
+    if (hit && s.scale >= hit.scale) continue;
+    const at = s.model && covers ? inShot(s, p) : null, seen = at ? covers!(s, at.u, at.v) : null;
+    if (seen ?? Math.hypot(p.x - s.x, p.y - s.y) <= s.scale / 2) hit = s;
   }
   return hit;
 }

@@ -628,6 +628,8 @@ if (process.env.SMOKE_GALLERY) {
         await tapOff();
         return n;
       };
+      // a photo with no sticker: the taps below must meet the parts only
+      await click('Done'); await click('Remove all stickers'); await page.waitForTimeout(300);
       const bare = await pixels(), had = await stickers();
       const hat = await put('3d-witch-hat-hair'), withHat = await pixels();
       const nose = await put('3d-witch-nose'), withNose = await pixels();
@@ -644,9 +646,17 @@ if (process.env.SMOKE_GALLERY) {
         area++;
         if (Math.abs(bare[i] - withHat[i]) + Math.abs(bare[i + 1] - withHat[i + 1]) + Math.abs(bare[i + 2] - withHat[i + 2]) > 40) covered++;
       }
+      // A tap takes the 3D sticker that has a pixel under the finger. Seen: the hat was hit in a circle as large
+      // as the photo, and the first finger of every gesture took the hat.
+      const fit = Math.min(photo.width / canvas[0], photo.height / canvas[1]); // object-fit: contain
+      const onScreen = (x, y) => [photo.x + (photo.width - canvas[0] * fit) / 2 + x * fit, photo.y + (photo.height - canvas[1] * fit) / 2 + y * fit];
+      const pick = async (x, y) => { await touch('touchStart', [onScreen(x, y)]); await page.waitForTimeout(60); await touch('touchEnd', []); await page.waitForTimeout(400); return Number((await chosen()).split(' ')[0]) || 0; };
+      const inHead = await pick(hat[4], hat[5] + 0.507 * (hat[0] / 3.033)), onHat = await pick(hat[4], hat[5] - 0.25 * hat[0]), onNose = await pick(nose[4], nose[5]);
+      await tapOff();
+      console.log('a tap takes the 3D sticker that has a pixel there: in the place of the head', inHead, '| on the hat', onHat, '| on the nose', onNose, inHead === 0 && onHat === hat[0] && onNose === nose[0] ? 'OK' : 'FAIL');
       const ratio = hat[0] / nose[0];
       console.log('the parts of a costume land on the photo: stickers', had, 'then', await stickers(), '| pixels of the hat', differ(bare, withHat), '| of the nose', differ(withHat, withNose), '| size of the hat against the nose', ratio.toFixed(2), '| the place of the head in the hat: covered', covered, 'of', area,
-        (await stickers()) === had + 2 && differ(bare, withHat) > 1500 && differ(withHat, withNose) > 60 && Math.abs(ratio - 3.033 / 0.648) < 0.05 && area > 100 && covered < area * 0.1 ? 'OK' : 'FAIL');
+        had === 0 && (await stickers()) === 2 && differ(bare, withHat) > 1500 && differ(withHat, withNose) > 60 && Math.abs(ratio - 3.033 / 0.648) < 0.05 && area > 100 && covered < area * 0.1 ? 'OK' : 'FAIL');
     }
     await cdp.detach();
   }

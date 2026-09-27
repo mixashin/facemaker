@@ -267,3 +267,17 @@ Fixed in the branch: a device photo with the face at the side (the picture slide
 - [ ] Textures of the five pictures stay on the GPU once used (6.5 MB each). Release the ones that are off.
 - [ ] `scripts/import-art.mjs` leaves old outputs in `public/targets` when a source is gone.
 - [ ] EXIF rotation of a portrait phone photo: Chrome applies it in `createImageBitmap` by default. Confirm on the phone.
+
+## M4c backgrounds: state and open work (2026-09-27)
+
+Built and checked headless on branch `m4c-backgrounds`: segmenter worker, mask smoothing, backdrop shader, scene fit, loop video support, tab (hidden while there is no scene). About 25 masks per second in the headless run. With no scene the picture is identical to the live build.
+
+- [ ] Scenes: wait for request R2. Then `scripts/import-art.mjs` job `backgrounds`, fill `SCENES`, tune `drift` and `sway`, precache plates and layers, runtime cache for loop videos.
+- [ ] Floating bits (`bits/<name>.png` of the brief): not built. Build when a scene delivers them.
+- [ ] One fresh reviewer for the branch, then the pull request against `m4b-face-on`.
+
+Phone checks owed by the operator, when scenes are in:
+- [ ] Edge of the person: hair, fingers, a second person.
+- [ ] Frame rate with a scene, and with a scene plus filters, makeup and stickers.
+- [ ] A recording with a scene. Heat and battery after 5 minutes with a scene on.
+- [ ] Turn the phone with a scene on. Flip the camera with a scene on.

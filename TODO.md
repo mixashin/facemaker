@@ -30,11 +30,11 @@ Items added during planning. Not yet triaged into spec. Triage happens in grill-
 - Milestone 1: warp filters + snapshot + save + share. 1 to 2 weeks.
 - UI: Preact + TypeScript. Render: Three.js.
 - MediaPipe: @mediapipe/tasks-vision 1.0.x. Telemetry blocked by meta CSP connect-src 'self'. Audit in research/03. Re-check CSP in DevTools on every upgrade.
-- Hosting: public repo github.com/mixashin/facemaker. GitHub Pages with custom domain face.mxa.sh. base '/'.
+- Hosting: public repo github.com/mixashin/facemaker. GitHub Pages with custom domain face.lazarevic.me. base '/'.
 - Commits: no Co-Authored-By trailer.
 - Faces: up to 2. numFaces 2, own One Euro smoothing per face.
 - Language: Serbian + English, icon-first UI. i18n as JSON string tables so others can add languages. Assumption: Serbian Latin script, confirm.
-- Deploy: main = live at face.mxa.sh. Feature branches, PR build check, merge when it works on phone.
+- Deploy: main = live at face.lazarevic.me. Feature branches, PR build check, merge when it works on phone.
 - Pace: sprint. M1 as soon as possible.
 - Voice: native-node delay-line pitch shifter (Tone.js method), no worklet (decided 2026-09-27, research/05; SoundTouchJS stays the upgrade path, MPL-2.0, audit first). Robot, echo, telephone, monster from native Web Audio nodes.
 - Gallery: in-app. OPFS files only, metadata in file names (IndexedDB dropped 2026-09-26). Save to device and share buttons. persist() once.

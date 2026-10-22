@@ -2,7 +2,7 @@
 
 Camera toy for kids. Face warps, stickers, voice effects, photos and videos to share. Runs fully on the device. No accounts, no servers, no tracking.
 
-Live: https://face.mxa.sh
+Live: https://face.lazarevic.me
 
 ## Dev
 

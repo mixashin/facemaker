@@ -11,7 +11,7 @@ Camera toy PWA for kids (ages 6 to 12). Face warps, stickers, voice effects, pho
 
 ## State (2026-09-27, late)
 
-Live at https://face.mxa.sh (main = live, tags m1, m2a, m2b, m3). In work after that, each on its own branch with a pull request: no camera and no mic in the background (`camera-background`), costume parts in the photo editor (`editor-costume-parts`), the minor findings of the reviews (`review-minors`). `TODO.md` has the state. M4 and the release of 2026-09-27 have no tag yet: the operator's checks on devices are open (lists in `TODO.md`).
+Live at https://face.lazarevic.me (main = live, tags m1, m2a, m2b, m3). In work after that, each on its own branch with a pull request: no camera and no mic in the background (`camera-background`), costume parts in the photo editor (`editor-costume-parts`), the minor findings of the reviews (`review-minors`). `TODO.md` has the state. M4 and the release of 2026-09-27 have no tag yet: the operator's checks on devices are open (lists in `TODO.md`).
 
 Shipped and live: M1 warps + snapshot + share; M2a stickers, text, themes, sr/en, About + privacy, tutorial, more warps; M2b gallery (OPFS), photo editor, face lab; UI iterations; Fluent Emoji Color packs (PR #11); M3 video + voice (PR #12, #13); several face filters at once (PR #14), several sticker packs at once (PR #15), stickers follow the warp (PR #16); M4a makeup (PR #17), M4b face on a picture (PR #18), M4c backgrounds (PR #19), makeup looks from a picture (PR #20), the fixes after the first phone check of M4 (PR #21), seven places with floating bits (PR #22); release of 2026-09-27 (PR #27, which holds #23 to #26): face tracker that starts again after errors, version label and update button, device report, more art by Astra, 3D props on the live camera and in the photo editor, the witch costume; after the release, same day: the gear takes taps on a high screen on its side (PR #29), a pig in the face-on-picture list (PR #30), the fixes after two reviews of the release (PR #31: tracker restart, GPU mark, buttons of the viewer on a phone on its side, hat chip under a costume, phone tool).
 
@@ -25,7 +25,7 @@ Next session: read `TODO.md` section "Handoff 2026-09-27, late" first. Check `as
 
 - Stack: Vite 8 + Preact + TypeScript, Three.js, `@mediapipe/tasks-vision` 1.0.1, vite-plugin-pwa, Vitest.
 - MediaPipe telemetry: two fences. Meta CSP `connect-src 'self'` in the production index.html covers the document. The face worker wraps `fetch` and `XMLHttpRequest` with a same-origin check, because a meta CSP does not reach a same-origin worker script and Pages cannot set headers. Verified 2026-09-26 headless: the worker's POST to odml.pa.googleapis.com is rejected before any request. Re-run `scripts/smoke.mjs` (README recipe) after every dependency change. See research/03.
-- Hosting: public repo `github.com/mixashin/facemaker`, GitHub Pages, custom domain `face.mxa.sh`, base `/`. DNS via Njal.la API (see `~/.claude/context/domains.md`).
+- Hosting: public repo `github.com/mixashin/facemaker`, GitHub Pages, custom domain `face.lazarevic.me`, base `/`. DNS via Njal.la API (see `~/.claude/context/domains.md`).
 - Branch flow: `main` is live. Feature branches, merge when it works on the phone.
 - Faces: up to 2, own One Euro smoothing.
 - Language: Serbian + English, icon-first, JSON string tables. Serbian Latin script assumed, confirm with operator.

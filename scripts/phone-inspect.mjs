@@ -15,7 +15,7 @@ import { ownPages } from './phone-pages.mjs';
 
 // A free port of this computer. A fixed one can belong to another program, and then the tool reads a wrong browser.
 const PORT = await new Promise((ok) => { const s = createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); }); });
-const match = process.env.PHONE_MATCH || 'face.mxa.sh';
+const match = process.env.PHONE_MATCH || 'face.lazarevic.me';
 const wait = Number(process.env.PHONE_WAIT_MS ?? 12000);
 const adb = (...a) => execFileSync('adb', a, { encoding: 'utf8' }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -14,7 +14,7 @@ A camera toy for children aged 6 to 12. It warps faces, adds masks and stickers,
 | Privacy | Camera frames, landmarks, audio, and recordings never leave the device. No analytics. No accounts. |
 | Platform | Android Chrome (mid-range 2022+, target 720p at 24 to 30 fps) and desktop Chrome or Edge. iOS out of scope. |
 | Install | Installable PWA. Works offline after first load. |
-| Hosting | Public repo `github.com/mixashin/facemaker`. GitHub Pages at `https://face.mxa.sh`, base `/`. |
+| Hosting | Public repo `github.com/mixashin/facemaker`. GitHub Pages at `https://face.lazarevic.me`, base `/`. |
 | Licenses | Dependencies must be MIT, Apache-2.0, BSD, MPL-2.0, Unlicense, CC0, CC-BY. No GPL. Attribution list in the About screen. |
 | Kids | Simple mode by default: icons, big tap targets, no reading required. Advanced panel behind a gear icon. |
 | Language | Serbian and English. Icon-first. String tables in JSON so others can add languages. |
@@ -144,7 +144,7 @@ Data flow per frame: camera `<video>` → `createImageBitmap` → transfer to wo
 
 ## 7. Acceptance for M1
 
-1. Open `https://face.mxa.sh` on the target Android phone. Camera starts within 3 s after permission.
+1. Open `https://face.lazarevic.me` on the target Android phone. Camera starts within 3 s after permission.
 2. Face tracked at 24 fps or better at 720p with one warp active. Two faces both warped.
 3. Tap Big Eyes: eyes grow, no fold artefacts, no jitter on a still face.
 4. Tap capture: a JPEG appears, share sheet opens, WhatsApp or Viber receives it.
